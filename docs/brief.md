@@ -9,7 +9,7 @@ A browser-based piano practice visualizer: MIDI songs scroll down a perspective 
 **In**
 
 - Song library: bundled songs + user uploads (drag-and-drop / file picker), uploads persisted locally.
-- Perspective note highway receding to a horizon (Guitar Hero / Rocksmith style), always showing all 88 keys.
+- Perspective note highway receding to a horizon (Guitar Hero / Rocksmith style), all 88 keys by default (closer camera settings may crop the outer keys).
 - Per-pitch-class note colors (repeating each octave), sustain bars, note highlight while sounding, 3D keyboard keys lit in the note's color.
 - Sound: built-in sampled piano (default, all devices); MIDI out where the browser supports Web MIDI.
 - Hands: channel 0 = right, channel 1 = left by default; user can reassign channels per song.
@@ -78,7 +78,7 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 0. Scaffold, CLAUDE.md, CI, deploy "hello world" to Pages.
 1. Core: MIDI import → Song model, bar map, transport (play/pause/tempo/seek/loop/pre-roll) — tested headless.
 2. Audio: self-hosted sampled piano, look-ahead scheduler, per-hand volume/mute/solo, sustain pedal (sound), pre-roll muted/quiet, metronome.
-3. Engine: perspective highway, 88-key 3D keyboard, colors, sustains, highlights, pedal shading band.
+3. Engine: perspective highway, 88-key 3D keyboard, colors, sustains, highlights, pedal shading band; player screen + HUD, settings panel (localStorage).
 4. Library: bundled manifest, uploads, per-song channel assignment.
 5. Profiles, bookmarks, stats.
 6. Tablet polish (touch UI, audio unlock, performance), MIDI out, optional PWA.
@@ -102,6 +102,14 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 15. **Pre-roll "quiet" level** defaults to 25% of normal volume.
 16. **Metronome:** synthesized click (no sound files), accented on beat 1. Modes: off / pre-roll only / always. Own volume slider.
 17. **Data model:** `PedalInterval` — channel, startTick, endTick (down at value ≥ 64).
+18. **Highway geometry:** look-ahead measured in quarter notes (ticks / ppq), default **8**, adjustable. The visible highway — from the now line to where the top of the screen meets the highway — corresponds to **1.5×** the look-ahead: the look-ahead fills the lower two thirds, and notes fade in through a haze in the top third (1×–1.5×), so nothing pops in at the screen edge. Spacing is tempo-independent: slowing the tempo slows the scroll, not the spacing.
+19. **Notes:** flat strips. **Head** = solid pitch color, length of a **1/64 note** (ppq/16 ticks), or the whole note if shorter. **Sustain** = the rest of the note, full lane width, translucent with a gradient **across the lane**: **25% transparent at the lane center, 75% at the lane edges** (both adjustable). The gradient is computed in each note's own lane coordinates, so it follows the note's perspective and taper — it is never screen-aligned.
+20. **Keyboard proportions (grand piano):** white key 23.5 mm wide × 150 mm visible length; black key 13.7 mm × 95 mm, slightly raised. World unit = one white-key width. Key proportions are fixed in world space and never change with camera settings.
+21. **Camera:** tilt default **45°** (adjustable); **distance offset**: 0 = all 88 keys exactly fill the screen width, positive = farther away, **negative = closer, cropping the outer keys**; **horizontal pan**, default centered. The keyboard and the highway share the camera, so lanes always meet their keys.
+22. **Scene defaults (all adjustable):** background very dark blue (`#05070F`), highway surface slightly lighter (`#0A0F1E`); lane lines desaturated blue, translucent; bar lines the same hue, clearly more visible; beat lines barely visible; pedal band subtle desaturated blue-grey.
+23. **Settings** are stored in localStorage (versioned) until profiles arrive in milestone 5.
+24. **Player is the home page** (`/`); the debug page stays at `#/debug`.
+25. **HUD:** top-left — song title, length, position (m:ss), bar:beat. Top-right — current BPM (song tempo at the position × tempo %), song BPM at the position, tempo %. Top-center — temporary controls (to be redesigned later). A gear button opens the settings panel.
 
 ## Note color palette
 

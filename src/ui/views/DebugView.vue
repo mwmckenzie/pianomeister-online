@@ -1,46 +1,24 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
-import { AudioContextClock } from '@/audio/AudioContextClock'
-import { AudioScheduler } from '@/audio/AudioScheduler'
 import { DEFAULT_AUDIO_SETTINGS } from '@/audio/AudioSettings'
 import type { MetronomeMode } from '@/audio/MetronomeMode'
-import { SmplrOutput } from '@/audio/SmplrOutput'
-import { WorkerTicker } from '@/audio/WorkerTicker'
-import { EventBus } from '@/core/events/EventBus'
-import { assignHands } from '@/core/hands/assignHands'
 import type { HandNote } from '@/core/hands/HandNote'
 import { noteName } from '@/core/noteName'
 import type { HandAudio } from '@/core/practice/HandAudio'
 import { importMidi } from '@/core/song/importMidi'
 import type { Song } from '@/core/song/Song'
-import { applySustain } from '@/core/sustain/applySustain'
-import { BarMap } from '@/core/timing/BarMap'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
-import { TempoMap } from '@/core/timing/TempoMap'
 import type { PreRollMode } from '@/core/transport/PreRollMode'
-import { Transport } from '@/core/transport/Transport'
-import type { TransportEvents } from '@/core/transport/TransportEvents'
-import canonUrl from '../../../test-fixtures/midi/canon-in-d.mid?url'
-import inventionUrl from '../../../test-fixtures/midi/invention-1.mid?url'
-import minuetUrl from '../../../test-fixtures/midi/minuet-in-g.mid?url'
 
-const FIXTURES = [
-  { fileName: 'minuet-in-g.mid', url: minuetUrl },
-  { fileName: 'canon-in-d.mid', url: canonUrl },
-  { fileName: 'invention-1.mid', url: inventionUrl },
-] as const
-const SAMPLES_URL = `${import.meta.env.BASE_URL}samples/splendid-grand-piano`
+import { FIXTURES } from '../playback/FIXTURES'
+import type { LoadedSong } from '../playback/LoadedSong'
+import { PlaybackSession } from '../playback/PlaybackSession'
 
-// Core and audio objects stay outside Vue's reactivity; the UI reads them once per frame.
-let audioContext: AudioContext | null = null
-let output: SmplrOutput | null = null
-let scheduler: AudioScheduler | null = null
-let tempoMap: TempoMap | null = null
-let barMap: BarMap | null = null
-const bus = new EventBus<TransportEvents>()
+// Audio and transport stay outside Vue's reactivity; the UI reads them once per frame.
+let session: PlaybackSession | null = null
+let loaded: LoadedSong | null = null
 const sounding = { right: new Set<HandNote>(), left: new Set<HandNote>() }
-let transport: Transport | null = null
 let frame = 0
 /** Counted from bus events, which the worker ticker drives, so it keeps rising in hidden tabs. */
 let noteOnCount = 0
@@ -103,8 +81,8 @@ const facts = computed(() => {
 
 const sampleStatus = computed(() => {
   if (samplesReady.value) return 'loaded'
-  const { loaded, total } = sampleProgress.value
-  return total > 0 ? `loading ${loaded}/${total}` : 'loading…'
+  const { loaded: done, total } = sampleProgress.value
+  return total > 0 ? `loading ${done}/${total}` : 'loading…'
 })
 
 function parseChannels(text: string): number[] {
@@ -115,13 +93,13 @@ function parseChannels(text: string): number[] {
 }
 
 function position(tick: number): string {
-  const at = barMap?.tickToPosition(tick)
+  const at = loaded?.barMap.tickToPosition(tick)
   return at === undefined ? '?' : `${at.bar}:${at.beat}`
 }
 
 function rebuild(): void {
   const s = song.value
-  if (s === null || transport === null) return
+  if (s === null || session === null) return
   const override: MeterOverride | null = overrideEnabled.value
     ? {
         timeSignature: {
@@ -131,15 +109,13 @@ function rebuild(): void {
         barOneStartTick: overrideBarOneTick.value,
       }
     : null
-  tempoMap = new TempoMap(s.ppq, s.tempoEvents)
-  barMap = BarMap.fromSong(s, override)
-  const notes = assignHands(applySustain(s.notes, s.pedalIntervals), {
-    right: parseChannels(rightChannels.value),
-    left: parseChannels(leftChannels.value),
+  loaded = session.load(s, {
+    override,
+    hands: { right: parseChannels(rightChannels.value), left: parseChannels(leftChannels.value) },
   })
-  transport.setSong({ notes, tempoMap, barMap, endTick: s.durationTicks })
-  barCount.value = barMap.barCount
-  hasBarZero.value = barMap.hasBarZero
+  barCount.value = loaded.barMap.barCount
+  hasBarZero.value = loaded.barMap.hasBarZero
+  // All channels, not just assigned ones: this list is for checking pedal import by eye.
   pedalList.value = s.pedalIntervals.map(
     (p) => `ch${p.channel}: ${position(p.startTick)} – ${position(p.endTick)}`,
   )
@@ -163,21 +139,19 @@ async function loadFixture(fileName: string): Promise<void> {
   }
 }
 
-/** Browsers only let the audio clock run after a user gesture. */
 async function unlockAudio(): Promise<void> {
-  if (audioContext === null || audioContext.state === 'running') return
-  await audioContext.resume()
-  audioState.value = audioContext.state
+  await session?.unlock()
+  audioState.value = session?.context.state ?? 'closed'
 }
 
 async function play(): Promise<void> {
   await unlockAudio()
-  transport?.play()
+  session?.transport.play()
 }
 
 function setLoop(): void {
   try {
-    transport?.setLoop({ startBar: loopStart.value, endBar: loopEnd.value })
+    session?.transport.setLoop({ startBar: loopStart.value, endBar: loopEnd.value })
     error.value = ''
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
@@ -186,12 +160,12 @@ function setLoop(): void {
 }
 
 function clearLoop(): void {
-  transport?.setLoop(null)
+  session?.transport.setLoop(null)
   syncLoopLabel()
 }
 
 function syncLoopLabel(): void {
-  const loop = transport?.loop ?? null
+  const loop = session?.transport.loop ?? null
   loopLabel.value = loop === null ? 'off' : `${loop.startBar}–${loop.endBar}`
 }
 
@@ -205,15 +179,16 @@ function names(notes: Set<HandNote>): string {
 /** Readout only: the scheduler's ticker drives the transport, so this can stop in background tabs. */
 function render(): void {
   frame = requestAnimationFrame(render)
-  if (transport === null) return
+  if (session === null) return
+  const { transport } = session
   const songPosition = transport.position
-  const songTick = tempoMap?.secondsToTick(songPosition) ?? 0
-  const at = barMap?.tickToPosition(songTick)
+  const songTick = loaded?.tempoMap.secondsToTick(songPosition) ?? 0
+  const at = loaded?.barMap.tickToPosition(songTick)
   readout.value = {
     state: transport.state,
     songTime: songPosition,
     barBeat: at === undefined ? '–' : `${at.bar}:${at.beat}`,
-    bpm: ((tempoMap?.bpmAt(songTick) ?? 0) * transport.tempoPercent) / 100,
+    bpm: ((loaded?.tempoMap.bpmAt(songTick) ?? 0) * transport.tempoPercent) / 100,
     preRoll: transport.inPreRoll,
     right: names(sounding.right),
     left: names(sounding.left),
@@ -222,7 +197,7 @@ function render(): void {
 }
 
 function pushSettings(): void {
-  scheduler?.setSettings({
+  session?.setAudioSettings({
     master: masterVolume.value / 100,
     hands: {
       right: { volume: rightVolume.value / 100, audio: rightAudio.value },
@@ -234,8 +209,10 @@ function pushSettings(): void {
 }
 
 watch(selected, (fileName) => void loadFixture(fileName))
-watch(tempoPercent, (p) => transport?.setTempoPercent(p))
-watch([preRollBeats, preRollMode], ([beats, mode]) => transport?.setPreRoll({ beats, mode }))
+watch(tempoPercent, (p) => session?.transport.setTempoPercent(p))
+watch([preRollBeats, preRollMode], ([beats, mode]) =>
+  session?.transport.setPreRoll({ beats, mode }),
+)
 watch(
   [
     masterVolume,
@@ -253,21 +230,16 @@ watch(
 const onGesture = () => void unlockAudio()
 
 onMounted(() => {
-  audioContext = new AudioContext()
-  audioState.value = audioContext.state
-  const clock = new AudioContextClock(audioContext)
-  transport = new Transport({ clock, bus })
-  output = new SmplrOutput(audioContext, {
-    baseUrl: SAMPLES_URL,
-    onProgress: (loaded, total) => (sampleProgress.value = { loaded, total }),
+  session = new PlaybackSession({
+    onProgress: (done, total) => (sampleProgress.value = { loaded: done, total }),
   })
-  output.ready.then(
+  audioState.value = session.context.state
+  session.ready.then(
     () => (samplesReady.value = true),
     (e: unknown) => (error.value = `Samples failed to load: ${String(e)}`),
   )
-  scheduler = new AudioScheduler({ transport, bus, clock, output, ticker: new WorkerTicker() })
-  scheduler.start()
   pushSettings()
+  const { bus } = session
   bus.on('noteOn', (e) => {
     sounding[e.hand].add(e.note)
     noteOnCount++
@@ -286,14 +258,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onGesture)
   window.removeEventListener('keydown', onGesture)
   cancelAnimationFrame(frame)
-  transport?.stop()
-  scheduler?.dispose()
-  output?.dispose()
-  void audioContext?.close()
-  scheduler = null
-  output = null
-  transport = null
-  audioContext = null
+  session?.dispose()
+  session = null
+  loaded = null
 })
 </script>
 
@@ -381,15 +348,15 @@ onBeforeUnmount(() => {
       <h2>Transport</h2>
       <div class="row">
         <button type="button" :disabled="!samplesReady" @click="play">Play</button>
-        <button type="button" @click="transport?.pause()">Pause</button>
-        <button type="button" @click="transport?.stop()">Stop</button>
-        <button type="button" @click="transport?.prevBar()">◀ Prev bar</button>
-        <button type="button" @click="transport?.nextBar()">Next bar ▶</button>
+        <button type="button" @click="session?.transport.pause()">Pause</button>
+        <button type="button" @click="session?.transport.stop()">Stop</button>
+        <button type="button" @click="session?.transport.prevBar()">◀ Prev bar</button>
+        <button type="button" @click="session?.transport.nextBar()">Next bar ▶</button>
         <label>
           Go to bar
           <input v-model.number="goToBar" type="number" step="1" />
         </label>
-        <button type="button" @click="transport?.seekToBar(goToBar)">Go</button>
+        <button type="button" @click="session?.transport.seekToBar(goToBar)">Go</button>
       </div>
       <div class="row">
         <label>
