@@ -1,31 +1,28 @@
 import type { EventBus } from '../events/EventBus'
+import type { BeatEvent } from './BeatEvent'
+import { beatsBetween } from './beatsBetween'
 import type { Clock } from './Clock'
 import type { LoopRange } from './LoopRange'
 import type { PreRollConfig } from './PreRollConfig'
+import type { PreRollWindow } from './PreRollWindow'
 import type { TimedNote } from './TimedNote'
 import type { Timeline } from './Timeline'
+import type { TimelineChangeReason } from './TimelineChangeReason'
+import type { TimelineSegment } from './TimelineSegment'
 import type { TransportEvents } from './TransportEvents'
 import type { TransportSong } from './TransportSong'
 import type { TransportState } from './TransportState'
 
 const MIN_TEMPO_PERCENT = 25
 const MAX_TEMPO_PERCENT = 200
+// Guards segmentsBetween against pathological tiny loops; real windows span one or two wraps.
+const MAX_SEGMENTS = 64
 
 interface PreparedSong {
   readonly source: TransportSong
   /** Sorted by startSec. */
   readonly notes: readonly TimedNote[]
   readonly endSec: number
-}
-
-/** The count-in before a target bar. Its beats use the tempo and meter at the target. */
-interface PreRollWindow {
-  readonly startSec: number
-  readonly endSec: number
-  readonly targetTick: number
-  readonly beats: number
-  readonly beatSec: number
-  readonly ticksPerBeat: number
 }
 
 interface PendingEvent {
@@ -52,7 +49,7 @@ export class Transport {
   private lastPos = 0
   /** Set by stop/seek: the next play() starts at this tick with a pre-roll. */
   private armedTick: number | null = 0
-  private preRollConfig: PreRollConfig = { beats: 0, mode: 'muted', metronome: false }
+  private preRollConfig: PreRollConfig = { beats: 0, mode: 'muted' }
   private window: PreRollWindow | null = null
   private loopRange: LoopRange | null = null
   /** Notes that got a noteOn and still owe a noteOff, with their onset's pre-roll flag. */
@@ -102,13 +99,14 @@ export class Transport {
         note,
         startSec: tempoMap.tickToSeconds(note.startTick),
         endSec: tempoMap.tickToSeconds(note.endTick),
+        soundEndSec: tempoMap.tickToSeconds(note.soundEndTick),
       }))
       .sort((a, b) => a.startSec - b.startSec)
     this.prepared = { source: song, notes, endSec: tempoMap.tickToSeconds(song.endTick) }
     // Bar numbers may mean something else under a new bar map; keep the loop only if it still fits.
     this.loopRange =
       this.loopRange === null ? null : this.clampLoop(this.loopRange, song.barMap.barCount)
-    this.stop()
+    this.stopWith('song')
   }
 
   play(): void {
@@ -120,6 +118,7 @@ export class Transport {
       this.lastPos = this.heldPosition
     }
     this.setState('playing')
+    this.changed('play')
   }
 
   pause(): void {
@@ -130,17 +129,12 @@ export class Transport {
     this.heldPosition = this.lastPos
     this.silence()
     this.setState('paused')
+    this.changed('pause')
   }
 
   /** Rewinds to the loop start if a loop is set, otherwise to the song start. */
   stop(): void {
-    const song = this.prepared
-    if (song === null) return
-    const { barMap } = song.source
-    const bar = this.loopRange?.startBar ?? barMap.firstBar
-    this.hold(barMap.barStartTick(bar))
-    this.silence()
-    this.setState('stopped')
+    this.stopWith('stop')
   }
 
   setTempoPercent(percent: number): void {
@@ -149,6 +143,7 @@ export class Transport {
     this.tempo = Math.min(MAX_TEMPO_PERCENT, Math.max(MIN_TEMPO_PERCENT, percent))
     // Re-anchor so the new rate applies from the current position instead of from the old anchor.
     if (this.currentState === 'playing') this.anchor(position)
+    this.changed('tempo')
   }
 
   seekToBar(bar: number): void {
@@ -160,6 +155,7 @@ export class Transport {
     this.silence()
     if (this.currentState === 'playing') this.startFrom(tick)
     else this.hold(tick)
+    this.changed('seek')
   }
 
   nextBar(): void {
@@ -180,6 +176,7 @@ export class Transport {
   setLoop(range: LoopRange | null): void {
     if (range === null) {
       this.loopRange = null
+      this.changed('loop')
       return
     }
     if (!Number.isInteger(range.startBar) || !Number.isInteger(range.endBar)) {
@@ -194,11 +191,13 @@ export class Transport {
     if (song !== null && this.loopRange !== null && this.currentState === 'stopped') {
       this.hold(song.source.barMap.barStartTick(this.loopRange.startBar))
     }
+    this.changed('loop')
   }
 
   setPreRoll(config: PreRollConfig): void {
     const beats = Number.isFinite(config.beats) ? Math.max(0, Math.floor(config.beats)) : 0
     this.preRollConfig = { ...config, beats }
+    this.changed('preRoll')
   }
 
   getTimeline(): Timeline {
@@ -223,6 +222,61 @@ export class Transport {
     return notes.slice(lo, hi)
   }
 
+  /** Beats with songSec in [fromSec, toSec); `window` is the count-in to use (default: the current one). */
+  beatsStartingIn(
+    fromSec: number,
+    toSec: number,
+    window: PreRollWindow | null = this.window,
+  ): BeatEvent[] {
+    const song = this.prepared
+    if (song === null) return []
+    return beatsBetween(song.source.barMap, song.source.tempoMap, window, fromSec, toSec)
+  }
+
+  /**
+   * The clock → song mapping for [clockFrom, clockTo) while playing, split at each loop wrap
+   * (where the next segment restarts at the loop start minus its pre-roll) and ending at the
+   * song end when not looping. Pure: predicts what update() will do, without doing it.
+   */
+  segmentsBetween(clockFrom: number, clockTo: number): TimelineSegment[] {
+    const song = this.prepared
+    if (song === null || this.currentState !== 'playing' || clockTo <= clockFrom) return []
+    const { barMap, tempoMap } = song.source
+    const rate = this.tempo / 100
+    const loop = this.loopRange
+    const loopEnd = loop === null ? null : tempoMap.tickToSeconds(barMap.barEndTick(loop.endBar))
+    const limit = loopEnd ?? song.endSec
+
+    const out: TimelineSegment[] = []
+    let clockAnchor = this.clockAnchor
+    let songAnchor = this.songAnchor
+    let window = this.window
+    let clock = clockFrom
+    for (let i = 0; i < MAX_SEGMENTS && clock < clockTo; i++) {
+      const clockAtLimit = clockAnchor + (limit - songAnchor) / rate
+      const segEnd = Math.min(clockTo, clockAtLimit)
+      if (clock < segEnd) {
+        out.push({
+          clockStart: clock,
+          clockEnd: segEnd,
+          songStart: songAnchor + (clock - clockAnchor) * rate,
+          songEnd: songAnchor + (segEnd - clockAnchor) * rate,
+          rate,
+          preRoll: window,
+          soundLimitSec: loopEnd,
+        })
+      }
+      if (loop === null || clockTo <= clockAtLimit) break
+      // The wrap happens at clockAtLimit, exactly where update() re-anchors.
+      const loopStartTick = barMap.barStartTick(loop.startBar)
+      window = this.windowFor(loopStartTick)
+      songAnchor = window?.startSec ?? tempoMap.tickToSeconds(loopStartTick)
+      clockAnchor = clockAtLimit
+      clock = Math.max(clock, clockAtLimit)
+    }
+    return out
+  }
+
   /** Advances to the clock's current time and emits everything crossed since the last call. */
   update(): void {
     const song = this.prepared
@@ -244,12 +298,15 @@ export class Transport {
         if (this.songAnchor + overshoot < loopEnd) {
           this.clockAnchor = now - overshoot / (this.tempo / 100)
           this.process(this.lastPos, this.songTimeAt(now))
+        } else {
+          // A whole iteration was skipped, so the mapping no longer matches the prediction.
+          this.changed('resync')
         }
         return
       }
     } else if (newPos >= song.endSec) {
       this.process(this.lastPos, song.endSec, true)
-      this.stop()
+      this.stopWith('end')
       return
     }
 
@@ -267,28 +324,45 @@ export class Transport {
   private startFrom(targetTick: number): void {
     const song = this.prepared
     if (song === null) return
-    const { barMap, tempoMap } = song.source
-    const targetSec = tempoMap.tickToSeconds(targetTick)
-    const beats = this.preRollConfig.beats
-    if (beats > 0) {
-      const bar = barMap.tickToPosition(targetTick).bar
-      const ticksPerBeat = barMap.ticksPerBeat(bar)
-      const beatSec = (ticksPerBeat * tempoMap.secondsPerQuarterAt(targetTick)) / tempoMap.ppq
-      this.window = {
-        startSec: targetSec - beats * beatSec,
-        endSec: targetSec,
-        targetTick,
-        beats,
-        beatSec,
-        ticksPerBeat,
-      }
-    } else {
-      this.window = null
-    }
-    const start = this.window?.startSec ?? targetSec
+    this.window = this.windowFor(targetTick)
+    const start = this.window?.startSec ?? song.source.tempoMap.tickToSeconds(targetTick)
     this.anchor(start)
     this.lastPos = start
     this.armedTick = null
+  }
+
+  /** The count-in before `targetTick` under the current pre-roll config, or null for none. */
+  private windowFor(targetTick: number): PreRollWindow | null {
+    const song = this.prepared
+    const beats = this.preRollConfig.beats
+    if (song === null || beats <= 0) return null
+    const { barMap, tempoMap } = song.source
+    const targetSec = tempoMap.tickToSeconds(targetTick)
+    const ticksPerBeat = barMap.ticksPerBeat(barMap.tickToPosition(targetTick).bar)
+    const beatSec = (ticksPerBeat * tempoMap.secondsPerQuarterAt(targetTick)) / tempoMap.ppq
+    return {
+      startSec: targetSec - beats * beatSec,
+      endSec: targetSec,
+      targetTick,
+      beats,
+      beatSec,
+      ticksPerBeat,
+    }
+  }
+
+  private stopWith(reason: TimelineChangeReason): void {
+    const song = this.prepared
+    if (song === null) return
+    const { barMap } = song.source
+    const bar = this.loopRange?.startBar ?? barMap.firstBar
+    this.hold(barMap.barStartTick(bar))
+    this.silence()
+    this.setState('stopped')
+    this.changed(reason)
+  }
+
+  private changed(reason: TimelineChangeReason): void {
+    this.bus.emit('timelineChange', { reason })
   }
 
   /** Parks the position at a bar start; the next play() applies pre-roll from there. */
@@ -371,34 +445,8 @@ export class Transport {
   }
 
   private collectBeats(from: number, to: number, events: PendingEvent[]): void {
-    const song = this.prepared
-    if (song === null) return
-    const { barMap, tempoMap } = song.source
-    const window = this.window
-    const pushBeat = (time: number, tick: number, isPreRoll: boolean): void => {
-      const { bar, beat } = barMap.tickToPosition(tick)
-      events.push({ time, order: 2, fire: () => this.bus.emit('beat', { bar, beat, isPreRoll }) })
-    }
-
-    // Count-in beats are spaced by the target's tempo, not the song's tempo before the target.
-    if (window !== null) {
-      for (let k = window.beats; k >= 1; k--) {
-        const time = window.endSec - k * window.beatSec
-        if (time >= from && time < to) {
-          pushBeat(time, window.targetTick - k * window.ticksPerBeat, true)
-        }
-      }
-    }
-
-    const gridFrom = window === null ? from : Math.max(from, window.endSec)
-    if (gridFrom >= to) return
-    // Widen the tick range by one tick and filter in seconds, so float rounding at the
-    // boundaries can neither drop nor duplicate a beat between consecutive updates.
-    const fromTick = tempoMap.secondsToTick(gridFrom) - 1
-    const toTick = tempoMap.secondsToTick(to) + 1
-    for (const tick of barMap.beatTicksBetween(fromTick, toTick)) {
-      const time = tempoMap.tickToSeconds(tick)
-      if (time >= gridFrom && time < to) pushBeat(time, tick, false)
+    for (const beat of this.beatsStartingIn(from, to)) {
+      events.push({ time: beat.songSec, order: 2, fire: () => this.bus.emit('beat', beat) })
     }
   }
 }

@@ -20,11 +20,13 @@ const note = (
   startTick: number,
   endTick: number,
   hand: 'right' | 'left' = 'right',
+  soundEndTick = endTick,
 ): HandNote => ({
   midi,
   channel: hand === 'right' ? 0 : 1,
   startTick,
   endTick,
+  soundEndTick,
   velocity: 100,
   hand,
 })
@@ -166,7 +168,7 @@ describe('Transport', () => {
 
   it('wraps at the end of endBar and re-applies pre-roll', () => {
     transport.setLoop({ startBar: 2, endBar: 3 })
-    transport.setPreRoll({ beats: 2, mode: 'muted', metronome: false })
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
     transport.seekToBar(2)
     transport.play()
     // Pre-roll starts 2 beats (1 s) before bar 2 at 2 s.
@@ -189,7 +191,7 @@ describe('Transport', () => {
   })
 
   it('runs a pre-roll before bar 1 at negative song time with no note events', () => {
-    transport.setPreRoll({ beats: 4, mode: 'quiet', metronome: true })
+    transport.setPreRoll({ beats: 4, mode: 'quiet' })
     transport.play()
     expect(transport.position).toBeCloseTo(-2, 9)
     run(1.99)
@@ -202,7 +204,7 @@ describe('Transport', () => {
   })
 
   it('flags notes inside a mid-song pre-roll window', () => {
-    transport.setPreRoll({ beats: 4, mode: 'muted', metronome: false })
+    transport.setPreRoll({ beats: 4, mode: 'muted' })
     transport.seekToBar(3)
     transport.play()
     run(2.5)
@@ -212,14 +214,14 @@ describe('Transport', () => {
   it('times the pre-roll with the tempo at the target bar', () => {
     // 60 BPM from bar 2 on: a beat there is 1 s, though bar 1 runs at 120 BPM.
     transport.setSong(makeSong(NOTES, [{ tick: BAR, microsPerQuarter: 1_000_000 }]))
-    transport.setPreRoll({ beats: 2, mode: 'muted', metronome: false })
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
     transport.seekToBar(2)
     transport.play()
     expect(transport.position).toBeCloseTo(0, 9)
   })
 
   it('preserves the position across pause and resume without re-applying pre-roll', () => {
-    transport.setPreRoll({ beats: 2, mode: 'muted', metronome: false })
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
     transport.play()
     run(2.25)
     const paused = transport.position
@@ -234,7 +236,7 @@ describe('Transport', () => {
   })
 
   it('applies pre-roll after a seek while paused', () => {
-    transport.setPreRoll({ beats: 2, mode: 'muted', metronome: false })
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
     transport.play()
     run(3)
     transport.pause()
@@ -320,5 +322,137 @@ describe('Transport', () => {
     const timeline = transport.getTimeline()
     expect(timeline).toEqual({ state: 'playing', clockAnchor: 100, songAnchor: 0, rate: 0.5 })
     expect(transport.songTimeAt(104)).toBeCloseTo(2, 9)
+  })
+})
+
+describe('Transport — look-ahead queries for the audio scheduler', () => {
+  let clock: FakeClock
+  let bus: EventBus<TransportEvents>
+  let transport: Transport
+
+  beforeEach(() => {
+    clock = new FakeClock(100)
+    bus = new EventBus<TransportEvents>()
+    transport = new Transport({ clock, bus })
+    transport.setSong(makeSong())
+  })
+
+  it('has no segments unless playing', () => {
+    expect(transport.segmentsBetween(100, 101)).toEqual([])
+  })
+
+  it('maps one segment up to the song end when not looping', () => {
+    transport.play()
+    expect(transport.segmentsBetween(100, 200)).toEqual([
+      {
+        clockStart: 100,
+        clockEnd: 108,
+        songStart: 0,
+        songEnd: 8,
+        rate: 1,
+        preRoll: null,
+        soundLimitSec: null,
+      },
+    ])
+  })
+
+  it('scales song time by the tempo rate', () => {
+    transport.setTempoPercent(50)
+    transport.play()
+    const [segment] = transport.segmentsBetween(100, 101)
+    expect(segment).toMatchObject({ songStart: 0, songEnd: 0.5, rate: 0.5 })
+  })
+
+  it('splits at a loop wrap into the next iteration and its pre-roll, as update() then does', () => {
+    transport.setLoop({ startBar: 2, endBar: 3 })
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
+    transport.seekToBar(2)
+    transport.play() // clock 100 = song 1.0 (2 beats before bar 2 at 2 s); loop end 6 s = clock 105
+    const segments = transport.segmentsBetween(104.9, 105.2)
+    expect(segments).toHaveLength(2)
+    const [before, after] = segments
+    expect(before?.clockStart).toBeCloseTo(104.9, 9)
+    expect(before?.clockEnd).toBeCloseTo(105, 9)
+    expect(before?.songStart).toBeCloseTo(5.9, 9)
+    expect(before?.songEnd).toBeCloseTo(6, 9)
+    expect(before?.soundLimitSec).toBeCloseTo(6, 9)
+    expect(after?.clockStart).toBeCloseTo(105, 9)
+    expect(after?.songStart).toBeCloseTo(1, 9)
+    expect(after?.songEnd).toBeCloseTo(1.2, 9)
+    expect(after?.preRoll?.endSec).toBeCloseTo(2, 9)
+
+    clock.advance(5.1)
+    transport.update()
+    expect(transport.position).toBeCloseTo(1.1, 9)
+  })
+
+  it('covers several wraps in one window without gaps', () => {
+    transport.setLoop({ startBar: 1, endBar: 1 })
+    transport.play()
+    const segments = transport.segmentsBetween(100, 105)
+    expect(segments.map((s) => [s.clockStart, s.clockEnd, s.songStart, s.songEnd])).toEqual([
+      [100, 102, 0, 2],
+      [102, 104, 0, 2],
+      [104, 105, 0, 1],
+    ])
+  })
+
+  it('answers beatsStartingIn with downbeats and an explicit pre-roll window', () => {
+    expect(transport.beatsStartingIn(1.5, 2.6)).toEqual([
+      { bar: 1, beat: 4, isDownbeat: false, isPreRoll: false, songSec: 1.5 },
+      { bar: 2, beat: 1, isDownbeat: true, isPreRoll: false, songSec: 2 },
+      { bar: 2, beat: 2, isDownbeat: false, isPreRoll: false, songSec: 2.5 },
+    ])
+    transport.setPreRoll({ beats: 2, mode: 'quiet' })
+    transport.seekToBar(2)
+    transport.play()
+    const [segment] = transport.segmentsBetween(100, 101.1)
+    const beats = transport.beatsStartingIn(1, 2.1, segment?.preRoll ?? null)
+    expect(beats.map((b) => `${b.bar}:${b.beat}${b.isPreRoll ? ' pre' : ''}`)).toEqual([
+      '1:3 pre',
+      '1:4 pre',
+      '2:1',
+    ])
+  })
+
+  it('carries the pedal-extended sound end on each timed note', () => {
+    transport.setSong(makeSong([note(60, 0, 480, 'right', 1920)]))
+    expect(transport.notesStartingIn(0, 1)[0]).toMatchObject({
+      startSec: 0,
+      endSec: 0.5,
+      soundEndSec: 2,
+    })
+  })
+
+  it('announces each timeline change with its reason', () => {
+    const reasons: string[] = []
+    bus.on('timelineChange', (e) => reasons.push(e.reason))
+    transport.play()
+    transport.setTempoPercent(80)
+    transport.seekToBar(2)
+    transport.setLoop({ startBar: 1, endBar: 2 })
+    transport.setPreRoll({ beats: 1, mode: 'muted' })
+    transport.pause()
+    transport.stop()
+    transport.setSong(makeSong())
+    transport.setLoop(null)
+    transport.seekToBar(4)
+    transport.play()
+    clock.advance(4) // at 80% tempo: song 5.5 s → 8.7 s, past the 8 s song end
+    transport.update()
+    expect(reasons).toEqual([
+      'play',
+      'tempo',
+      'seek',
+      'loop',
+      'preRoll',
+      'pause',
+      'stop',
+      'song',
+      'loop',
+      'seek',
+      'play',
+      'end',
+    ])
   })
 })
