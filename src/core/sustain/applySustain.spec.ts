@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { importMidi } from '../song/importMidi'
 import type { Note } from '../song/Note'
+import { readFixture } from '../testing/readFixture'
 import { synthFixtures } from '../testing/synthFixtures'
 import { applySustain } from './applySustain'
 
@@ -28,6 +29,17 @@ describe('pedal import', () => {
     const song = await songFrom(synthFixtures.unterminatedPedal())
     expect(song.durationTicks).toBe(1920)
     expect(song.pedalIntervals).toEqual([{ channel: 0, startTick: 480, endTick: 1920 }])
+  })
+
+  it('reads the committed pedal demo: one pedal per bar for six bars on the right hand', async () => {
+    const song = await songFrom(readFixture('pedal-demo.mid'))
+    expect(song.pedalIntervals).toHaveLength(6)
+    expect(song.pedalIntervals.every((p) => p.channel === 0)).toBe(true)
+    expect(song.pedalIntervals[0]).toEqual({ channel: 0, startTick: 60, endTick: 1919 })
+    expect(song.channels).toEqual([
+      { channel: 0, noteCount: 64 },
+      { channel: 1, noteCount: 8 },
+    ])
   })
 
   it('finds no pedal in files without CC64', async () => {
