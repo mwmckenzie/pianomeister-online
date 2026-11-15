@@ -64,6 +64,7 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 
 - **Song**: `id` (hash), title, source (bundled | uploaded), channels present, duration, bar map.
 - **PracticeConfig**: loop `{startBar, endBar} | null`, tempoPercent, hand → channel assignments, per-hand audio (on / muted / solo), preRollBeats, preRollMode (muted | quiet).
+- **MeterOverride**: time signature, bar-1 start tick (per song, shared across profiles).
 - **Profile**: name, settings, per-song channel assignments.
 - **Bookmark**: profileId, songId, name, PracticeConfig, createdAt.
 - **Session**: profileId, startedAt, endedAt.
@@ -83,7 +84,7 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 
 1. **Unassigned channels** (neither hand) are hidden and silent.
 2. **Pre-roll** shows the preceding bars' notes on the highway while their sound is muted or quieted; when there is nothing before the start (e.g. bar 1), the highway runs empty for the pre-roll. **Optional metronome click** during pre-roll.
-3. **Pickup bars**: per-song bar-number offset for files that start with an anacrusis.
+3. **Per-song meter override**: MIDI files can carry wrong or missing time signatures, leading silence, or a pickup (anacrusis). Each song can override its meter with a time signature (replacing the file's) plus the tick where bar 1 starts; anything before that tick forms bar 0 (a pickup or lead-in). All bar-based features (seek, A–B loops, bookmarks, pre-roll) use the overridden bar map.
 4. **Profiles are local to the browser/device**, with JSON export/import for backup and moving between devices.
 5. **Session** = starts on first playback, ends after 10 minutes without playback or when the app closes. Practice time counts only while playing (not paused).
 6. **Songs are shared** across profiles on a device; bookmarks, stats, and per-song channel assignments are per profile.
