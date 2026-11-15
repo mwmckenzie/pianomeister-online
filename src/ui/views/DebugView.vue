@@ -2,12 +2,19 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { AudioContextClock } from '@/audio/AudioContextClock'
+import { AudioScheduler } from '@/audio/AudioScheduler'
+import { DEFAULT_AUDIO_SETTINGS } from '@/audio/AudioSettings'
+import type { MetronomeMode } from '@/audio/MetronomeMode'
+import { SmplrOutput } from '@/audio/SmplrOutput'
+import { WorkerTicker } from '@/audio/WorkerTicker'
 import { EventBus } from '@/core/events/EventBus'
 import { assignHands } from '@/core/hands/assignHands'
 import type { HandNote } from '@/core/hands/HandNote'
 import { noteName } from '@/core/noteName'
+import type { HandAudio } from '@/core/practice/HandAudio'
 import { importMidi } from '@/core/song/importMidi'
 import type { Song } from '@/core/song/Song'
+import { applySustain } from '@/core/sustain/applySustain'
 import { BarMap } from '@/core/timing/BarMap'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
 import { TempoMap } from '@/core/timing/TempoMap'
@@ -23,15 +30,20 @@ const FIXTURES = [
   { fileName: 'canon-in-d.mid', url: canonUrl },
   { fileName: 'invention-1.mid', url: inventionUrl },
 ] as const
+const SAMPLES_URL = `${import.meta.env.BASE_URL}samples/splendid-grand-piano`
 
 // Core and audio objects stay outside Vue's reactivity; the UI reads them once per frame.
 let audioContext: AudioContext | null = null
+let output: SmplrOutput | null = null
+let scheduler: AudioScheduler | null = null
 let tempoMap: TempoMap | null = null
 let barMap: BarMap | null = null
 const bus = new EventBus<TransportEvents>()
 const sounding = { right: new Set<HandNote>(), left: new Set<HandNote>() }
 let transport: Transport | null = null
 let frame = 0
+/** Counted from bus events, which the worker ticker drives, so it keeps rising in hidden tabs. */
+let noteOnCount = 0
 
 const selected = ref('')
 const loading = ref(false)
@@ -39,6 +51,11 @@ const error = ref('')
 const song = shallowRef<Song | null>(null)
 const barCount = ref(0)
 const hasBarZero = ref(false)
+const pedalList = ref<string[]>([])
+
+const samplesReady = ref(false)
+const sampleProgress = ref({ loaded: 0, total: 0 })
+const audioState = ref('suspended')
 
 const overrideEnabled = ref(false)
 const overrideNumerator = ref(4)
@@ -54,7 +71,15 @@ const loopEnd = ref(4)
 const loopLabel = ref('off')
 const preRollBeats = ref(0)
 const preRollMode = ref<PreRollMode>('muted')
-const metronome = ref(false)
+
+const masterVolume = ref(DEFAULT_AUDIO_SETTINGS.master * 100)
+const rightVolume = ref(100)
+const leftVolume = ref(100)
+const rightAudio = ref<HandAudio>('on')
+const leftAudio = ref<HandAudio>('on')
+const quietLevel = ref(DEFAULT_AUDIO_SETTINGS.quietLevel * 100)
+const metronomeMode = ref<MetronomeMode>(DEFAULT_AUDIO_SETTINGS.metronome.mode)
+const metronomeVolume = ref(DEFAULT_AUDIO_SETTINGS.metronome.volume * 100)
 
 const readout = ref({
   state: 'stopped',
@@ -64,6 +89,7 @@ const readout = ref({
   preRoll: false,
   right: '',
   left: '',
+  noteOns: 0,
 })
 
 const facts = computed(() => {
@@ -75,11 +101,22 @@ const facts = computed(() => {
   }
 })
 
+const sampleStatus = computed(() => {
+  if (samplesReady.value) return 'loaded'
+  const { loaded, total } = sampleProgress.value
+  return total > 0 ? `loading ${loaded}/${total}` : 'loading…'
+})
+
 function parseChannels(text: string): number[] {
   return text
     .split(',')
     .map((part) => Number.parseInt(part.trim(), 10))
     .filter((n) => Number.isInteger(n) && n >= 0 && n <= 15)
+}
+
+function position(tick: number): string {
+  const at = barMap?.tickToPosition(tick)
+  return at === undefined ? '?' : `${at.bar}:${at.beat}`
 }
 
 function rebuild(): void {
@@ -96,13 +133,16 @@ function rebuild(): void {
     : null
   tempoMap = new TempoMap(s.ppq, s.tempoEvents)
   barMap = BarMap.fromSong(s, override)
-  const notes = assignHands(s.notes, {
+  const notes = assignHands(applySustain(s.notes, s.pedalIntervals), {
     right: parseChannels(rightChannels.value),
     left: parseChannels(leftChannels.value),
   })
   transport.setSong({ notes, tempoMap, barMap, endTick: s.durationTicks })
   barCount.value = barMap.barCount
   hasBarZero.value = barMap.hasBarZero
+  pedalList.value = s.pedalIntervals.map(
+    (p) => `ch${p.channel}: ${position(p.startTick)} – ${position(p.endTick)}`,
+  )
   syncLoopLabel()
 }
 
@@ -123,9 +163,15 @@ async function loadFixture(fileName: string): Promise<void> {
   }
 }
 
+/** Browsers only let the audio clock run after a user gesture. */
+async function unlockAudio(): Promise<void> {
+  if (audioContext === null || audioContext.state === 'running') return
+  await audioContext.resume()
+  audioState.value = audioContext.state
+}
+
 async function play(): Promise<void> {
-  // Browsers only let the audio clock run after a user gesture.
-  await audioContext?.resume()
+  await unlockAudio()
   transport?.play()
 }
 
@@ -156,47 +202,97 @@ function names(notes: Set<HandNote>): string {
     .join(' ')
 }
 
-function tick(): void {
-  frame = requestAnimationFrame(tick)
+/** Readout only: the scheduler's ticker drives the transport, so this can stop in background tabs. */
+function render(): void {
+  frame = requestAnimationFrame(render)
   if (transport === null) return
-  transport.update()
-  const position = transport.position
-  const songTick = tempoMap?.secondsToTick(position) ?? 0
+  const songPosition = transport.position
+  const songTick = tempoMap?.secondsToTick(songPosition) ?? 0
   const at = barMap?.tickToPosition(songTick)
   readout.value = {
     state: transport.state,
-    songTime: position,
+    songTime: songPosition,
     barBeat: at === undefined ? '–' : `${at.bar}:${at.beat}`,
     bpm: ((tempoMap?.bpmAt(songTick) ?? 0) * transport.tempoPercent) / 100,
     preRoll: transport.inPreRoll,
     right: names(sounding.right),
     left: names(sounding.left),
+    noteOns: noteOnCount,
   }
+}
+
+function pushSettings(): void {
+  scheduler?.setSettings({
+    master: masterVolume.value / 100,
+    hands: {
+      right: { volume: rightVolume.value / 100, audio: rightAudio.value },
+      left: { volume: leftVolume.value / 100, audio: leftAudio.value },
+    },
+    quietLevel: quietLevel.value / 100,
+    metronome: { mode: metronomeMode.value, volume: metronomeVolume.value / 100 },
+  })
 }
 
 watch(selected, (fileName) => void loadFixture(fileName))
 watch(tempoPercent, (p) => transport?.setTempoPercent(p))
-watch([preRollBeats, preRollMode, metronome], ([beats, mode, click]) =>
-  transport?.setPreRoll({ beats, mode, metronome: click }),
+watch([preRollBeats, preRollMode], ([beats, mode]) => transport?.setPreRoll({ beats, mode }))
+watch(
+  [
+    masterVolume,
+    rightVolume,
+    leftVolume,
+    rightAudio,
+    leftAudio,
+    quietLevel,
+    metronomeMode,
+    metronomeVolume,
+  ],
+  pushSettings,
 )
+
+const onGesture = () => void unlockAudio()
 
 onMounted(() => {
   audioContext = new AudioContext()
-  transport = new Transport({ clock: new AudioContextClock(audioContext), bus })
-  bus.on('noteOn', (e) => sounding[e.hand].add(e.note))
+  audioState.value = audioContext.state
+  const clock = new AudioContextClock(audioContext)
+  transport = new Transport({ clock, bus })
+  output = new SmplrOutput(audioContext, {
+    baseUrl: SAMPLES_URL,
+    onProgress: (loaded, total) => (sampleProgress.value = { loaded, total }),
+  })
+  output.ready.then(
+    () => (samplesReady.value = true),
+    (e: unknown) => (error.value = `Samples failed to load: ${String(e)}`),
+  )
+  scheduler = new AudioScheduler({ transport, bus, clock, output, ticker: new WorkerTicker() })
+  scheduler.start()
+  pushSettings()
+  bus.on('noteOn', (e) => {
+    sounding[e.hand].add(e.note)
+    noteOnCount++
+  })
   bus.on('noteOff', (e) => sounding[e.hand].delete(e.note))
   bus.on('allNotesOff', () => {
     sounding.right.clear()
     sounding.left.clear()
   })
-  frame = requestAnimationFrame(tick)
+  window.addEventListener('pointerdown', onGesture)
+  window.addEventListener('keydown', onGesture)
+  frame = requestAnimationFrame(render)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('pointerdown', onGesture)
+  window.removeEventListener('keydown', onGesture)
   cancelAnimationFrame(frame)
   transport?.stop()
-  transport = null
+  scheduler?.dispose()
+  output?.dispose()
   void audioContext?.close()
+  scheduler = null
+  output = null
+  transport = null
   audioContext = null
 })
 </script>
@@ -216,6 +312,10 @@ onBeforeUnmount(() => {
         </select>
       </label>
       <span v-if="loading"> loading…</span>
+      <span class="status">
+        Samples: <span data-testid="sample-status">{{ sampleStatus }}</span> · Audio:
+        {{ audioState }}
+      </span>
       <p v-if="error" class="error">{{ error }}</p>
     </section>
 
@@ -242,6 +342,13 @@ onBeforeUnmount(() => {
         <dd>
           <span data-testid="bar-count">{{ barCount }}</span>
           <span v-if="hasBarZero"> (+ bar 0)</span>
+        </dd>
+        <dt>Pedal (CC64)</dt>
+        <dd data-testid="pedal-list">
+          <template v-if="pedalList.length === 0">none</template>
+          <ul v-else class="pedals">
+            <li v-for="(p, i) in pedalList" :key="i">{{ p }}</li>
+          </ul>
         </dd>
       </dl>
     </section>
@@ -273,7 +380,7 @@ onBeforeUnmount(() => {
     <section v-if="song">
       <h2>Transport</h2>
       <div class="row">
-        <button type="button" @click="play">Play</button>
+        <button type="button" :disabled="!samplesReady" @click="play">Play</button>
         <button type="button" @click="transport?.pause()">Pause</button>
         <button type="button" @click="transport?.stop()">Stop</button>
         <button type="button" @click="transport?.prevBar()">◀ Prev bar</button>
@@ -309,7 +416,56 @@ onBeforeUnmount(() => {
             <option value="quiet">quiet</option>
           </select>
         </label>
-        <label><input v-model="metronome" type="checkbox" /> Metronome</label>
+        <label>
+          Quiet level {{ quietLevel }}%
+          <input v-model.number="quietLevel" type="range" min="0" max="100" step="5" />
+        </label>
+      </div>
+    </section>
+
+    <section v-if="song">
+      <h2>Audio</h2>
+      <div class="row">
+        <label>
+          Master {{ masterVolume }}%
+          <input v-model.number="masterVolume" type="range" min="0" max="100" step="1" />
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          Right hand {{ rightVolume }}%
+          <input v-model.number="rightVolume" type="range" min="0" max="100" step="1" />
+        </label>
+        <select v-model="rightAudio" aria-label="Right hand audio">
+          <option value="on">on</option>
+          <option value="muted">muted</option>
+          <option value="solo">solo</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>
+          Left hand {{ leftVolume }}%
+          <input v-model.number="leftVolume" type="range" min="0" max="100" step="1" />
+        </label>
+        <select v-model="leftAudio" aria-label="Left hand audio">
+          <option value="on">on</option>
+          <option value="muted">muted</option>
+          <option value="solo">solo</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>
+          Metronome
+          <select v-model="metronomeMode">
+            <option value="off">off</option>
+            <option value="preRoll">pre-roll only</option>
+            <option value="always">always</option>
+          </select>
+        </label>
+        <label>
+          Volume {{ metronomeVolume }}%
+          <input v-model.number="metronomeVolume" type="range" min="0" max="100" step="1" />
+        </label>
       </div>
     </section>
 
@@ -331,6 +487,8 @@ onBeforeUnmount(() => {
         <dd class="notes">{{ readout.right }}</dd>
         <dt>Left hand</dt>
         <dd class="notes">{{ readout.left }}</dd>
+        <dt>Note-ons</dt>
+        <dd data-testid="note-on-count">{{ readout.noteOns }}</dd>
       </dl>
     </section>
   </main>
@@ -382,6 +540,18 @@ input[type='number'] {
 
 .chip {
   margin-right: 0.75rem;
+}
+
+.status {
+  margin-left: 1rem;
+  color: #9e9e9e;
+}
+
+.pedals {
+  margin: 0;
+  padding-left: 1rem;
+  max-height: 8rem;
+  overflow-y: auto;
 }
 
 .notes {
