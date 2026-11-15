@@ -23,6 +23,10 @@ export const ev = {
     tick,
     bytes: [0x80 | channel, midi, 0],
   }),
+  cc: (tick: number, channel: number, controller: number, value: number): RawEvent => ({
+    tick,
+    bytes: [0xb0 | channel, controller, value],
+  }),
   tempo: (tick: number, microsPerQuarter: number): RawEvent => ({
     tick,
     bytes: [

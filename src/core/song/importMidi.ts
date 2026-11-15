@@ -3,9 +3,13 @@ import { Midi } from '@tonejs/midi'
 import { TempoMap } from '../timing/TempoMap'
 import type { ChannelInfo } from './ChannelInfo'
 import type { Note } from './Note'
+import { pedalIntervals } from './pedalIntervals'
+import { readControllerEvents } from './readControllerEvents'
 import { readMidiHeader } from './readMidiHeader'
 import { sha256Hex } from './sha256Hex'
 import type { Song } from './Song'
+
+const SUSTAIN_PEDAL = 64
 
 /**
  * Parses a Standard MIDI File into our Song model. Notes are grouped by channel, not track:
@@ -67,6 +71,7 @@ export async function importMidi(
     channels,
     tempoEvents,
     timeSignatureEvents,
+    pedalIntervals: pedalIntervals(readControllerEvents(bytes, SUSTAIN_PEDAL), durationTicks),
     durationTicks,
     durationSeconds: tempoMap.tickToSeconds(durationTicks),
   }

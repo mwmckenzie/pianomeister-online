@@ -116,4 +116,85 @@ export const synthFixtures = {
       ],
     })
   },
+
+  /**
+   * Pedal fixtures (480 ppq, 120 BPM, 4/4). Pedal down spans several notes on ch0, with a
+   * repeated "down" in the middle that must be ignored, then a note after the pedal is up.
+   */
+  pedalSpan(): Uint8Array {
+    return buildSmf({
+      format: 0,
+      ppq: 480,
+      tracks: [
+        [
+          ev.cc(0, 0, 64, 127),
+          ev.noteOn(0, 0, 60),
+          ev.noteOff(240, 0, 60),
+          ev.noteOn(480, 0, 64),
+          ev.cc(600, 0, 64, 100),
+          ev.noteOff(720, 0, 64),
+          ev.noteOn(960, 0, 67),
+          ev.noteOff(1200, 0, 67),
+          ev.cc(1440, 0, 64, 0),
+          ev.noteOn(1920, 0, 72),
+          ev.noteOff(2160, 0, 72),
+        ],
+      ],
+    })
+  },
+
+  /** C4 struck twice under one pedal; a D4 alongside keeps ringing to pedal-up. */
+  restruckUnderPedal(): Uint8Array {
+    return buildSmf({
+      format: 0,
+      ppq: 480,
+      tracks: [
+        [
+          ev.cc(0, 0, 64, 127),
+          ev.noteOn(0, 0, 60),
+          ev.noteOn(0, 0, 62),
+          ev.noteOff(240, 0, 60),
+          ev.noteOff(240, 0, 62),
+          ev.noteOn(960, 0, 60),
+          ev.noteOff(1200, 0, 60),
+          ev.cc(1920, 0, 64, 0),
+        ],
+      ],
+    })
+  },
+
+  /**
+   * Pedal on ch0 only, written in its own track with no notes (tonejs would misread its
+   * channel), using the exact 64/63 threshold values. The ch1 note must not be sustained.
+   */
+  pedalOneChannel(): Uint8Array {
+    return buildSmf({
+      format: 1,
+      ppq: 480,
+      tracks: [
+        [ev.tempo(0, 500_000)],
+        [ev.noteOn(0, 0, 72), ev.noteOff(240, 0, 72), ev.noteOn(0, 1, 48), ev.noteOff(240, 1, 48)],
+        [ev.cc(0, 1, 7, 100), ev.cc(0, 0, 64, 64), ev.cc(1920, 0, 64, 63)],
+      ],
+    })
+  },
+
+  /** Pedal goes down at tick 480 and never comes up; the song ends at tick 1920. */
+  unterminatedPedal(): Uint8Array {
+    return buildSmf({
+      format: 0,
+      ppq: 480,
+      tracks: [
+        [
+          ev.noteOn(0, 0, 60),
+          ev.noteOff(240, 0, 60),
+          ev.cc(480, 0, 64, 127),
+          ev.noteOn(480, 0, 64),
+          ev.noteOff(720, 0, 64),
+          ev.noteOn(1680, 0, 67),
+          ev.noteOff(1920, 0, 67),
+        ],
+      ],
+    })
+  },
 }
