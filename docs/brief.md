@@ -34,19 +34,19 @@ A browser-based piano practice visualizer: MIDI songs scroll down a perspective 
 
 ## Key technical decisions
 
-| Concern        | Decision                                                                                                                                        |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| App shell / UI | Vite + Vue 3 + TypeScript, Pinia                                                                                                                |
-| Rendering      | Plain Three.js in an isolated `engine/` module (not TresJS); instanced note meshes; 3D keyboard in the same scene so lanes align with keys      |
-| MIDI parsing   | `@tonejs/midi` → converted into our own Song model                                                                                              |
-| Timing         | Own transport/scheduler on the Web Audio clock. Audio clock is master; visuals read song position each frame. Tempo % scales song-time advance. |
-| Bars           | Bar map built from the file's time-signature + tempo events (default 4/4 if none). All seek/loop/pre-roll math is in bars/beats.                |
-| Sound          | `smplr` sampled grand, samples self-hosted in the repo; fewer velocity layers on mobile                                                         |
-| MIDI out       | Web MIDI via WEBMIDI.js, feature-detected (absent on iPad/Safari)                                                                               |
-| Storage        | IndexedDB via Dexie (uploads, profiles, bookmarks, play log); schema versioned from day one                                                     |
-| Song identity  | Content hash of the MIDI file — stats and bookmarks survive renames and re-uploads                                                              |
-| Stats          | Store a raw play log; compute stats from it rather than maintaining counters                                                                    |
-| Deploy         | GitHub Actions → GitHub Pages; Vitest + Playwright in CI                                                                                        |
+| Concern        | Decision                                                                                                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App shell / UI | Vite + Vue 3 + TypeScript, Pinia                                                                                                                                                                                           |
+| Rendering      | Plain Three.js in an isolated `engine/` module (not TresJS); instanced note meshes; 3D keyboard in the same scene so lanes align with keys                                                                                 |
+| MIDI parsing   | `@tonejs/midi` → converted into our own Song model                                                                                                                                                                         |
+| Timing         | Own transport/scheduler on the Web Audio clock. Audio clock is master; visuals read song position each frame. Tempo % scales song-time advance.                                                                            |
+| Bars           | Bar map built from the file's time-signature + tempo events (default 4/4 if none), unless the song has a per-song meter override, which replaces the file's time signatures. All seek/loop/pre-roll math is in bars/beats. |
+| Sound          | `smplr` sampled grand, samples self-hosted in the repo; fewer velocity layers on mobile                                                                                                                                    |
+| MIDI out       | Web MIDI via WEBMIDI.js, feature-detected (absent on iPad/Safari)                                                                                                                                                          |
+| Storage        | IndexedDB via Dexie (uploads, profiles, bookmarks, play log); schema versioned from day one                                                                                                                                |
+| Song identity  | Content hash of the MIDI file — stats and bookmarks survive renames and re-uploads                                                                                                                                         |
+| Stats          | Store a raw play log; compute stats from it rather than maintaining counters                                                                                                                                               |
+| Deploy         | GitHub Actions → GitHub Pages; Vitest + Playwright in CI                                                                                                                                                                   |
 
 ## Architecture outline
 
@@ -67,6 +67,7 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 - **Song**: `id` (hash), title, source (bundled | uploaded), channels present, duration, bar map.
 - **PracticeConfig**: loop `{startBar, endBar} | null`, tempoPercent, hand → channel assignments, per-hand audio (on / muted / solo), preRollBeats, preRollMode (muted | quiet).
 - **MeterOverride**: time signature, bar-1 start tick (per song, shared across profiles).
+- **PedalInterval**: channel, startTick, endTick (sustain pedal CC64 down at value ≥ 64).
 - **Profile**: name, settings, per-song channel assignments.
 - **Bookmark**: profileId, songId, name, PracticeConfig, createdAt.
 - **Session**: profileId, startedAt, endedAt.
@@ -76,8 +77,8 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 
 0. Scaffold, CLAUDE.md, CI, deploy "hello world" to Pages.
 1. Core: MIDI import → Song model, bar map, transport (play/pause/tempo/seek/loop/pre-roll) — tested headless.
-2. Audio: sampled piano, per-hand mute/solo, pre-roll muted/quiet.
-3. Engine: perspective highway, 88-key 3D keyboard, colors, sustains, highlights.
+2. Audio: self-hosted sampled piano, look-ahead scheduler, per-hand volume/mute/solo, sustain pedal (sound), pre-roll muted/quiet, metronome.
+3. Engine: perspective highway, 88-key 3D keyboard, colors, sustains, highlights, pedal shading band.
 4. Library: bundled manifest, uploads, per-song channel assignment.
 5. Profiles, bookmarks, stats.
 6. Tablet polish (touch UI, audio unlock, performance), MIDI out, optional PWA.
@@ -94,6 +95,13 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 8. **Stop and song end:** stop rewinds to the loop's start bar if a loop is set, otherwise to the song start (bar 0 if there is a pickup). A stopped transport is parked there, so setting a loop while stopped moves it to the loop start. Reaching the last note-off with no loop silences all notes and stops (rewound).
 9. **Jumps play onsets only:** after a seek or loop wrap, notes already held at the target are not retriggered; only notes starting from there on sound.
 10. **Pre-roll triggers:** play from stopped, any seek (including a seek while paused, which applies on the next play), and each loop iteration. Resuming from pause without a seek does not re-apply pre-roll. Pre-roll beats are spaced at the tempo and meter of the target bar.
+11. **Piano samples are self-hosted** in the repo (Splendid Grand Piano, public domain, via smplr), credited in `docs/CREDITS.md`. No runtime dependency on third-party sample servers.
+12. **Sustain pedal (CC64)** is honored in the **sound only**: a note released while its channel's pedal is down keeps sounding until the pedal is released (re-striking the same pitch cuts the previous one). Highway bars still show written lengths.
+13. **Pedal shading:** periods with the pedal down are shown as a subtle, desaturated band underneath the full width of the note highway — low-contrast so it doesn't compete with the notes. Rendering is milestone 3; the data comes from milestone 2.
+14. **Volume controls:** master volume; per hand a volume slider plus on / muted / solo (if any hand is soloed, only soloed hands sound). Audio only — never affects visibility.
+15. **Pre-roll "quiet" level** defaults to 25% of normal volume.
+16. **Metronome:** synthesized click (no sound files), accented on beat 1. Modes: off / pre-roll only / always. Own volume slider.
+17. **Data model:** `PedalInterval` — channel, startTick, endTick (down at value ≥ 64).
 
 ## Note color palette
 

@@ -4,5 +4,8 @@ import type { HandNote } from '../hands/HandNote'
 export interface TimedNote {
   readonly note: HandNote
   readonly startSec: number
+  /** Written end: drives visuals and note-off events. */
   readonly endSec: number
+  /** With the sustain pedal applied: drives sound. */
+  readonly soundEndSec: number
 }

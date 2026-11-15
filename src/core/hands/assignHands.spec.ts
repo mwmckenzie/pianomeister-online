@@ -1,15 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import type { Note } from '../song/Note'
+import type { SoundingNote } from '../sustain/SoundingNote'
 import { assignHands } from './assignHands'
 import { DEFAULT_HAND_ASSIGNMENT } from './HandAssignment'
 
-const note = (channel: number, startTick = 0): Note => ({
+const note = (channel: number, startTick = 0): SoundingNote => ({
   midi: 60,
   channel,
   startTick,
   endTick: startTick + 10,
+  soundEndTick: startTick + 10,
   velocity: 90,
 })
 

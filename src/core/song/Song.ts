@@ -1,5 +1,6 @@
 import type { ChannelInfo } from './ChannelInfo'
 import type { Note } from './Note'
+import type { PedalInterval } from './PedalInterval'
 import type { TempoEvent } from './TempoEvent'
 import type { TimeSignatureEvent } from './TimeSignatureEvent'
 
@@ -17,6 +18,8 @@ export interface Song {
   readonly channels: readonly ChannelInfo[]
   readonly tempoEvents: readonly TempoEvent[]
   readonly timeSignatureEvents: readonly TimeSignatureEvent[]
+  /** Sustain pedal (CC64) down spans per channel, sorted by start. Affects sound only. */
+  readonly pedalIntervals: readonly PedalInterval[]
   /** Tick of the last note-off. */
   readonly durationTicks: number
   readonly durationSeconds: number
