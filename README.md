@@ -1,5 +1,7 @@
 # PianoMeister Online
 
+**Live:** https://mwmckenzie.github.io/pianomeister-online/
+
 A browser-based piano practice visualizer. MIDI songs scroll down a perspective note highway toward an 88-key keyboard. See [`docs/brief.md`](docs/brief.md) for scope and design.
 
 Deployed to GitHub Pages under `/pianomeister-online/`.
