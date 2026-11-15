@@ -7,6 +7,7 @@ A browser-based piano practice visualizer: MIDI songs scroll down a perspective 
 ## Scope — v1
 
 **In**
+
 - Song library: bundled songs + user uploads (drag-and-drop / file picker), uploads persisted locally.
 - Perspective note highway receding to a horizon (Guitar Hero / Rocksmith style), always showing all 88 keys.
 - Per-pitch-class note colors (repeating each octave), sustain bars, note highlight while sounding, 3D keyboard keys lit in the note's color.
@@ -26,25 +27,26 @@ A browser-based piano practice visualizer: MIDI songs scroll down a perspective 
   - Bookmark stats: plays, total play time, last played, …
 
 **Out (for now)**
+
 - MIDI input / play-along / scoring — but the architecture keeps a seam for it.
 - Accounts, servers, cloud sync.
 - Song editing.
 
 ## Key technical decisions
 
-| Concern | Decision |
-|---|---|
-| App shell / UI | Vite + Vue 3 + TypeScript, Pinia |
-| Rendering | Plain Three.js in an isolated `engine/` module (not TresJS); instanced note meshes; 3D keyboard in the same scene so lanes align with keys |
-| MIDI parsing | `@tonejs/midi` → converted into our own Song model |
-| Timing | Own transport/scheduler on the Web Audio clock. Audio clock is master; visuals read song position each frame. Tempo % scales song-time advance. |
-| Bars | Bar map built from the file's time-signature + tempo events (default 4/4 if none). All seek/loop/pre-roll math is in bars/beats. |
-| Sound | `smplr` sampled grand, samples self-hosted in the repo; fewer velocity layers on mobile |
-| MIDI out | Web MIDI via WEBMIDI.js, feature-detected (absent on iPad/Safari) |
-| Storage | IndexedDB via Dexie (uploads, profiles, bookmarks, play log); schema versioned from day one |
-| Song identity | Content hash of the MIDI file — stats and bookmarks survive renames and re-uploads |
-| Stats | Store a raw play log; compute stats from it rather than maintaining counters |
-| Deploy | GitHub Actions → GitHub Pages; Vitest + Playwright in CI |
+| Concern        | Decision                                                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| App shell / UI | Vite + Vue 3 + TypeScript, Pinia                                                                                                                |
+| Rendering      | Plain Three.js in an isolated `engine/` module (not TresJS); instanced note meshes; 3D keyboard in the same scene so lanes align with keys      |
+| MIDI parsing   | `@tonejs/midi` → converted into our own Song model                                                                                              |
+| Timing         | Own transport/scheduler on the Web Audio clock. Audio clock is master; visuals read song position each frame. Tempo % scales song-time advance. |
+| Bars           | Bar map built from the file's time-signature + tempo events (default 4/4 if none). All seek/loop/pre-roll math is in bars/beats.                |
+| Sound          | `smplr` sampled grand, samples self-hosted in the repo; fewer velocity layers on mobile                                                         |
+| MIDI out       | Web MIDI via WEBMIDI.js, feature-detected (absent on iPad/Safari)                                                                               |
+| Storage        | IndexedDB via Dexie (uploads, profiles, bookmarks, play log); schema versioned from day one                                                     |
+| Song identity  | Content hash of the MIDI file — stats and bookmarks survive renames and re-uploads                                                              |
+| Stats          | Store a raw play log; compute stats from it rather than maintaining counters                                                                    |
+| Deploy         | GitHub Actions → GitHub Pages; Vitest + Playwright in CI                                                                                        |
 
 ## Architecture outline
 
@@ -89,25 +91,29 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 5. **Session** = starts on first playback, ends after 10 minutes without playback or when the app closes. Practice time counts only while playing (not paused).
 6. **Songs are shared** across profiles on a device; bookmarks, stats, and per-song channel assignments are per profile.
 7. **Tablet readability** of 88 lanes: deferred — not a primary concern for v1.
+8. **Stop and song end:** stop rewinds to the loop's start bar if a loop is set, otherwise to the song start (bar 0 if there is a pickup). A stopped transport is parked there, so setting a loop while stopped moves it to the loop start. Reaching the last note-off with no loop silences all notes and stops (rewound).
+9. **Jumps play onsets only:** after a seek or loop wrap, notes already held at the target are not retriggered; only notes starting from there on sound.
+10. **Pre-roll triggers:** play from stopped, any seek (including a seek while paused, which applies on the next play), and each loop iteration. Resuming from pause without a seek does not re-apply pre-roll. Pre-roll beats are spaced at the tempo and meter of the target bar.
 
 ## Note color palette
 
 Pitch-class colors (from the Unity `MMMColorSchemes_PianoKeys` asset, `colorSecondary`). Each sharp is a darker shade of the natural below it.
 
-| Pitch | Hex | Pitch | Hex |
-|---|---|---|---|
-| C  | `#FF0000` | F#  | `#D97500` |
-| C# | `#A80000` | G   | `#1CFF00` |
-| D  | `#FFE500` | G#  | `#13AC00` |
-| D# | `#A19000` | A   | `#9500FF` |
-| E  | `#00C2FF` | A#  | `#5E00AB` |
-| F  | `#FF9D00` | B   | `#FF00D5` |
+| Pitch | Hex       | Pitch | Hex       |
+| ----- | --------- | ----- | --------- |
+| C     | `#FF0000` | F#    | `#D97500` |
+| C#    | `#A80000` | G     | `#1CFF00` |
+| D     | `#FFE500` | G#    | `#13AC00` |
+| D#    | `#A19000` | A     | `#9500FF` |
+| E     | `#00C2FF` | A#    | `#5E00AB` |
+| F     | `#FF9D00` | B     | `#FF00D5` |
 
 Only these 12 colors are used for notes. The other fields in the Unity asset are ignored.
 
 ## Key and note visual behavior
 
 **Piano keys**
+
 - At rest, keys are plain white or black.
 - As a note approaches, its pitch color is laid over the key and fades in, from fully transparent to more visible. The fade runs over a short window before the note starts (default: 1 beat, tempo-relative, configurable).
 - While the note sounds, the key shows the pitch color at full strength.
@@ -115,6 +121,7 @@ Only these 12 colors are used for notes. The other fields in the Unity asset are
 - Repeated notes on one key: a sounding note always takes priority over the next note's fade-in.
 
 **Effects on the "now" line** (the zero-lookahead line at the near end of the highway, directly above the keys)
+
 - **Note start:** a short, bright burst in the pitch color, such as a flash or a small spray of sparks.
 - **While held:** a mild, steady effect in the pitch color, such as a pulsing glow or a small flame. It should be clearly visible but not distracting.
 - **Note end:** the held effect fades out quickly.
