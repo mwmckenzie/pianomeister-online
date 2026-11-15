@@ -45,8 +45,18 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // Visual-review screenshots are for a human to inspect, so they run separately.
+      grepInvert: /@visual/,
       use: {
         ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'visual',
+      grep: /@visual/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1600, height: 900 },
       },
     },
   ],
