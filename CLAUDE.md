@@ -12,6 +12,7 @@ Browser-based piano practice visualizer: MIDI songs scroll down a perspective no
 - `npm run preview` — serve the production build locally
 - `npm run test:unit` — Vitest (watch mode); `npx vitest run` for a single pass
 - `npm run test:e2e` — Playwright
+- `npm run songs:manifest` — regenerate `public/songs/manifest.json` after adding/changing bundled songs (then fill in title/composer/tags)
 
 ## Stack
 
@@ -42,7 +43,7 @@ src/
 - Named exports only (no default exports, except where Vue/Vite require them).
 - No `any`. Prefer `readonly` data and pure functions in `core/`.
 - Tests sit next to the code: `foo.ts` → `foo.spec.ts`.
-- Comments explain *why*, not *what*.
+- Comments explain _why_, not _what_.
 
 ## Working rules
 
@@ -52,3 +53,15 @@ src/
 - Small, focused commits with conventional prefixes (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`).
 - Never edit `dist/`, `.idea/`, or lockfiles by hand.
 - When a decision isn't covered by the brief, ask rather than guess, and propose an update to `docs/brief.md`.
+
+## Reports
+
+Whenever you stop for my review (after a plan is approved and built, after a fix, or when you're blocked), write or update a Markdown report at `docs/reports/<branch-name>.md` before replying, with `/` in the branch name replaced by `-` (e.g. `feat/m4-library` → `docs/reports/feat-m4-library.md`). Include:
+
+- what was done and what changed (files/areas),
+- decisions you made that weren't in the instructions,
+- test and check results (pass/fail, counts, perf numbers),
+- known issues and open questions,
+- a short manual review checklist for me.
+
+Keep earlier sections and append a dated section for each review round. Commit it with the work on the branch.
