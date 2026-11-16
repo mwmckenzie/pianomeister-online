@@ -32,12 +32,21 @@ export class PlaybackSession {
   private readonly scheduler: AudioScheduler
   private readonly visualClock: LatencyCompensatedClock
   private loaded: LoadedSong | null = null
+  private loadedKey: string | null = null
+  private progress = { loaded: 0, total: 0 }
+  private readonly progressListeners = new Set<(loaded: number, total: number) => void>()
 
-  constructor(options: { readonly onProgress?: (loaded: number, total: number) => void } = {}) {
+  constructor() {
     const clock = new AudioContextClock(this.context)
     this.visualClock = new LatencyCompensatedClock(this.context)
     this.transport = new Transport({ clock, bus: this.bus })
-    this.output = new SmplrOutput(this.context, { baseUrl: SAMPLES_URL, onProgress: options.onProgress })
+    this.output = new SmplrOutput(this.context, {
+      baseUrl: SAMPLES_URL,
+      onProgress: (loaded, total) => {
+        this.progress = { loaded, total }
+        for (const listener of this.progressListeners) listener(loaded, total)
+      },
+    })
     this.ready = this.output.ready
     this.scheduler = new AudioScheduler({
       transport: this.transport,
@@ -53,9 +62,25 @@ export class PlaybackSession {
     return this.loaded
   }
 
+  /** The key passed to the last load(), so a view can tell whether a song is already set up. */
+  get songKey(): string | null {
+    return this.loadedKey
+  }
+
+  /** Sample loading progress; the listener is called now and on every update. Returns an unsubscribe. */
+  onSampleProgress(listener: (loaded: number, total: number) => void): () => void {
+    this.progressListeners.add(listener)
+    listener(this.progress.loaded, this.progress.total)
+    return () => this.progressListeners.delete(listener)
+  }
+
   load(
     song: Song,
-    options: { readonly hands?: HandAssignment; readonly override?: MeterOverride | null } = {},
+    options: {
+      readonly hands?: HandAssignment
+      readonly override?: MeterOverride | null
+      readonly key?: string
+    } = {},
   ): LoadedSong {
     const hands = options.hands ?? DEFAULT_HAND_ASSIGNMENT
     const tempoMap = new TempoMap(song.ppq, song.tempoEvents)
@@ -70,6 +95,7 @@ export class PlaybackSession {
       pedalIntervals: song.pedalIntervals.filter((p) => assigned.has(p.channel)),
     }
     this.loaded = loaded
+    this.loadedKey = options.key ?? null
     this.transport.setSong({ notes, tempoMap, barMap, endTick: song.durationTicks })
     return loaded
   }
