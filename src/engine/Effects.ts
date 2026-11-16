@@ -9,6 +9,7 @@ import {
 
 import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
 
+import type { KeyBody } from './model/KeyBody'
 import { keyLayout } from './model/keyLayout'
 import { KEYBOARD } from './model/KEYBOARD'
 import type { KeyState } from './model/KeyState'
@@ -66,6 +67,11 @@ export class Effects {
   private readonly maxLife = new Float32Array(MAX_SPARKS)
   private nextSpark = 0
   private readonly glowLevel = new Float32Array(88)
+  /** Velocity scale of each key's latest sounding note (kept while its glow fades out). */
+  private readonly glowScale = new Float32Array(88).fill(1)
+  private readonly glowBaseSize = new Float32Array(88)
+  /** Key top heights, from the keyboard settings. */
+  private readonly keyTop = new Float32Array(88)
   private elapsed = 0
   private readonly uScale = { value: 400 }
 
@@ -79,7 +85,9 @@ export class Effects {
       )
       const c = srgb(PITCH_CLASS_COLORS[key.midi % 12]?.hex ?? '#FFFFFF')
       this.glow.color.set([c.r, c.g, c.b], i * 3)
-      this.glow.size[i] = key.isBlack ? 1.6 : 2.2
+      this.glowBaseSize[i] = key.isBlack ? 1.6 : 2.2
+      this.glow.size[i] = this.glowBaseSize[i] as number
+      this.keyTop[i] = key.raised
     })
     this.markDirty(this.glow, true)
     this.group.add(this.glow.points, this.sparks.points)
@@ -90,15 +98,28 @@ export class Effects {
     this.uScale.value = scale
   }
 
-  spawn(midi: number): void {
-    const key = keyLayout()[midi - KEYBOARD.lowest]
+  /** Places the glow and spark origins on the key tops (they move with the black key height). */
+  setKeyTops(bodies: readonly KeyBody[]): void {
+    bodies.forEach((body, i) => {
+      this.keyTop[i] = body.top
+      this.glow.position[i * 3 + 1] = body.top + 0.15
+    })
+    this.markDirty(this.glow, true)
+  }
+
+  /** A burst on an onset; `scale` (from the note's velocity) sizes the burst and its sparks. */
+  spawn(midi: number, scale = 1): void {
+    const index = midi - KEYBOARD.lowest
+    const key = keyLayout()[index]
     if (key === undefined) return
+    const top = this.keyTop[index] as number
     const c = srgb(PITCH_CLASS_COLORS[midi % 12]?.hex ?? '#FFFFFF')
-    for (let n = 0; n < SPARKS_PER_ONSET; n++) {
+    const count = Math.max(1, Math.round(SPARKS_PER_ONSET * scale))
+    for (let n = 0; n < count; n++) {
       const i = this.nextSpark
       this.nextSpark = (this.nextSpark + 1) % MAX_SPARKS
       this.sparks.position.set(
-        [key.x + key.width * (0.2 + 0.6 * Math.random()), key.raised + 0.05, -KEYBOARD.whiteLength],
+        [key.x + key.width * (0.2 + 0.6 * Math.random()), top + 0.05, -KEYBOARD.whiteLength],
         i * 3,
       )
       this.velocity.set(
@@ -106,14 +127,17 @@ export class Effects {
         i * 3,
       )
       this.sparks.color.set([c.r, c.g, c.b], i * 3)
-      this.sparks.size[i] = 0.25 + Math.random() * 0.2
+      this.sparks.size[i] = (0.25 + Math.random() * 0.2) * scale
       this.maxLife[i] = 0.3 + Math.random() * 0.3
       this.life[i] = this.maxLife[i] as number
     }
   }
 
-  /** Advances sparks and glow by `dt` seconds; `states` are the 88 key states in key order. */
-  update(dt: number, states: readonly KeyState[]): void {
+  /**
+   * Advances sparks and glow by `dt` seconds; `states` are the 88 key states in key order.
+   * `scaleOf` maps a sounding note's velocity to the held glow's size.
+   */
+  update(dt: number, states: readonly KeyState[], scaleOf: (velocity: number) => number): void {
     this.elapsed += dt
     const step = Math.min(dt, 0.05)
     for (let i = 0; i < MAX_SPARKS; i++) {
@@ -134,6 +158,8 @@ export class Effects {
     }
     states.forEach((state, i) => {
       // Held: a mild steady pulse. Released: fade out quickly.
+      if (state.sounding) this.glowScale[i] = scaleOf(state.velocity)
+      this.glow.size[i] = (this.glowBaseSize[i] as number) * (this.glowScale[i] as number)
       const target = state.sounding ? 0.45 + 0.12 * Math.sin(this.elapsed * 7 + i) : 0
       const current = this.glowLevel[i] as number
       this.glowLevel[i] = target > current ? target : current * Math.exp(-step * 14)
