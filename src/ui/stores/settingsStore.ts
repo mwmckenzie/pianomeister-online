@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, toRaw, watch } from 'vue'
 
+import { constrainKeyboard } from '@/core/settings/constrainKeyboard'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import { loadSettings, storedSettings } from '@/core/settings/loadSettings'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
@@ -28,11 +29,21 @@ function write(settings: PlayerSettings): void {
   }
 }
 
-/** Player view settings, persisted to localStorage (versioned) until profiles arrive in m5. */
+/** Player view settings, persisted to localStorage (versioned) until profiles arrive in milestone 7. */
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<Editable<PlayerSettings>>(structuredClone(read()))
 
-  watch(settings, (value) => write(toRaw(value)), { deep: true })
+  watch(
+    settings,
+    (value) => {
+      // Keep the keyboard within its cross-setting limits as the user edits (e.g. lowering the
+      // black keys lowers their maximum press depth too).
+      const limited = constrainKeyboard(value.keyboard)
+      if (limited !== value.keyboard) Object.assign(value.keyboard, limited)
+      write(toRaw(value))
+    },
+    { deep: true },
+  )
 
   /** A plain, detached copy for the (non-reactive) engine. */
   function snapshot(): PlayerSettings {
@@ -43,5 +54,10 @@ export const useSettingsStore = defineStore('settings', () => {
     settings.value = structuredClone(DEFAULT_SETTINGS)
   }
 
-  return { settings, snapshot, reset }
+  /** Restores one section, e.g. "Reset to grand piano" for the keyboard. */
+  function resetSection(section: keyof PlayerSettings): void {
+    Object.assign(settings.value[section], structuredClone(DEFAULT_SETTINGS[section]))
+  }
+
+  return { settings, snapshot, reset, resetSection }
 })

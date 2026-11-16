@@ -192,6 +192,12 @@ function onKeyDown(event: KeyboardEvent): void {
 
 const onGesture = () => void session?.unlock()
 
+/** For the settings readout: what the engine renders at and how long a frame takes. */
+function renderStatus() {
+  const info = engine?.renderInfo() ?? null
+  return info === null ? null : { info, frameMs: engine?.stats().averageFrameMs ?? 0 }
+}
+
 watch(tempoPercent, (p) => session?.transport.setTempoPercent(p))
 watch(preRollBeats, (beats) => session?.transport.setPreRoll({ beats, mode: 'muted' }))
 watch(
@@ -207,7 +213,8 @@ onMounted(() => {
   if (route.query.stats === '1') {
     // Debug-only (like ?guides=1): lets a test harness read frame timings for perf reports.
     const stats = () => engine?.stats()
-    Object.assign(window, { pianomeisterEngineStats: stats })
+    const renderInfo = () => engine?.renderInfo()
+    Object.assign(window, { pianomeisterEngineStats: stats, pianomeisterRenderInfo: renderInfo })
   }
   engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {
@@ -304,7 +311,11 @@ onBeforeUnmount(() => {
       </button>
     </section>
 
-    <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
+    <SettingsPanel
+      v-if="settingsOpen"
+      :render-status="renderStatus"
+      @close="settingsOpen = false"
+    />
   </main>
 </template>
 
