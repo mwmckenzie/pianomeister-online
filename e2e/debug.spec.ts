@@ -28,7 +28,7 @@ test('debug page loads self-hosted samples and plays the Minuet', async ({ page,
   })
 
   await page.goto('./#/debug')
-  await page.getByTestId('fixture-select').selectOption('minuet-in-g.mid')
+  await page.getByTestId('fixture-select').selectOption({ label: 'Minuet in G' })
   await expect(page.getByTestId('bar-count')).toHaveText('64')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
 
