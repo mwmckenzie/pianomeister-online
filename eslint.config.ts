@@ -25,6 +25,11 @@ export default defineConfigWithVueTs(
   {
     ...pluginPlaywright.configs['flat/recommended'],
     files: ['e2e/**/*.{test,spec}.{js,ts,jsx,tsx}'],
+    rules: {
+      ...pluginPlaywright.configs['flat/recommended'].rules,
+      // Visual-review tests assert inside their screenshot helper.
+      'playwright/expect-expect': ['warn', { assertFunctionNames: ['shoot'] }],
+    },
   },
 
   {

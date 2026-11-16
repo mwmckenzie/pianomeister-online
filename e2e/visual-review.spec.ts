@@ -3,98 +3,251 @@ import { fileURLToPath } from 'node:url'
 import { test, expect, type Page } from '@playwright/test'
 
 /**
- * Screenshots for a human to review (npm run test:visual): saved under test-results/visual/,
- * never committed. Each view is shot twice: plain, and with ?guides=1, which marks the 1x
- * (amber) and 1.5x (magenta) look-ahead depths.
+ * Screenshots for a human to review (npm run test:visual), saved under test-results/visual/ and
+ * never committed. Milestone 5 views are zoomed (distance offset −0.4) so notes and keys are
+ * large; the synthetic clarity demo has sharps and naturals sounding side by side, short and
+ * long notes, repeated notes and a velocity ramp.
  */
-const VIEWS = [
-  { name: 'tilt-30', tiltDeg: 30, distanceOffset: 0 },
-  { name: 'tilt-45', tiltDeg: 45, distanceOffset: 0 },
-  { name: 'tilt-70', tiltDeg: 70, distanceOffset: 0 },
-  { name: 'tilt-45-closer', tiltDeg: 45, distanceOffset: -0.3 },
-] as const
-
+const OUT = 'test-results/visual'
 const PEDAL_DEMO = fileURLToPath(new URL('../test-fixtures/midi/pedal-demo.mid', import.meta.url))
+const CLARITY_DEMO = fileURLToPath(
+  new URL('../test-fixtures/midi/clarity-demo.mid', import.meta.url),
+)
+const ZOOM = -0.4
 
-async function seedSettings(page: Page, camera: { tiltDeg: number; distanceOffset: number }) {
+type Settings = Record<string, Record<string, unknown>>
+
+/** Seeds v2 settings (sections merged over the defaults) before the app loads. */
+async function seed(page: Page, settings: Settings) {
   await page.addInitScript(
     (value) => {
       localStorage.setItem('pianomeister.settings', value)
     },
-    JSON.stringify({ version: 1, settings: { camera: { ...camera, pan: 0 } } }),
+    JSON.stringify({ version: 2, settings }),
   )
 }
 
-/** The pedal demo isn't a library song: upload it, then open it from its details panel. */
-async function openPedalDemo(page: Page) {
+/** Uploads a test file through the Library and opens it, so the player reopens it on load. */
+async function openUpload(page: Page, file: string, title: string) {
   await page.goto('./#/library')
-  await page.getByTestId('upload-input').setInputFiles(PEDAL_DEMO)
+  await page.getByTestId('upload-input').setInputFiles(file)
   await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
-  await page.getByTestId('song-row').filter({ hasText: 'Pedal demo' }).click()
+  await page.getByTestId('song-row').filter({ hasText: title }).click()
   await page.getByTestId('details-play').click()
-  await expect(page.getByTestId('hud-title')).toHaveText('Pedal demo')
+  await expect(page.getByTestId('hud-title')).toHaveText(title)
 }
 
-async function showBar(page: Page, path: string, bar: number) {
-  await page.goto(path)
-  // A hash-only change (e.g. after opening a song) doesn't reload; ?guides is read on load.
+/** Loads the player fresh (so ?guides and settings apply) and steps to the start of `bar`. */
+async function showBar(page: Page, bar: number, guides = false) {
+  await page.goto(guides ? './#/?guides=1' : './')
   await page.reload()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
   for (let i = 1; i < bar; i++) await page.getByRole('button', { name: 'Next bar' }).click()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText(`${bar}:1`)
-  // Let a few frames render at the new position.
+  await settle(page)
+}
+
+/** Waits for a few rendered frames (key presses take ~40 ms to settle). */
+async function settle(page: Page, frames = 20) {
   await page.evaluate(
-    () =>
+    (count) =>
       new Promise<void>((resolve) => {
-        let frames = 0
-        const tick = () => (++frames >= 10 ? resolve() : requestAnimationFrame(tick))
+        let n = 0
+        const tick = () => (++n >= count ? resolve() : requestAnimationFrame(tick))
         requestAnimationFrame(tick)
       }),
+    frames,
   )
 }
 
-for (const view of VIEWS) {
-  for (const guides of [false, true]) {
-    test(`@visual Minuet at bar 5, ${view.name}${guides ? ', guides' : ''}`, async ({ page }) => {
-      await seedSettings(page, view)
-      // A fresh browser profile opens the first bundled song, the Minuet.
-      await showBar(page, guides ? './#/?guides=1' : './', 5)
-      await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
-      const shot = await page.screenshot({
-        path: `test-results/visual/minuet-bar5-${view.name}${guides ? '-guides' : ''}.png`,
-      })
-      expect(shot.byteLength).toBeGreaterThan(0)
+async function shoot(page: Page, name: string) {
+  const shot = await page.screenshot({ path: `${OUT}/${name}.png` })
+  expect(shot.byteLength).toBeGreaterThan(0)
+}
+
+const camera = (tiltDeg: number, distanceOffset = ZOOM, pan = 0) => ({
+  camera: { tiltDeg, distanceOffset, pan },
+})
+
+// 1. Defaults, zoomed, at three tilts — Minuet (bar 5) and the clarity demo (bar 1).
+for (const tilt of [30, 45, 70]) {
+  test(`@visual Minuet zoomed, defaults, tilt ${tilt}`, async ({ page }) => {
+    await seed(page, camera(tilt))
+    await showBar(page, 5)
+    await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
+    await shoot(page, `m5-minuet-zoomed-tilt${tilt}`)
+  })
+
+  test(`@visual clarity demo zoomed, defaults, tilt ${tilt}`, async ({ page }) => {
+    await seed(page, camera(tilt))
+    await openUpload(page, CLARITY_DEMO, 'Clarity demo')
+    await showBar(page, 1)
+    await shoot(page, `m5-clarity-zoomed-tilt${tilt}`)
+  })
+}
+
+// 2. Each item off vs on, on the clarity demo at tilt 45, zoomed.
+const TOGGLES: readonly {
+  readonly name: string
+  readonly bar: number
+  readonly variants: readonly { readonly label: string; readonly settings: Settings }[]
+}[] = [
+  {
+    name: 'heads',
+    bar: 3,
+    variants: [
+      { label: 'flat', settings: { notes: { heads3d: false } } },
+      { label: '3d', settings: {} },
+    ],
+  },
+  {
+    name: 'lift-shadow',
+    bar: 1,
+    variants: [
+      {
+        label: 'off',
+        settings: { notes: { blackLiftMode: 'manual', blackLift: 0, contactShadow: false } },
+      },
+      { label: 'on', settings: {} },
+    ],
+  },
+  {
+    name: 'lane-shading',
+    bar: 1,
+    variants: [
+      { label: 'off', settings: { highway: { blackLaneShading: false } } },
+      { label: 'on', settings: {} },
+    ],
+  },
+  {
+    name: 'keys-pressed',
+    bar: 8,
+    variants: [
+      { label: 'animate-off', settings: { keyboard: { animate: false } } },
+      { label: 'animate-on', settings: {} },
+    ],
+  },
+  {
+    // Bevels must look the same on short and long heads, whatever the look-ahead.
+    name: 'bevel-lookahead',
+    bar: 3,
+    variants: [
+      { label: '2-beats', settings: { highway: { lookAheadBeats: 2 } } },
+      { label: '32-beats', settings: { highway: { lookAheadBeats: 32 } } },
+    ],
+  },
+  {
+    // Lanes never move: with a wide gap, notes still meet key centres.
+    name: 'gap',
+    bar: 8,
+    variants: [
+      { label: '0', settings: { keyboard: { gap: 0 } } },
+      { label: '0.15', settings: { keyboard: { gap: 0.15 } } },
+    ],
+  },
+]
+
+for (const toggle of TOGGLES) {
+  for (const variant of toggle.variants) {
+    test(`@visual clarity demo, ${toggle.name}: ${variant.label}`, async ({ page }) => {
+      await seed(page, { ...camera(45), ...variant.settings })
+      await openUpload(page, CLARITY_DEMO, 'Clarity demo')
+      await showBar(page, toggle.bar)
+      await shoot(page, `m5-${toggle.name}-${variant.label}`)
     })
   }
 }
 
-for (const guides of [false, true]) {
-  test(`@visual pedal demo at bar 2${guides ? ', guides' : ''}`, async ({ page }) => {
-    await seedSettings(page, { tiltDeg: 45, distanceOffset: 0 })
-    await openPedalDemo(page)
-    await showBar(page, guides ? './#/?guides=1' : './', 2)
-    const shot = await page.screenshot({
-      path: `test-results/visual/pedal-demo-bar2${guides ? '-guides' : ''}.png`,
-    })
-    expect(shot.byteLength).toBeGreaterThan(0)
+// 3. Key edge profiles, close up on the keys (tilt 30, closest distance).
+for (const profile of ['none', 'chamfer', 'rounded'] as const) {
+  test(`@visual key edges close-up: ${profile}`, async ({ page }) => {
+    await seed(page, { ...camera(30, -0.6), keyboard: { edgeProfile: profile } })
+    await openUpload(page, CLARITY_DEMO, 'Clarity demo')
+    await showBar(page, 8)
+    await shoot(page, `m5-edges-${profile}`)
   })
 }
 
-test('@visual library page with details panel', async ({ page }) => {
-  await openPedalDemo(page)
-  await page.goto('./#/library')
-  await page.getByTestId('song-row').filter({ hasText: 'Pedal demo' }).click()
-  await expect(page.getByRole('complementary', { name: 'Song details' })).toBeVisible()
-  await expect(page.getByTestId('hand-ch0')).toBeVisible()
-  const shot = await page.screenshot({ path: 'test-results/visual/library-details.png' })
-  expect(shot.byteLength).toBeGreaterThan(0)
+// 3b. Pressed keys close up (round 2): black keys next to pressed white keys in the final chord
+// (C, C#, D#, E, F#, G), at the default depths, at the deepest black press, and with the black
+// keys as high as allowed. Values beyond the limits are clamped, so 9 means "the maximum".
+const PRESS_VARIANTS: readonly { readonly label: string; readonly keyboard: Settings[string] }[] = [
+  { label: 'default', keyboard: {} },
+  { label: 'black-max-depth', keyboard: { pressDepthBlack: 9 } },
+  { label: 'black-max-height', keyboard: { blackHeight: 9, pressDepthBlack: 9 } },
+]
+for (const tilt of [30, 45]) {
+  for (const variant of PRESS_VARIANTS) {
+    test(`@visual pressed keys close-up, tilt ${tilt}: ${variant.label}`, async ({ page }) => {
+      await seed(page, { ...camera(tilt, -0.6), keyboard: variant.keyboard })
+      await openUpload(page, CLARITY_DEMO, 'Clarity demo')
+      await showBar(page, 8)
+      await shoot(page, `m5-press-tilt${tilt}-${variant.label}`)
+    })
+  }
+}
+
+// 4. Render quality: every anti-aliasing mode at the same view as the "before" baseline
+// (Minuet, bar 5, tilt 45, zoomed), and the drawing buffer after a device-pixel-ratio change.
+for (const mode of ['off', 'msaa', 'fxaa', 'smaa'] as const) {
+  test(`@visual render quality: ${mode}`, async ({ page }) => {
+    await seed(page, { ...camera(45), render: { antialias: mode } })
+    await showBar(page, 5)
+    await shoot(page, `m5-render-${mode}`)
+  })
+}
+
+test('@visual render quality after a device-pixel-ratio change (monitor switch / zoom)', async ({
+  page,
+}) => {
+  await seed(page, camera(45))
+  await showBar(page, 5)
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1600,
+    height: 900,
+    deviceScaleFactor: 1.5,
+    mobile: false,
+  })
+  await expect
+    .poll(() => page.evaluate(() => document.querySelector('canvas')?.width ?? 0))
+    .toBe(2400)
+  await settle(page)
+  await shoot(page, 'm5-render-after-dpr-1.5')
 })
 
-test('@visual library details as a sheet on a narrow screen', async ({ page }) => {
-  await page.setViewportSize({ width: 600, height: 900 })
+// 5. Milestone 3/4 views kept for regression: default distance with look-ahead guides, the
+// pedal demo, and the library.
+for (const guides of [false, true]) {
+  test(`@visual Minuet at bar 5, tilt 45${guides ? ', guides' : ''}`, async ({ page }) => {
+    await seed(page, camera(45, 0))
+    await showBar(page, 5, guides)
+    await shoot(page, `minuet-bar5-tilt-45${guides ? '-guides' : ''}`)
+  })
+}
+
+test('@visual pedal demo at bar 2', async ({ page }) => {
+  await seed(page, camera(45, 0))
+  await openUpload(page, PEDAL_DEMO, 'Pedal demo')
+  await showBar(page, 2)
+  await shoot(page, 'pedal-demo-bar2')
+})
+
+test('@visual library page with details panel', async ({ page }) => {
+  await openUpload(page, PEDAL_DEMO, 'Pedal demo')
   await page.goto('./#/library')
-  await page.getByTestId('song-row').filter({ hasText: 'Canon in D' }).click()
+  await page.getByTestId('song-row').filter({ hasText: 'Pedal demo' }).click()
   await expect(page.getByTestId('hand-ch0')).toBeVisible()
-  const shot = await page.screenshot({ path: 'test-results/visual/library-details-narrow.png' })
-  expect(shot.byteLength).toBeGreaterThan(0)
+  await shoot(page, 'library-details')
+})
+
+test('@visual settings panel', async ({ page }) => {
+  await page.goto('./')
+  await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
+  await page.getByTestId('open-settings').click()
+  await expect(page.getByTestId('render-readout')).toContainText('px')
+  await page.getByRole('complementary', { name: 'Settings' }).evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await shoot(page, 'settings-panel')
 })

@@ -10,6 +10,8 @@ export interface NoteInstance {
   readonly endTick: number
   /** End of the solid head: a 1/64 note (ppq/16 ticks), or the whole note if shorter. */
   readonly headEndTick: number
+  /** MIDI velocity 0–127 (drives the size of now-line effects). */
+  readonly velocity: number
   /** Pitch class 0–11, indexing the note palette. */
   readonly colorIndex: number
   readonly hand: Hand

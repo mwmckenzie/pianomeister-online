@@ -4,6 +4,8 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import type { Hand } from '@/core/hands/Hand'
 import { defaultHands } from '@/core/hands/defaultHands'
 import type { HandAssignment } from '@/core/hands/HandAssignment'
+import type { LibraryEntry } from '@/core/library/LibraryEntry'
+import type { SongMetaFields } from '@/core/library/SongMetaFields'
 import { noteName } from '@/core/noteName'
 import { BarMap } from '@/core/timing/BarMap'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
@@ -77,23 +79,41 @@ async function resetMeta(): Promise<void> {
  * original), or, if the save failed, the previous value while the error is shown. Other fields
  * are sent as stored, so a save never carries along another field's unsaved text.
  */
-async function saveField(field: 'title' | 'composer'): Promise<void> {
-  const stored = entry.value
-  if (stored === null) return
-  await store.setMeta(props.songId, {
-    title: field === 'title' ? title.value : stored.title,
-    composer: field === 'composer' ? composer.value : stored.composer,
-    tags: stored.tags,
+/**
+ * Metadata saves run one at a time, and each builds its fields when it runs, from the entry as
+ * stored by then: two quick edits (title, then composer) must not race, or the second would
+ * send the old title back.
+ */
+let metaQueue: Promise<void> = Promise.resolve()
+
+function queueMeta(fields: (stored: LibraryEntry) => SongMetaFields): Promise<void> {
+  const run = metaQueue.then(async () => {
+    const stored = entry.value
+    if (stored !== null) await store.setMeta(props.songId, fields(stored))
   })
+  metaQueue = run.catch(() => undefined)
+  return run
+}
+
+/**
+ * Saves one text field (on blur, or Enter, which blurs) and waits for the write. Afterwards the
+ * field shows what is stored: the saved value (trimmed; an emptied title falls back to the
+ * original), or, if the save failed, the previous value while the error is shown.
+ */
+async function saveField(field: 'title' | 'composer'): Promise<void> {
+  const value = field === 'title' ? title.value : composer.value
+  await queueMeta((stored) => ({
+    title: field === 'title' ? value : stored.title,
+    composer: field === 'composer' ? value : stored.composer,
+    tags: stored.tags,
+  }))
   if (field === 'title') title.value = entry.value?.title ?? ''
   else composer.value = entry.value?.composer ?? ''
 }
 
 function saveTags(tags: readonly string[]): void {
-  const stored = entry.value
-  if (stored === null) return
   // The tag chips show the stored tags, so a failed save leaves them as they were.
-  void store.setMeta(props.songId, { title: stored.title, composer: stored.composer, tags })
+  void queueMeta((stored) => ({ title: stored.title, composer: stored.composer, tags }))
 }
 
 function blurOnEnter(event: KeyboardEvent): void {

@@ -82,8 +82,15 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 2. Audio: self-hosted sampled piano, look-ahead scheduler, per-hand volume/mute/solo, sustain pedal (sound), pre-roll muted/quiet, metronome.
 3. Engine: perspective highway, 88-key 3D keyboard, colors, sustains, highlights, pedal shading band; player screen + HUD, settings panel (localStorage).
 4. Library page, bundled manifest, uploads (IndexedDB), song details panel (metadata, tags, hand channels, meter override), library export/import, web app manifest.
-5. Profiles, bookmarks, stats.
-6. Tablet polish (touch UI, audio unlock, performance), MIDI out, optional PWA.
+5. Visual clarity: 3D note heads, lifted black-lane notes with contact shadow, black-key lane shading, simple lighting, keyboard dimensions and key edge profile, animated keys, velocity-scaled effects, render quality.
+6. UI foundation: design system, app shell, tabbed settings, transport bar.
+7. Profiles, bookmarks, stats.
+8. Section overview & loop editor.
+9. Visual polish (post-processing, shader styles).
+10. Hand caging.
+11. Tablet, MIDI out, offline.
+
+Unscheduled ideas and the reasoning behind this order live in `docs/roadmap.md`.
 
 ## Confirmed decisions
 
@@ -109,22 +116,33 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 20. **Keyboard proportions (grand piano):** white key 23.5 mm wide × 150 mm visible length; black key 13.7 mm × 95 mm, slightly raised. World unit = one white-key width. Key proportions are fixed in world space and never change with camera settings.
 21. **Camera:** tilt default **45°** (adjustable); **distance offset**: 0 = all 88 keys exactly fill the screen width, positive = farther away, **negative = closer, cropping the outer keys**; **horizontal pan**, default centered. The keyboard and the highway share the camera, so lanes always meet their keys.
 22. **Scene defaults (all adjustable):** background very dark blue (`#05070F`), highway surface slightly lighter (`#0A0F1E`); lane lines desaturated blue, translucent; bar lines the same hue, clearly more visible; beat lines barely visible; pedal band subtle desaturated blue-grey.
-23. **Settings** are stored in localStorage (versioned) until profiles arrive in milestone 5.
+23. **Settings** are stored in localStorage (versioned) until profiles arrive in milestone 7.
 24. **Player is the home page** (`/`); the debug page stays at `#/debug`.
 25. **HUD:** top-left — song title, length, position (m:ss), bar:beat. Top-right — current BPM (song tempo at the position × tempo %), song BPM at the position, tempo %. Top-center — temporary controls (to be redesigned later). A gear button opens the settings panel.
 26. **Library page** at `#/library`: searchable, sortable list; group by composer or tag; filter by tag and source. Picking a song opens it in the player; the player has a Library button.
-27. **Startup:** the player (home page) reopens the last selected song (from milestone 5: the last song *or bookmark*). First run falls back to the first bundled song.
+27. **Startup:** the player (home page) reopens the last selected song (from milestone 7: the last song *or bookmark*). First run falls back to the first bundled song.
 28. **Song metadata is editable for every song** (bundled and uploaded): display title, composer, free-form tags. Edits are stored locally and shared across profiles; the original values are kept and can be restored ("Reset to original").
 29. **Uploads:** multiple files at once; `.mid`/`.midi` only; max 2 MB each; duplicates detected by content hash (against bundled songs and other uploads) are skipped with a message; uploads can be deleted (with confirmation). Bundled songs can't be deleted.
 30. **Hand channel fallback:** if neither channel 0 nor 1 has notes, assign by average pitch — highest-average channel → right hand, next → left, others hidden; a single channel → right hand. Users can change it in the song's details panel.
 31. **Song details panel** (inside the Library page): metadata and tags, file facts, hand channel assignment, meter override editor, delete (uploads only), Play.
 32. **Library export/import:** one `.zip` containing all uploaded MIDI files plus a versioned `library.json` (metadata edits and tags for all songs, meter overrides). Importing skips duplicates; for songs already present, local metadata edits are kept and the import report says so.
-33. **Storage protection:** request persistent storage (`navigator.storage.persist()`) on the first upload and show the storage status in the Library; ship a web app manifest so the site can be added to an iPad/iPhone home screen (home-screen apps aren't subject to Safari's 7-day storage deletion). Offline support (service worker) stays in milestone 6.
+33. **Storage protection:** request persistent storage (`navigator.storage.persist()`) on the first upload and show the storage status in the Library; ship a web app manifest so the site can be added to an iPad/iPhone home screen (home-screen apps aren't subject to Safari's 7-day storage deletion). Offline support (service worker) stays in milestone 11.
 34. **Adding bundled songs:** drop the `.mid` into `public/songs/`, run `npm run songs:manifest`, then fill in title/composer/tags in the manifest.
 35. **Deleting an upload** also deletes its metadata edits, meter override and hand assignments. Re-uploading starts fresh (future stats and bookmarks are keyed by hash and are unaffected).
 36. **Original title of an upload:** the MIDI sequence name — the name of a format 0 file's track, or of a format 1 file's first track when it is a conductor track (no notes) — otherwise the file name without its extension. Other track names are ignored: they usually name the instrument ("Piano"). Uploads have no original composer or tags.
-37. **Library export** holds metadata edits and meter overrides, not hand assignments: those are per profile and travel with the profile export (milestone 5).
+37. **Library export** holds metadata edits and meter overrides, not hand assignments: those are per profile and travel with the profile export (milestone 7).
 38. **Playback survives navigation:** the app keeps one playback session, so going to the Library and back doesn't reload the piano samples. Leaving the player pauses playback.
+39. **3D note heads:** heads are raised blocks with the head's footprint (lane width × 1/64 note), height **0.35**, **rounded edges on** (radius 0.06, at most 40% of the head's smallest side). The bevel keeps its world size whatever the note length, tempo or look-ahead. Sustains stay flat. Black-lane heads draw above white-lane heads.
+40. **Black-key-lane notes are lifted** (heads and sustains). Default: **match the black-key height**, so they meet the raised key tops at the now line; or a manual lift 0–0.8 (default 0.51).
+41. **Contact shadow** under black-lane notes, falling on the highway and neighbouring white-lane notes: strength **45%**, soft edge. Faked with soft quads — no shadow maps.
+42. **Black-key lane shading:** black-key lanes on the highway are darker than white-key lanes: **on**, strength **22%**.
+43. **Simple lighting:** one key light + ambient, computed in the shaders, for keys and note heads: lighter top faces, darker sides, highlights on bevels. No shadow maps or post-processing (milestone 9).
+44. **Keyboard dimensions** (defaults = real grand-piano proportions; "Reset to grand piano" restores them): key thickness (body height) **0.6**, gap between white keys **0.06**, black key length **63%** of white, black key height **12 mm (0.51)** above the white keys. Lanes never move: the gap shrinks white key bodies inside their lanes; black keys keep their lane width. **Limits** (in the settings and in the geometry): black key height ≤ key thickness, so a raised black key's body always reaches down to the white keys and never floats above them; black press depth ≤ black key height − 0.08 (≈2 mm), so a fully pressed black key's top stays above the white key tops (lowering the black keys lowers this limit and clamps the depth); white press depth ≤ key thickness, so a pressed white key's front never drops below the keyboard's bottom.
+45. **Key edge profile:** none / chamfer / rounded, with a size. Default **chamfer, 0.04** (≈1 mm) on all edges of white and black keys.
+46. **Animated keys:** keys go down on note-on and return on note-off (quick press ≈40 ms, slower release ≈90 ms, eased, no overshoot); a repeated note re-strikes from half-pressed. **On**. Separate settings for white and black keys: press depth = how far the key's **front edge** drops (white **0.22**, black **0.30**), and pivot offset = how far the pivot sits **behind** the key's visible back edge (white **0** — hinged at the play line; black **2 × the black key's visible length**, ≈8.04). Real keys pivot well behind their visible part (the balance rail), so they move mostly downward with a slight tilt; with the default black pivot a black key's back drops 2/3 as far as its front and stays on the play line (it moves a hair away from the player, never opening a gap). The colour overlay moves with the key.
+47. **Velocity-scaled effects:** spark count and size and held-glow size scale linearly with velocity, **0.6×** at velocity 0 to **1.7×** at 127: **on**; or uniform size.
+48. **Render quality:** render scale **auto** (device pixel ratio) or 0.5×–2×, capped by max pixel ratio (default **2**); anti-aliasing off / MSAA / FXAA / SMAA (three's built-in passes), default **MSAA**. The drawing buffer follows device-pixel-ratio changes (zoom, moving between monitors). The settings show internal resolution and average frame time.
+49. **Settings schema v2** with migration: stored v1 settings are kept and new keys get their defaults; settings from an unknown newer version fall back to defaults.
 
 ## Note color palette
 

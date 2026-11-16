@@ -5,13 +5,13 @@ import {
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   Mesh,
-  MeshBasicMaterial,
   PlaneGeometry,
   ShaderMaterial,
 } from 'three'
 
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
+import { keyLayout } from './model/keyLayout'
 import { KEYBOARD } from './model/KEYBOARD'
 import { srgb } from './srgb'
 import { TIME_GLSL } from './timeGlsl'
@@ -22,13 +22,33 @@ const SURFACE_LENGTH = 320
 const BAR_THICKNESS = 0.16
 const BEAT_THICKNESS = 0.08
 const LANE_THICKNESS = 0.03
+/**
+ * Thin lines are drawn on wider quads and cut to their true width in the fragment shader, with
+ * an edge one screen pixel soft (fwidth). Far away, where a line is thinner than a pixel, it
+ * fades instead of breaking up into dashes (the "grainy" look). The margin keeps at least a
+ * pixel of quad around a line even at the far end of the highway.
+ */
+const LINE_MARGIN = 0.25
 
-/** A static quad mesh on the highway whose fragments fade by their distance in ticks. */
+/** Coverage of a line of world width `width` at signed world distance `d` from its centre. */
+const LINE_AA_GLSL = /* glsl */ `
+float lineCoverage(float d, float width) {
+  float pixel = max(fwidth(d), 1e-5);
+  float edge = clamp((0.5 * width - abs(d)) / pixel + 0.5, 0.0, 1.0);
+  // A line narrower than a pixel keeps its average brightness by fading, not by aliasing.
+  return edge * min(1.0, width / pixel);
+}
+`
+
+/** A static mesh on the highway whose fragments fade by their distance in ticks. */
 const STATIC_VERTEX = /* glsl */ `
+attribute float aAcross;
 varying float vZ;
+varying float vAcross;
 void main() {
   vec4 world = modelMatrix * vec4(position, 1.0);
   vZ = world.z;
+  vAcross = aAcross;
   gl_Position = projectionMatrix * viewMatrix * world;
 }
 `
@@ -44,13 +64,26 @@ void main() {
 }
 `
 
-const LINE_FRAGMENT = /* glsl */ `
+const SHADE_FRAGMENT = /* glsl */ `
 ${TIME_GLSL}
+uniform float uStrength;
+varying float vZ;
+void main() {
+  float alpha = uStrength * hazeAlpha(zToTick(vZ));
+  if (alpha <= 0.002) discard;
+  gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+}
+`
+
+const LANE_FRAGMENT = /* glsl */ `
+${TIME_GLSL}
+${LINE_AA_GLSL}
 uniform vec3 uColor;
 uniform float uOpacity;
 varying float vZ;
+varying float vAcross;
 void main() {
-  float alpha = uOpacity * hazeAlpha(zToTick(vZ));
+  float alpha = uOpacity * hazeAlpha(zToTick(vZ)) * lineCoverage(vAcross, ${LANE_THICKNESS.toFixed(3)});
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(uColor, alpha);
 }
@@ -62,32 +95,56 @@ attribute float aTick;
 attribute float aBar;  // 1 = bar line, 0 = beat line
 varying float vTick;
 varying float vBar;
+varying float vAlong;
+varying float vThickness;
 void main() {
   float ahead = aTick - uTick;
   // Lines behind the now line or past the haze collapse to nothing.
   float visible = step(0.0, ahead) * step(ahead, 1.5 * uLookAheadTicks);
-  float thickness = mix(${BEAT_THICKNESS.toFixed(3)}, ${BAR_THICKNESS.toFixed(3)}, aBar) * visible;
+  float thickness = mix(${BEAT_THICKNESS.toFixed(3)}, ${BAR_THICKNESS.toFixed(3)}, aBar);
+  float extent = (thickness + 2.0 * ${LINE_MARGIN.toFixed(3)}) * visible;
   // Local y runs away from the player (z decreasing), like the notes, so the quad faces up.
-  vec3 world = vec3(position.x * ${KEYBOARD.width.toFixed(1)}, 0.005, tickToZ(aTick) - (position.y - 0.5) * thickness);
+  float along = (position.y - 0.5) * extent;
+  vec3 world = vec3(position.x * ${KEYBOARD.width.toFixed(1)}, 0.005, tickToZ(aTick) - along);
   vTick = aTick;
   vBar = aBar;
+  vAlong = along;
+  vThickness = thickness;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `
 
 const GRID_FRAGMENT = /* glsl */ `
 ${TIME_GLSL}
+${LINE_AA_GLSL}
 uniform vec3 uBarColor;
 uniform float uBarOpacity;
 uniform vec3 uBeatColor;
 uniform float uBeatOpacity;
 varying float vTick;
 varying float vBar;
+varying float vAlong;
+varying float vThickness;
 void main() {
   vec3 color = mix(uBeatColor, uBarColor, vBar);
   float alpha = mix(uBeatOpacity, uBarOpacity, vBar) * hazeAlpha(vTick);
+  alpha *= lineCoverage(vAlong, vThickness);
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(color, alpha);
+}
+`
+
+const FLAT_VERTEX = /* glsl */ `
+void main() {
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+const FLAT_FRAGMENT = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+void main() {
+  gl_FragColor = vec4(uColor, uOpacity);
 }
 `
 
@@ -101,16 +158,64 @@ function unitQuad(geometry: BufferGeometry): void {
 }
 
 /**
- * The highway: surface, lane lines at the white-key boundaries, scrolling bar and beat lines
- * (from the bar map, so meter overrides apply), the now line, and optional look-ahead guides.
+ * Strips running the length of the highway from the now line, one per [x0, x1] range, at
+ * height y. `aAcross` is each vertex's x distance from its strip's centre.
+ */
+function strips(ranges: readonly (readonly [number, number])[], y: number): BufferGeometry {
+  const nowZ = -KEYBOARD.whiteLength
+  const positions: number[] = []
+  const across: number[] = []
+  const index: number[] = []
+  for (const [x0, x1] of ranges) {
+    const base = positions.length / 3
+    const half = (x1 - x0) / 2
+    positions.push(
+      x0,
+      y,
+      nowZ,
+      x1,
+      y,
+      nowZ,
+      x1,
+      y,
+      nowZ - SURFACE_LENGTH,
+      x0,
+      y,
+      nowZ - SURFACE_LENGTH,
+    )
+    across.push(-half, half, half, -half)
+    index.push(base, base + 1, base + 2, base, base + 2, base + 3)
+  }
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
+  geometry.setAttribute('aAcross', new BufferAttribute(new Float32Array(across), 1))
+  geometry.setIndex(index)
+  return geometry
+}
+
+function flatMaterial(color: string, opacity: number): ShaderMaterial {
+  return new ShaderMaterial({
+    vertexShader: FLAT_VERTEX,
+    fragmentShader: FLAT_FRAGMENT,
+    uniforms: { uColor: { value: srgb(color) }, uOpacity: { value: opacity } },
+    transparent: true,
+    depthWrite: false,
+  })
+}
+
+/**
+ * The highway: surface, darker black-key lanes, lane lines at the white-key boundaries,
+ * scrolling bar and beat lines (from the bar map, so meter overrides apply), the now line, and
+ * optional look-ahead guides. Every material is a ShaderMaterial writing display-space colour.
  */
 export class Highway {
   readonly group = new Group()
   private readonly surface: Mesh<PlaneGeometry, ShaderMaterial>
+  private readonly blackLanes: Mesh<BufferGeometry, ShaderMaterial>
   private readonly lanes: Mesh<BufferGeometry, ShaderMaterial>
   private readonly grid: Mesh<InstancedBufferGeometry, ShaderMaterial>
-  private readonly nowLine: Mesh<PlaneGeometry, MeshBasicMaterial>
-  private readonly guides: Mesh<PlaneGeometry, MeshBasicMaterial>[]
+  private readonly nowLine: Mesh<PlaneGeometry, ShaderMaterial>
+  private readonly guides: Mesh<PlaneGeometry, ShaderMaterial>[]
 
   constructor(
     beats: readonly { readonly tick: number; readonly isBar: boolean }[],
@@ -121,6 +226,10 @@ export class Highway {
     const surfaceGeometry = new PlaneGeometry(KEYBOARD.width + 1, SURFACE_LENGTH)
     surfaceGeometry.rotateX(-Math.PI / 2)
     surfaceGeometry.translate(KEYBOARD.width / 2, 0, nowZ - SURFACE_LENGTH / 2)
+    surfaceGeometry.setAttribute(
+      'aAcross',
+      new BufferAttribute(new Float32Array(surfaceGeometry.getAttribute('position').count), 1),
+    )
     this.surface = new Mesh(
       surfaceGeometry,
       new ShaderMaterial({
@@ -135,33 +244,37 @@ export class Highway {
     )
     this.surface.renderOrder = 0
 
-    // Lane lines: one thin strip per white-key boundary, running the length of the highway.
-    const positions: number[] = []
-    const index: number[] = []
-    for (let i = 0; i <= KEYBOARD.whiteCount; i++) {
-      const x0 = i - LANE_THICKNESS / 2
-      const x1 = i + LANE_THICKNESS / 2
-      const base = positions.length / 3
-      positions.push(
-        x0,
-        0.004,
-        nowZ,
-        x1,
-        0.004,
-        nowZ,
-        x1,
-        0.004,
-        nowZ - SURFACE_LENGTH,
-        x0,
-        0.004,
-        nowZ - SURFACE_LENGTH,
-      )
-      index.push(base, base + 1, base + 2, base, base + 2, base + 3)
-    }
-    const laneGeometry = new BufferGeometry()
-    laneGeometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
-    laneGeometry.setIndex(index)
-    this.lanes = new Mesh(laneGeometry, this.lineMaterial(time))
+    // Black-key lanes, a little darker than the surface (brief decision 42).
+    const blackRanges = keyLayout()
+      .filter((k) => k.isBlack)
+      .map((k) => [k.x, k.x + k.width] as const)
+    this.blackLanes = new Mesh(
+      strips(blackRanges, 0.002),
+      new ShaderMaterial({
+        vertexShader: STATIC_VERTEX,
+        fragmentShader: SHADE_FRAGMENT,
+        uniforms: { ...time, uStrength: { value: 0.22 } },
+        transparent: true,
+        depthWrite: false,
+      }),
+    )
+    this.blackLanes.renderOrder = 0.5
+
+    // Lane lines: one strip per white-key boundary, wider than the line (see LINE_MARGIN).
+    const laneRanges = Array.from({ length: KEYBOARD.whiteCount + 1 }, (_, i) => {
+      const half = LANE_THICKNESS / 2 + LINE_MARGIN
+      return [i - half, i + half] as const
+    })
+    this.lanes = new Mesh(
+      strips(laneRanges, 0.004),
+      new ShaderMaterial({
+        vertexShader: STATIC_VERTEX,
+        fragmentShader: LANE_FRAGMENT,
+        uniforms: { ...time, uColor: { value: srgb('#3A4A6E') }, uOpacity: { value: 0.35 } },
+        transparent: true,
+        depthWrite: false,
+      }),
+    )
     this.lanes.renderOrder = 2
 
     const gridGeometry = new InstancedBufferGeometry()
@@ -197,15 +310,7 @@ export class Highway {
     const nowGeometry = new PlaneGeometry(KEYBOARD.width, 0.08)
     nowGeometry.rotateX(-Math.PI / 2)
     nowGeometry.translate(KEYBOARD.width / 2, 0.006, nowZ)
-    this.nowLine = new Mesh(
-      nowGeometry,
-      new MeshBasicMaterial({
-        color: '#BFD2FF',
-        transparent: true,
-        opacity: 0.8,
-        depthWrite: false,
-      }),
-    )
+    this.nowLine = new Mesh(nowGeometry, flatMaterial('#BFD2FF', 0.8))
     this.nowLine.renderOrder = 4
 
     // Debug-only look-ahead markers at 1x (amber) and 1.5x (magenta); placed by setGuides().
@@ -213,22 +318,28 @@ export class Highway {
       const g = new PlaneGeometry(KEYBOARD.width, 0.12)
       g.rotateX(-Math.PI / 2)
       g.translate(KEYBOARD.width / 2, 0.03, 0)
-      const mesh = new Mesh(
-        g,
-        new MeshBasicMaterial({ color, depthWrite: false, transparent: true }),
-      )
+      const mesh = new Mesh(g, flatMaterial(color, 1))
       mesh.renderOrder = 5
       mesh.visible = false
       return mesh
     })
 
-    this.group.add(this.surface, this.lanes, this.grid, this.nowLine, ...this.guides)
+    this.group.add(
+      this.surface,
+      this.blackLanes,
+      this.lanes,
+      this.grid,
+      this.nowLine,
+      ...this.guides,
+    )
   }
 
   applySettings(settings: PlayerSettings): void {
-    const { colors, opacity } = settings
+    const { colors, opacity, highway } = settings
     this.setUniform(this.surface.material, 'uColor', srgb(colors.highway))
     this.setUniform(this.surface.material, 'uFadeTo', srgb(colors.background))
+    this.blackLanes.visible = highway.blackLaneShading && highway.blackLaneShadingStrength > 0
+    this.setUniform(this.blackLanes.material, 'uStrength', highway.blackLaneShadingStrength)
     this.setUniform(this.lanes.material, 'uColor', srgb(colors.lane))
     this.setUniform(this.lanes.material, 'uOpacity', opacity.lane)
     this.setUniform(this.grid.material, 'uBarColor', srgb(colors.bar))
@@ -251,20 +362,18 @@ export class Highway {
   }
 
   dispose(): void {
-    for (const mesh of [this.surface, this.lanes, this.grid, this.nowLine, ...this.guides]) {
+    const meshes = [
+      this.surface,
+      this.blackLanes,
+      this.lanes,
+      this.grid,
+      this.nowLine,
+      ...this.guides,
+    ]
+    for (const mesh of meshes) {
       mesh.geometry.dispose()
       mesh.material.dispose()
     }
-  }
-
-  private lineMaterial(time: TimeUniforms): ShaderMaterial {
-    return new ShaderMaterial({
-      vertexShader: STATIC_VERTEX,
-      fragmentShader: LINE_FRAGMENT,
-      uniforms: { ...time, uColor: { value: srgb('#3A4A6E') }, uOpacity: { value: 0.35 } },
-      transparent: true,
-      depthWrite: false,
-    })
   }
 
   private setUniform(material: ShaderMaterial, name: string, value: unknown): void {

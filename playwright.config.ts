@@ -45,8 +45,8 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      // Visual-review screenshots are for a human to inspect, so they run separately.
-      grepInvert: /@visual/,
+      // Visual-review screenshots (for a human) and performance runs are separate projects.
+      grepInvert: /@visual|@perf/,
       use: {
         ...devices['Desktop Chrome'],
       },
@@ -54,6 +54,16 @@ export default defineConfig({
     {
       name: 'visual',
       grep: /@visual/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1600, height: 900 },
+      },
+    },
+    {
+      // Frame timings on a real GPU: run headed (locally) with `npm run test:perf`.
+      name: 'perf',
+      grep: /@perf/,
+      timeout: 120_000,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1600, height: 900 },

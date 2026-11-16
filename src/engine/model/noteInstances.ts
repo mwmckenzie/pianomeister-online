@@ -24,6 +24,7 @@ export function noteInstances(notes: readonly HandNote[], ppq: number): NoteInst
       startTick: note.startTick,
       endTick: note.endTick,
       headEndTick: Math.min(note.endTick, note.startTick + headTicks),
+      velocity: note.velocity,
       colorIndex: note.midi % 12,
       hand: note.hand,
     })
