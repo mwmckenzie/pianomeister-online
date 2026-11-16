@@ -1,0 +1,15 @@
+{
+  "name": "PianoMeister Online",
+  "short_name": "PianoMeister",
+  "description": "Piano practice visualizer: songs scroll down a note highway toward an 88-key keyboard.",
+  "start_url": "/pianomeister-online/",
+  "scope": "/pianomeister-online/",
+  "display": "standalone",
+  "background_color": "#05070F",
+  "theme_color": "#05070F",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
