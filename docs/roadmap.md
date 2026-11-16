@@ -8,7 +8,7 @@ Living document. The brief (`docs/brief.md`) records *decided* scope; this file 
 |---|---|---|---|
 | 0–3 | Setup, core, sound, engine | — | ✅ done |
 | 4 | Library | Library page, uploads, song details, backup, web app manifest | ✅ done |
-| 5 | **Visual clarity** | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing) | next (sketch session first) |
+| 5 | **Visual clarity** | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing) | in progress |
 | 6 | **UI foundation** | Design system, app shell with navigation, tabbed settings, animated menus/tabs; restyle Library; replace the player's temporary controls | |
 | 7 | **Profiles, bookmarks, stats** | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens | |
 | 8 | **Section overview & loop editor** | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection | |
