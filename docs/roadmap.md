@@ -7,8 +7,8 @@ Living document. The brief (`docs/brief.md`) records *decided* scope; this file 
 | # | Milestone | Contents | Status |
 |---|---|---|---|
 | 0–3 | Setup, core, sound, engine | — | ✅ done |
-| 4 | Library | Library page, uploads, song details, backup, web app manifest | in review |
-| 5 | **Quick visual wins** | Render quality settings (resolution, anti-aliasing); keyboard dimension settings | next |
+| 4 | Library | Library page, uploads, song details, backup, web app manifest | ✅ done |
+| 5 | **Visual clarity** | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing) | next (sketch session first) |
 | 6 | **UI foundation** | Design system, app shell with navigation, tabbed settings, animated menus/tabs; restyle Library; replace the player's temporary controls | |
 | 7 | **Profiles, bookmarks, stats** | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens | |
 | 8 | **Section overview & loop editor** | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection | |
@@ -18,7 +18,7 @@ Living document. The brief (`docs/brief.md`) records *decided* scope; this file 
 
 ### Why this order
 
-- **Quick wins first (5):** resolution/anti-aliasing affects every session today and is small; key dimensions are a contained engine + settings change. Both ship before bigger work.
+- **Visual clarity first (5):** the main issue today is separation — notes, lanes and keys blend together. Everything in this milestone is engine + settings work on the keyboard and notes, and it affects every session. A sketch session tunes the defaults before building.
 - **UI foundation before profiles (6 → 7):** milestone 7 adds several new screens (profiles, bookmarks, stats). Building the design system and app shell first means those screens are built once, in the final style, instead of being restyled later.
 - **Loop editor after bookmarks (7 → 8):** an A–B selection and a bookmark are the same thing in different clothes; the overview is the natural place to create and edit them.
 - **Visual polish after the features settle (9):** post-processing and shader styles change how everything looks; doing them once the screens and scene are stable avoids re-tuning. Quality presets keep tablets smooth.
@@ -27,13 +27,31 @@ Living document. The brief (`docs/brief.md`) records *decided* scope; this file 
 
 ## Backlog — idea details
 
+### 3D note heads *(milestone 5)*
+- Note heads become raised blocks (same footprint as today's 1/64-note head), with adjustable height and optional rounded edges. Sustains stay flat.
+- Needs simple built-in shading (lighter top face, darker sides, highlight on rounded edges) so the 3D shape reads — done in the shaders, not the full lighting of milestone 9.
+
+### Black-key lane notes lifted + contact shadow *(milestone 5)*
+- Notes in black-key lanes float slightly higher (default: the black keys' raise height, adjustable), so they meet the raised black key tops exactly at the now line.
+- A soft contact shadow under black-lane notes falls onto neighboring white-lane notes, separating them when they sit side by side. Toggle + strength.
+
+### Black-key lane shading *(milestone 5)*
+- Black-key lanes on the highway are shaded slightly darker than white-key lanes (piano-roll style), so sharps are recognizable even in empty lanes. Toggle + strength.
+
+### Animated keys *(milestone 5)*
+- Keys press down on note-on and return on note-off, pivoting at the back like a real key. Toggle + press depth.
+
+### Velocity-scaled effects *(milestone 5)*
+- Now-line sparks and glow scale with note velocity (harder = bigger/brighter). Settings: minimum and maximum size, or a uniform size for all notes.
+
 ### Render quality *(milestone 5)*
 - Settings: render scale (e.g. 0.5×–2× of device pixel ratio, plus "auto"), anti-aliasing (off / MSAA / FXAA or SMAA), max pixel ratio cap (currently 2).
 - Investigate why it looks grainy today (likely pixel-ratio cap, no MSAA on the render target, or thin lines aliasing) and fix the defaults, not just add knobs.
 - Show the resulting internal resolution and frame time in the settings so the trade-off is visible.
 
-### Keyboard dimensions *(milestone 5)*
+### Keyboard dimensions & rounded edges *(milestone 5)*
 - Settings: black key length (ratio of white), black key height (raise), key thickness (depth of the key bodies), gap between keys.
+- Rounded key edges: toggle + radius (uses the same built-in shading as the note heads).
 - Gaps must keep lanes and keys aligned: lane positions are derived from the same key layout.
 - Defaults stay the grand-piano proportions from decision 20; "Reset to grand piano".
 
