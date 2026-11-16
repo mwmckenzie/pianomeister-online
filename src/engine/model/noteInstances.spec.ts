@@ -35,6 +35,8 @@ describe('noteInstances', () => {
       expect(n.x).toBe(keys.get(n.midi)?.x)
       expect(n.width).toBe(keys.get(n.midi)?.width)
       expect(n.colorIndex).toBe(n.midi % 12)
+      expect(n.velocity).toBeGreaterThan(0)
+      expect(n.velocity).toBeLessThanOrEqual(127)
     }
   })
 

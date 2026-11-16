@@ -16,6 +16,23 @@ describe('KeyStates', () => {
     expect(states[0]).toMatchObject({ midi: 21, colorIndex: 9, alpha: 0, sounding: false })
   })
 
+  it('reports the sounding note\'s velocity (the latest onset wins)', () => {
+    const keys = new KeyStates([
+      { midi: 60, startTick: 0, endTick: 960, velocity: 30 },
+      { midi: 60, startTick: 480, endTick: 960, velocity: 110 },
+    ])
+    expect(keys.at(100, PPQ, 0.7).find((s) => s.midi === 60)?.velocity).toBe(30)
+    expect(keys.at(500, PPQ, 0.7).find((s) => s.midi === 60)?.velocity).toBe(110)
+    expect(keys.at(960, PPQ, 0.7).find((s) => s.midi === 60)?.velocity).toBe(0)
+  })
+
+  it('treats a position a hair before a bar line (float rounding) as on it', () => {
+    const keys = new KeyStates([span(60, 0, 3840), span(62, 3840, 4320)])
+    const states = keys.at(3840 - 1e-6, PPQ, 0.7)
+    expect(states.find((s) => s.midi === 60)?.sounding).toBe(false)
+    expect(states.find((s) => s.midi === 62)?.sounding).toBe(true)
+  })
+
   it('is fully lit while a note sounds, and dark after it ends', () => {
     const keys = new KeyStates([span(60, 1000, 1480)])
     expect(alphaOf(keys.at(1000, PPQ, 0.7), 60)).toBe(1)
