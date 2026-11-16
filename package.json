@@ -18,6 +18,7 @@
     "lint:eslint": "eslint . --cache",
     "lint:fix": "oxlint . --fix && eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
+    "songs:manifest": "node scripts/build-song-manifest.mjs"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
