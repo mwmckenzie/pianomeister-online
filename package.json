@@ -17,10 +17,13 @@
     "lint:oxlint": "oxlint .",
     "lint:eslint": "eslint . --cache",
     "lint:fix": "oxlint . --fix && eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "songs:manifest": "node scripts/build-song-manifest.mjs"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "dexie": "^4.4.7",
+    "fflate": "^0.8.3",
     "pinia": "^4.0.3",
     "smplr": "^1.2.0",
     "three": "^0.187.0",
@@ -43,6 +46,7 @@
     "eslint-plugin-oxlint": "~1.93.0",
     "eslint-plugin-playwright": "^2.12.0",
     "eslint-plugin-vue": "~10.12.1",
+    "fake-indexeddb": "^6.2.8",
     "jiti": "^2.7.0",
     "jsdom": "^31.0.0",
     "npm-run-all2": "^9.0.3",

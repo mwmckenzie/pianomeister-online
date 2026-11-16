@@ -13,10 +13,11 @@ describe('importMidi — real fixtures', () => {
     expect(song.format).toBe(1)
     expect(song.ppq).toBe(480)
     expect(song.trackCount).toBe(2)
-    expect(song.channels).toEqual([
-      { channel: 0, noteCount: 258 },
-      { channel: 1, noteCount: 150 },
+    expect(song.channels.map((c) => [c.channel, c.noteCount])).toEqual([
+      [0, 258],
+      [1, 150],
     ])
+    expect(song.channels[0]?.averagePitch).toBeGreaterThan(song.channels[1]?.averagePitch ?? 99)
     expect(song.notes[0]?.startTick).toBe(0)
     expect(song.durationTicks).toBe(92159)
     expect(song.durationSeconds).toBeCloseTo(91.428, 2)
@@ -57,8 +58,11 @@ describe('importMidi — real fixtures', () => {
     expect(c.id).not.toBe(a.id)
   })
 
-  it('takes the title from track names', async () => {
-    expect((await load('invention-1.mid')).title).toBe("Clavichord, J.S.Bach's Inventions")
+  it('ignores names of tracks that hold notes and falls back to the file name', async () => {
+    // Both first tracks hold notes: "Piano" names an instrument; the Invention's name only
+    // happens to be descriptive. Bundled songs get real titles from the manifest instead.
+    expect((await load('minuet-in-g.mid')).title).toBe('minuet-in-g')
+    expect((await load('invention-1.mid')).title).toBe('invention-1')
   })
 })
 
@@ -69,8 +73,8 @@ describe('importMidi — synthetic fixtures', () => {
     expect(song.trackCount).toBe(1)
     expect(song.title).toBe('Type Zero')
     expect(song.channels).toEqual([
-      { channel: 0, noteCount: 2 },
-      { channel: 1, noteCount: 2 },
+      { channel: 0, noteCount: 2, minPitch: 72, maxPitch: 74, averagePitch: 73 },
+      { channel: 1, noteCount: 2, minPitch: 43, maxPitch: 48, averagePitch: 45.5 },
     ])
     expect(song.notes.map((n) => [n.channel, n.midi, n.startTick, n.endTick])).toEqual([
       [1, 48, 0, 1920],
@@ -84,10 +88,11 @@ describe('importMidi — synthetic fixtures', () => {
     const song = await importMidi(synthFixtures.conductorAndSplitTracks(), { fileName: 'x.mid' })
     expect(song.ppq).toBe(120)
     expect(song.trackCount).toBe(4)
-    expect(song.channels).toEqual([
-      { channel: 0, noteCount: 2 },
-      { channel: 1, noteCount: 2 },
+    expect(song.channels.map((c) => [c.channel, c.noteCount])).toEqual([
+      [0, 2],
+      [1, 2],
     ])
+    expect(song.title).toBe('Conductor')
     expect(song.tempoEvents).toEqual([{ tick: 0, microsPerQuarter: 666_667 }])
     expect(song.timeSignatureEvents).toEqual([{ tick: 0, numerator: 3, denominator: 4 }])
     expect(song.durationTicks).toBe(720)

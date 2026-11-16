@@ -65,6 +65,8 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 ### Core data model (sketch)
 
 - **Song**: `id` (hash), title, source (bundled | uploaded), channels present, duration, bar map.
+- **SongMeta**: songId, display title, composer, tags — user edits, shared across profiles.
+- **StoredUpload**: songId, file name, bytes, addedAt.
 - **PracticeConfig**: loop `{startBar, endBar} | null`, tempoPercent, hand → channel assignments, per-hand audio (on / muted / solo), preRollBeats, preRollMode (muted | quiet).
 - **MeterOverride**: time signature, bar-1 start tick (per song, shared across profiles).
 - **PedalInterval**: channel, startTick, endTick (sustain pedal CC64 down at value ≥ 64).
@@ -79,7 +81,7 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 1. Core: MIDI import → Song model, bar map, transport (play/pause/tempo/seek/loop/pre-roll) — tested headless.
 2. Audio: self-hosted sampled piano, look-ahead scheduler, per-hand volume/mute/solo, sustain pedal (sound), pre-roll muted/quiet, metronome.
 3. Engine: perspective highway, 88-key 3D keyboard, colors, sustains, highlights, pedal shading band; player screen + HUD, settings panel (localStorage).
-4. Library: bundled manifest, uploads, per-song channel assignment.
+4. Library page, bundled manifest, uploads (IndexedDB), song details panel (metadata, tags, hand channels, meter override), library export/import, web app manifest.
 5. Profiles, bookmarks, stats.
 6. Tablet polish (touch UI, audio unlock, performance), MIDI out, optional PWA.
 
@@ -110,6 +112,19 @@ The transport emits note-on/note-off events on a small event bus; audio, MIDI ou
 23. **Settings** are stored in localStorage (versioned) until profiles arrive in milestone 5.
 24. **Player is the home page** (`/`); the debug page stays at `#/debug`.
 25. **HUD:** top-left — song title, length, position (m:ss), bar:beat. Top-right — current BPM (song tempo at the position × tempo %), song BPM at the position, tempo %. Top-center — temporary controls (to be redesigned later). A gear button opens the settings panel.
+26. **Library page** at `#/library`: searchable, sortable list; group by composer or tag; filter by tag and source. Picking a song opens it in the player; the player has a Library button.
+27. **Startup:** the player (home page) reopens the last selected song (from milestone 5: the last song *or bookmark*). First run falls back to the first bundled song.
+28. **Song metadata is editable for every song** (bundled and uploaded): display title, composer, free-form tags. Edits are stored locally and shared across profiles; the original values are kept and can be restored ("Reset to original").
+29. **Uploads:** multiple files at once; `.mid`/`.midi` only; max 2 MB each; duplicates detected by content hash (against bundled songs and other uploads) are skipped with a message; uploads can be deleted (with confirmation). Bundled songs can't be deleted.
+30. **Hand channel fallback:** if neither channel 0 nor 1 has notes, assign by average pitch — highest-average channel → right hand, next → left, others hidden; a single channel → right hand. Users can change it in the song's details panel.
+31. **Song details panel** (inside the Library page): metadata and tags, file facts, hand channel assignment, meter override editor, delete (uploads only), Play.
+32. **Library export/import:** one `.zip` containing all uploaded MIDI files plus a versioned `library.json` (metadata edits and tags for all songs, meter overrides). Importing skips duplicates; for songs already present, local metadata edits are kept and the import report says so.
+33. **Storage protection:** request persistent storage (`navigator.storage.persist()`) on the first upload and show the storage status in the Library; ship a web app manifest so the site can be added to an iPad/iPhone home screen (home-screen apps aren't subject to Safari's 7-day storage deletion). Offline support (service worker) stays in milestone 6.
+34. **Adding bundled songs:** drop the `.mid` into `public/songs/`, run `npm run songs:manifest`, then fill in title/composer/tags in the manifest.
+35. **Deleting an upload** also deletes its metadata edits, meter override and hand assignments. Re-uploading starts fresh (future stats and bookmarks are keyed by hash and are unaffected).
+36. **Original title of an upload:** the MIDI sequence name — the name of a format 0 file's track, or of a format 1 file's first track when it is a conductor track (no notes) — otherwise the file name without its extension. Other track names are ignored: they usually name the instrument ("Piano"). Uploads have no original composer or tags.
+37. **Library export** holds metadata edits and meter overrides, not hand assignments: those are per profile and travel with the profile export (milestone 5).
+38. **Playback survives navigation:** the app keeps one playback session, so going to the Library and back doesn't reload the piano samples. Leaving the player pauses playback.
 
 ## Note color palette
 

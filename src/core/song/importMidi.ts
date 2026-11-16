@@ -6,6 +6,7 @@ import type { Note } from './Note'
 import { pedalIntervals } from './pedalIntervals'
 import { readControllerEvents } from './readControllerEvents'
 import { readMidiHeader } from './readMidiHeader'
+import { scanChannelEvents } from './scanChannelEvents'
 import { sha256Hex } from './sha256Hex'
 import type { Song } from './Song'
 
@@ -41,11 +42,7 @@ export async function importMidi(
   }
   notes.sort((a, b) => a.startTick - b.startTick || a.midi - b.midi || a.channel - b.channel)
 
-  const counts = new Map<number, number>()
-  for (const n of notes) counts.set(n.channel, (counts.get(n.channel) ?? 0) + 1)
-  const channels: ChannelInfo[] = [...counts]
-    .sort((a, b) => a[0] - b[0])
-    .map(([channel, noteCount]) => ({ channel, noteCount }))
+  const channels = channelInfo(notes)
 
   // The file stores integer microseconds; tonejs hands back a derived float BPM.
   const tempoEvents = midi.header.tempos.map((t) => ({
@@ -63,7 +60,7 @@ export async function importMidi(
 
   return {
     id: await sha256Hex(bytes),
-    title: songTitle(midi, options.fileName),
+    title: songTitle(midi, bytes, format, options.fileName),
     format,
     trackCount,
     ppq,
@@ -77,9 +74,44 @@ export async function importMidi(
   }
 }
 
-function songTitle(midi: Midi, fileName: string): string {
-  const fromFile = [midi.header.name, ...midi.tracks.map((t) => t.name)]
-    .map((name) => name.trim())
-    .find((name) => name !== '')
-  return fromFile ?? fileName.replace(/\.[^.]+$/, '')
+function channelInfo(notes: readonly Note[]): ChannelInfo[] {
+  const stats = new Map<number, { count: number; min: number; max: number; sum: number }>()
+  for (const n of notes) {
+    const s = stats.get(n.channel)
+    if (s === undefined) stats.set(n.channel, { count: 1, min: n.midi, max: n.midi, sum: n.midi })
+    else {
+      s.count++
+      s.min = Math.min(s.min, n.midi)
+      s.max = Math.max(s.max, n.midi)
+      s.sum += n.midi
+    }
+  }
+  return [...stats]
+    .sort((a, b) => a[0] - b[0])
+    .map(([channel, s]) => ({
+      channel,
+      noteCount: s.count,
+      minPitch: s.min,
+      maxPitch: s.max,
+      averagePitch: s.sum / s.count,
+    }))
+}
+
+/**
+ * The sequence name: the track name of a format 0 file, or of a format 1 file's conductor
+ * track (a first track without notes). Other track names usually name the instrument
+ * ("Piano"), so they're ignored in favour of the file name.
+ */
+function songTitle(midi: Midi, bytes: Uint8Array, format: number, fileName: string): string {
+  const name = midi.header.name.trim()
+  const isSequenceName = format === 0 || (format === 1 && !firstTrackHasNotes(bytes))
+  return name !== '' && isSequenceName ? name : fileName.replace(/\.[^.]+$/, '')
+}
+
+function firstTrackHasNotes(bytes: Uint8Array): boolean {
+  let found = false
+  scanChannelEvents(bytes, (e) => {
+    if (e.track === 0 && (e.status & 0xf0) === 0x90 && e.data2 > 0) found = true
+  })
+  return found
 }

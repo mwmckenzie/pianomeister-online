@@ -16,7 +16,6 @@ test('plays the Minuet and the HUD bar:beat advances, without console errors', a
   const errors = watchErrors(page)
   await page.goto('./')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
-  await page.getByTestId('song-picker').selectOption('minuet-in-g.mid')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
 

@@ -11,19 +11,30 @@ import type { Song } from '@/core/song/Song'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
 import type { PreRollMode } from '@/core/transport/PreRollMode'
 
-import { FIXTURES } from '../playback/FIXTURES'
+import pedalDemoUrl from '../../../test-fixtures/midi/pedal-demo.mid?url'
 import type { LoadedSong } from '../playback/LoadedSong'
-import { PlaybackSession } from '../playback/PlaybackSession'
+import type { PlaybackSession } from '../playback/PlaybackSession'
+import { sharedSession } from '../playback/sharedSession'
+import { useLibraryStore } from '../stores/libraryStore'
+
+/** Not a library song: a synthetic pedal test file, offered here for checking pedal handling. */
+const PEDAL_DEMO = 'pedal-demo'
 
 // Audio and transport stay outside Vue's reactivity; the UI reads them once per frame.
 let session: PlaybackSession | null = null
 let loaded: LoadedSong | null = null
 const sounding = { right: new Set<HandNote>(), left: new Set<HandNote>() }
 let frame = 0
+const unsubscribe: (() => void)[] = []
+const library = useLibraryStore()
 /** Counted from bus events, which the worker ticker drives, so it keeps rising in hidden tabs. */
 let noteOnCount = 0
 
 const selected = ref('')
+const choices = computed(() => [
+  ...library.entries.map((e) => ({ value: e.songId, label: e.title })),
+  { value: PEDAL_DEMO, label: 'Pedal demo (synthetic)' },
+])
 const loading = ref(false)
 const error = ref('')
 const song = shallowRef<Song | null>(null)
@@ -122,15 +133,17 @@ function rebuild(): void {
   syncLoopLabel()
 }
 
-async function loadFixture(fileName: string): Promise<void> {
-  const fixture = FIXTURES.find((f) => f.fileName === fileName)
-  if (fixture === undefined) return
+/** Library songs open without their stored hands/override: this page has its own controls. */
+async function loadFixture(choice: string): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch(fixture.url)
-    const bytes = new Uint8Array(await response.arrayBuffer())
-    song.value = await importMidi(bytes, { fileName })
+    if (choice === PEDAL_DEMO) {
+      const bytes = new Uint8Array(await (await fetch(pedalDemoUrl)).arrayBuffer())
+      song.value = await importMidi(bytes, { fileName: 'pedal-demo.mid' })
+    } else {
+      song.value = (await library.openSong(choice)).song
+    }
     rebuild()
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
@@ -230,35 +243,41 @@ watch(
 const onGesture = () => void unlockAudio()
 
 onMounted(() => {
-  session = new PlaybackSession({
-    onProgress: (done, total) => (sampleProgress.value = { loaded: done, total }),
-  })
+  session = sharedSession()
   audioState.value = session.context.state
+  unsubscribe.push(
+    session.onSampleProgress((done, total) => (sampleProgress.value = { loaded: done, total })),
+  )
   session.ready.then(
     () => (samplesReady.value = true),
     (e: unknown) => (error.value = `Samples failed to load: ${String(e)}`),
   )
   pushSettings()
   const { bus } = session
-  bus.on('noteOn', (e) => {
-    sounding[e.hand].add(e.note)
-    noteOnCount++
-  })
-  bus.on('noteOff', (e) => sounding[e.hand].delete(e.note))
-  bus.on('allNotesOff', () => {
-    sounding.right.clear()
-    sounding.left.clear()
-  })
+  unsubscribe.push(
+    bus.on('noteOn', (e) => {
+      sounding[e.hand].add(e.note)
+      noteOnCount++
+    }),
+    bus.on('noteOff', (e) => sounding[e.hand].delete(e.note)),
+    bus.on('allNotesOff', () => {
+      sounding.right.clear()
+      sounding.left.clear()
+    }),
+  )
   window.addEventListener('pointerdown', onGesture)
   window.addEventListener('keydown', onGesture)
   frame = requestAnimationFrame(render)
+  void library.refresh()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onGesture)
   window.removeEventListener('keydown', onGesture)
   cancelAnimationFrame(frame)
-  session?.dispose()
+  for (const off of unsubscribe.splice(0)) off()
+  // The session is shared (brief decision 38): pause rather than dispose it.
+  if (session?.transport.state === 'playing') session.transport.pause()
   session = null
   loaded = null
 })
@@ -272,9 +291,9 @@ onBeforeUnmount(() => {
       <label>
         Song
         <select v-model="selected" data-testid="fixture-select">
-          <option value="" disabled>Choose a fixture…</option>
-          <option v-for="f in FIXTURES" :key="f.fileName" :value="f.fileName">
-            {{ f.fileName }}
+          <option value="" disabled>Choose a song…</option>
+          <option v-for="c in choices" :key="c.value" :value="c.value">
+            {{ c.label }}
           </option>
         </select>
       </label>

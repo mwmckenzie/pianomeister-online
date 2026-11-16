@@ -2,28 +2,35 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { importMidi } from '@/core/song/importMidi'
+import type { HandAssignment } from '@/core/hands/HandAssignment'
+import type { LibraryEntry } from '@/core/library/LibraryEntry'
+import type { OpenedSong } from '@/data/OpenedSong'
 import { Engine } from '@/engine/Engine'
 
 import SettingsPanel from '../components/SettingsPanel.vue'
-import { FIXTURES } from '../playback/FIXTURES'
+import { formatTime } from '../format/formatTime'
 import type { LoadedSong } from '../playback/LoadedSong'
-import { PlaybackSession } from '../playback/PlaybackSession'
+import type { PlaybackSession } from '../playback/PlaybackSession'
+import { sharedSession } from '../playback/sharedSession'
+import { useLibraryStore } from '../stores/libraryStore'
 import { useSettingsStore } from '../stores/settingsStore'
-
-type FixtureName = (typeof FIXTURES)[number]['fileName']
 
 const route = useRoute()
 const settingsStore = useSettingsStore()
+const library = useLibraryStore()
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 
 // Engine and audio live outside Vue's reactivity; the HUD copies what it shows once per frame.
+// The playback session is shared and outlives this view (brief decision 38).
 let session: PlaybackSession | null = null
 let engine: Engine | null = null
 let resizeObserver: ResizeObserver | null = null
+let stopProgress: (() => void) | null = null
 let hudFrame = 0
+let unmounted = false
 
-const selected = ref<FixtureName>('minuet-in-g.mid')
+const entry = shallowRef<LibraryEntry | null>(null)
+const hands = shallowRef<HandAssignment | null>(null)
 const loaded = shallowRef<LoadedSong | null>(null)
 const samplesReady = ref(false)
 const sampleProgress = ref({ loaded: 0, total: 0 })
@@ -38,40 +45,84 @@ const preRollBeats = ref(0)
 
 const hud = ref({ state: 'stopped', seconds: 0, barBeat: '–', songBpm: 0, currentBpm: 0 })
 
-const title = computed(() => FIXTURES.find((f) => f.fileName === selected.value)?.title ?? '')
+const title = computed(() => entry.value?.title ?? '')
 const length = computed(() => formatTime(loaded.value?.song.durationSeconds ?? 0))
+const barCount = computed(() => loaded.value?.barMap.barCount ?? 0)
+const handsLabel = computed(() => {
+  const h = hands.value
+  if (h === null) return ''
+  const list = (channels: readonly number[]) =>
+    channels.length === 0 ? '–' : channels.map((c) => `ch${c}`).join(',')
+  return `R ${list(h.right)} · L ${list(h.left)}`
+})
 const sampleStatus = computed(() => {
   if (samplesReady.value) return 'loaded'
   const { loaded: done, total } = sampleProgress.value
   return total > 0 ? `loading ${done}/${total}` : 'loading…'
 })
 
-function formatTime(seconds: number): string {
-  const sign = seconds < 0 ? '-' : ''
-  const whole = Math.floor(Math.abs(seconds))
-  return `${sign}${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
-}
-
-async function loadSong(fileName: FixtureName): Promise<void> {
-  const fixture = FIXTURES.find((f) => f.fileName === fileName)
-  if (fixture === undefined || session === null) return
+/**
+ * Opens the library's start song (the last one opened, else the first bundled song), then
+ * attaches the playback session. The order matters on a first visit: creating the session
+ * starts ~230 sample downloads, and the song's manifest and MIDI requests would otherwise
+ * queue behind them, leaving the player empty for seconds on a slow connection.
+ */
+async function start(): Promise<void> {
   error.value = ''
+  let opened: OpenedSong | null = null
   try {
-    const bytes = new Uint8Array(await (await fetch(fixture.url)).arrayBuffer())
-    const song = await importMidi(bytes, { fileName })
-    const prepared = session.load(song)
-    loaded.value = prepared
-    engine?.setSong({
-      notes: prepared.notes,
-      ppq: song.ppq,
-      barMap: prepared.barMap,
-      pedalIntervals: prepared.pedalIntervals,
-      endTick: song.durationTicks,
-    })
-    syncLoopLabel()
+    opened = await library.openSong(await library.startSongId())
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
+    console.error("[player] Couldn't open the song:", e)
   }
+  if (unmounted) return
+  const playback = attachSession()
+  if (opened !== null) showSong(playback, opened)
+}
+
+function attachSession(): PlaybackSession {
+  const playback = sharedSession()
+  session = playback
+  // The controls show what the shared transport already has (e.g. after visiting the library).
+  tempoPercent.value = playback.transport.tempoPercent
+  preRollBeats.value = playback.transport.preRoll.beats
+  stopProgress = playback.onSampleProgress(
+    (done, total) => (sampleProgress.value = { loaded: done, total }),
+  )
+  playback.ready.then(
+    () => (samplesReady.value = true),
+    (e: unknown) => (error.value = `Samples failed to load: ${String(e)}`),
+  )
+  return playback
+}
+
+/**
+ * Sets the song up with its hand assignment and meter override. If the shared session already
+ * has exactly that (back from the library without changes), it is kept, position and all.
+ */
+function showSong(playback: PlaybackSession, opened: OpenedSong): void {
+  const songId = opened.entry.songId
+  const key = JSON.stringify([songId, opened.hands, opened.override])
+  const current = playback.song
+  const prepared =
+    playback.songKey === key && current !== null
+      ? current
+      : playback.load(opened.song, { hands: opened.hands, override: opened.override, key })
+  entry.value = opened.entry
+  hands.value = opened.hands
+  loaded.value = prepared
+  void library.setLastSongId(songId).then((saved) => {
+    if (!saved) error.value = library.error
+  })
+  engine?.setSong({
+    notes: prepared.notes,
+    ppq: opened.song.ppq,
+    barMap: prepared.barMap,
+    pedalIntervals: prepared.pedalIntervals,
+    endTick: opened.song.durationTicks,
+  })
+  syncLoopLabel()
 }
 
 function togglePlay(): void {
@@ -141,7 +192,6 @@ function onKeyDown(event: KeyboardEvent): void {
 
 const onGesture = () => void session?.unlock()
 
-watch(selected, (fileName) => void loadSong(fileName))
 watch(tempoPercent, (p) => session?.transport.setTempoPercent(p))
 watch(preRollBeats, (beats) => session?.transport.setPreRoll({ beats, mode: 'muted' }))
 watch(
@@ -151,14 +201,6 @@ watch(
 )
 
 onMounted(() => {
-  session = new PlaybackSession({
-    onProgress: (done, total) => (sampleProgress.value = { loaded: done, total }),
-  })
-  session.ready.then(
-    () => (samplesReady.value = true),
-    (e: unknown) => (error.value = `Samples failed to load: ${String(e)}`),
-  )
-  const audibleTick = session.audibleTick.bind(session)
   engine = new Engine()
   engine.applySettings(settingsStore.snapshot())
   engine.setGuides(route.query.guides === '1')
@@ -167,7 +209,7 @@ onMounted(() => {
     const stats = () => engine?.stats()
     Object.assign(window, { pianomeisterEngineStats: stats })
   }
-  engine.setTimeSource(audibleTick)
+  engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {
     engine.mount(canvas.value)
     resizeObserver = new ResizeObserver(() => engine?.resize())
@@ -176,20 +218,21 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('pointerdown', onGesture)
   hudFrame = requestAnimationFrame(updateHud)
-  void loadSong(selected.value)
+  void start()
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('pointerdown', onGesture)
   cancelAnimationFrame(hudFrame)
   resizeObserver?.disconnect()
+  stopProgress?.()
   engine?.dispose()
-  session?.dispose()
+  if (session?.transport.state === 'playing') session.transport.pause()
   engine = null
   session = null
 })
-
 </script>
 
 <template>
@@ -203,14 +246,18 @@ onBeforeUnmount(() => {
       </div>
       <div class="big">
         Bar <span data-testid="hud-bar-beat">{{ hud.barBeat }}</span>
+        <span class="of">
+          / <span data-testid="hud-bars">{{ barCount }}</span></span
+        >
       </div>
+      <div class="muted" data-testid="hud-hands">{{ handsLabel }}</div>
     </section>
 
     <section class="hud center" aria-label="Controls">
       <div class="row">
-        <select v-model="selected" data-testid="song-picker" aria-label="Song">
-          <option v-for="f in FIXTURES" :key="f.fileName" :value="f.fileName">{{ f.title }}</option>
-        </select>
+        <RouterLink :to="{ name: 'library' }" class="button" data-testid="open-library">
+          Library
+        </RouterLink>
         <button type="button" :disabled="!samplesReady" @click="togglePlay">
           {{ hud.state === 'playing' ? 'Pause' : 'Play' }}
         </button>
@@ -237,7 +284,7 @@ onBeforeUnmount(() => {
       <div class="row muted">
         Samples: <span data-testid="sample-status">{{ sampleStatus }}</span>
         <span data-testid="transport-state">{{ hud.state }}</span>
-        <span v-if="error" class="error">{{ error }}</span>
+        <span v-if="error" class="error" data-testid="player-error">{{ error }}</span>
       </div>
     </section>
 
@@ -312,6 +359,12 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+.of {
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: #8c9abf;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -322,6 +375,15 @@ onBeforeUnmount(() => {
 
 .row input[type='number'] {
   width: 3.5rem;
+}
+
+.button {
+  padding: 0.1rem 0.6rem;
+  border: 1px solid rgb(120 140 190 / 45%);
+  border-radius: 4px;
+  background: rgb(58 74 110 / 55%);
+  color: inherit;
+  text-decoration: none;
 }
 
 .muted {

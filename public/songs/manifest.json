@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "songs": [
+    {
+      "id": "23a649ebc53696bc6ce551246cc0ef74ee99f1e1fa964d55a2997999527485ca",
+      "fileName": "minuet-in-g.mid",
+      "title": "Minuet in G",
+      "composer": "Christian Petzold (attrib. J.S. Bach)",
+      "tags": [
+        "baroque"
+      ],
+      "facts": {
+        "durationSeconds": 91.427,
+        "durationTicks": 92159,
+        "ppq": 480,
+        "bars": 64,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 126
+      }
+    },
+    {
+      "id": "a4988dba91c83291e4016da87d19c03bd4ecf0087a186605d8615dd2e241bbb7",
+      "fileName": "canon-in-d.mid",
+      "title": "Canon in D",
+      "composer": "Johann Pachelbel",
+      "tags": [
+        "baroque"
+      ],
+      "facts": {
+        "durationSeconds": 246.596,
+        "durationTicks": 195839,
+        "ppq": 480,
+        "bars": 102,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 100
+      }
+    },
+    {
+      "id": "6fec24e88f82fd8c2aea348ac027c3baccf2cb18bc24b362176facc3d6410b9d",
+      "fileName": "invention-1.mid",
+      "title": "Invention No. 1 in C major, BWV 772",
+      "composer": "J.S. Bach",
+      "tags": [
+        "baroque"
+      ],
+      "facts": {
+        "durationSeconds": 97.167,
+        "durationTicks": 87839,
+        "ppq": 480,
+        "bars": 61,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 113
+      }
+    }
+  ]
+}
