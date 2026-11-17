@@ -57,6 +57,1114 @@
         ],
         "bpm": 113
       }
+    },
+    {
+      "id": "8a0defcb6e0ff6e2a0e98da7a7765dd407db43d1abe1cf41060b860a0468cb73",
+      "fileName": "Album_for_the_Young_Op._68_No._1_Schumann_TwoHands.mid",
+      "title": "Album_for_the_Young_Op._68_No._1_Schumann_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 47.999,
+        "durationTicks": 46079,
+        "ppq": 480,
+        "bars": 24,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "e9d5697dc777e8b8fd5f9f41e6f90f5a050a04ef2cb0bb9591ef4dfea2bc4898",
+      "fileName": "Album_for_the_Young_Op._68_No._2_Soldiers_Marching_Schumann_TwoHands.mid",
+      "title": "Album_for_the_Young_Op._68_No._2_Soldiers_Marching_Schumann_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 48.878,
+        "durationTicks": 45359,
+        "ppq": 480,
+        "bars": 48,
+        "timeSignatures": [
+          "2/4"
+        ],
+        "bpm": 116
+      }
+    },
+    {
+      "id": "8bd3751ce0aad3cb4cbf0b40ec18a3523b283a854273d46897aa7b02009682ed",
+      "fileName": "Album_for_the_Young_Op._68_No._7_Hunting_Song_Schumann_TwoHands.mid",
+      "title": "Album_for_the_Young_Op._68_No._7_Hunting_Song_Schumann_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 66.999,
+        "durationTicks": 80399,
+        "ppq": 480,
+        "bars": 60,
+        "timeSignatures": [
+          "1/8",
+          "6/8",
+          "5/8",
+          "1/8",
+          "6/8",
+          "5/8",
+          "1/8",
+          "6/8",
+          "5/8",
+          "1/8",
+          "6/8",
+          "5/8"
+        ],
+        "bpm": 150
+      }
+    },
+    {
+      "id": "7c1f3ad78a701799f23fc0afed3cb68ad42ffb0909218307821222b736273e21",
+      "fileName": "Andantino_Wiosna_Chopin_TwoHands.mid",
+      "title": "Andantino_Wiosna_Chopin_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 42.606,
+        "durationTicks": 34559,
+        "ppq": 480,
+        "bars": 24,
+        "timeSignatures": [
+          "6/8"
+        ],
+        "bpm": 103.5
+      }
+    },
+    {
+      "id": "23133a54ce10df6bb035761ddf6b0b185f3df1d8a084082e37d7b288d0ba12ce",
+      "fileName": "Autumn_Leaves_Jazz_Piano_TwoHands.mid",
+      "title": "Autumn_Leaves_Jazz_Piano_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 195.999,
+        "durationTicks": 188159,
+        "ppq": 480,
+        "bars": 98,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "d32e0bc150c0392c68571637f1af202df5a2de82b1982b1d121af13505dce2b9",
+      "fileName": "BWV772_(c)closkey.mid",
+      "title": "BWV772",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 82.56,
+        "durationTicks": 41280,
+        "ppq": 240,
+        "bars": 22,
+        "timeSignatures": [
+          "4/2"
+        ],
+        "bpm": 125
+      }
+    },
+    {
+      "id": "e6cd24346dcc273e82898ba3e2422442fc92b2f724e3c575349d3c6339bd2c51",
+      "fileName": "BWV773_(c)closkey.mid",
+      "title": "BWV773",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 111.579,
+        "durationTicks": 50880,
+        "ppq": 240,
+        "bars": 53,
+        "timeSignatures": [
+          "2/2"
+        ],
+        "bpm": 114
+      }
+    },
+    {
+      "id": "3930ba5864502c63f0afe7e15a915d86ca17403a8b980caab14de64e39880e96",
+      "fileName": "BWV774_(c)closkey.mid",
+      "title": "BWV774",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 85.92,
+        "durationTicks": 85920,
+        "ppq": 240,
+        "bars": 60,
+        "timeSignatures": [
+          "3/2"
+        ],
+        "bpm": 250
+      }
+    },
+    {
+      "id": "f6645359cd019f8dc9d0c3c2c9ed65719ac6bf5e3408475efae750c31208de0f",
+      "fileName": "BWV775_(c)closkey.mid",
+      "title": "BWV775",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 57.231,
+        "durationTicks": 74400,
+        "ppq": 240,
+        "bars": 52,
+        "timeSignatures": [
+          "3/2"
+        ],
+        "bpm": 325
+      }
+    },
+    {
+      "id": "7dc70bf74ef52f130584f940a87f0802b3a61e330bce8c926c66bf013dd5daea",
+      "fileName": "BWV776_(c)closkey.mid",
+      "title": "BWV776",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 93.784,
+        "durationTicks": 121920,
+        "ppq": 240,
+        "bars": 32,
+        "timeSignatures": [
+          "8/2"
+        ],
+        "bpm": 325
+      }
+    },
+    {
+      "id": "dbbf8831e8b13ead3e9a8a1ef4fa46461f86d0eb2799fba89534006ac49a3e51",
+      "fileName": "BWV777_(c)closkey.mid",
+      "title": "BWV777",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 253.636,
+        "durationTicks": 89280,
+        "ppq": 240,
+        "bars": 124,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 88
+      }
+    },
+    {
+      "id": "c71dada6fb520af249f94423d56f6b2fdbdd040c62e1b82118ff351f4938fda4",
+      "fileName": "BWV778_(c)closkey.mid",
+      "title": "BWV778",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 80.735,
+        "durationTicks": 43920,
+        "ppq": 240,
+        "bars": 46,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 136
+      }
+    },
+    {
+      "id": "090f7ace4503f37b6edc4324642cef7a5ec258340a2dba3189ec9df611b1d4d4",
+      "fileName": "BWV779_(c)closkey.mid",
+      "title": "BWV779",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 44.338,
+        "durationTicks": 24120,
+        "ppq": 240,
+        "bars": 34,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 136
+      }
+    },
+    {
+      "id": "579dd50d8015f677903dbffa9120aa1a4f03838f9f416e2e22559fb2547a15c9",
+      "fileName": "BWV780_(c)closkey.mid",
+      "title": "BWV780",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 104.803,
+        "durationTicks": 96000,
+        "ppq": 240,
+        "bars": 67,
+        "timeSignatures": [
+          "3/2"
+        ],
+        "bpm": 229
+      }
+    },
+    {
+      "id": "4f2cf3715ba9013188959cd377dd78abe835b8335cd520cc49bbdc21c2b29bc4",
+      "fileName": "BWV781_(c)closkey.mid",
+      "title": "BWV781",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 53.169,
+        "durationTicks": 69120,
+        "ppq": 240,
+        "bars": 32,
+        "timeSignatures": [
+          "9/4"
+        ],
+        "bpm": 325
+      }
+    },
+    {
+      "id": "11dc2db85fd724cf001f33b436d9a9f7a0f21dc63cdb37446bb90610afa39da3",
+      "fileName": "BWV782_(c)closkey.mid",
+      "title": "BWV782",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 95.502,
+        "durationTicks": 87480,
+        "ppq": 240,
+        "bars": 46,
+        "timeSignatures": [
+          "4/2"
+        ],
+        "bpm": 229
+      }
+    },
+    {
+      "id": "1ff0a1b3be995dcc5999bc3898f6171f19eeda8ae6f573341911f81ec5d96988",
+      "fileName": "BWV783_(c)closkey.mid",
+      "title": "BWV783",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 85.763,
+        "durationTicks": 60720,
+        "ppq": 240,
+        "bars": 43,
+        "timeSignatures": [
+          "6/4"
+        ],
+        "bpm": 177
+      }
+    },
+    {
+      "id": "0c286a98a012cb1ffe817d04233a45684b8f24017b8e41f04aba452f20114be3",
+      "fileName": "BWV784_(c)closkey.mid",
+      "title": "BWV784",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 68.864,
+        "durationTicks": 24240,
+        "ppq": 240,
+        "bars": 26,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 88
+      }
+    },
+    {
+      "id": "ff2fe4581b8ecdde9681fc3264634fddd32908fe0ab284c1f92d506f23250b38",
+      "fileName": "BWV785_(c)closkey.mid",
+      "title": "BWV785",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 68.823,
+        "durationTicks": 37440,
+        "ppq": 240,
+        "bars": 20,
+        "timeSignatures": [
+          "4/2"
+        ],
+        "bpm": 136
+      }
+    },
+    {
+      "id": "1efb331b49f87743353d7681b5a64268b105924cd52aa5ccfda8d9d845078ebb",
+      "fileName": "Bach_BWV801_TwoHands.mid",
+      "title": "Bach_BWV801_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 85.786,
+        "durationTicks": 41039,
+        "ppq": 480,
+        "bars": 38,
+        "timeSignatures": [
+          "9/16"
+        ],
+        "bpm": 63
+      }
+    },
+    {
+      "id": "6b6a661a9a1c66e769748e536f730ee2136921e388142b91e126c09bb1d537bf",
+      "fileName": "Bach_BWV_578_Little_Fugue_in_G_minor_Piano_4H_TwoHands.mid",
+      "title": "Bach_BWV_578_Little_Fugue_in_G_minor_Piano_4H_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 195.555,
+        "durationTicks": 130559,
+        "ppq": 480,
+        "bars": 68,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 85
+      }
+    },
+    {
+      "id": "d01c865350f2839ecca6119a7f34bdf614bfc2ee4696926be694109bd503ca36",
+      "fileName": "Bach_Cello_Suite_no._1_-_Prelude_-_Piano_TwoHands.mid",
+      "title": "Bach_Cello_Suite_no._1_-_Prelude_-_Piano_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 148.278,
+        "durationTicks": 80639,
+        "ppq": 480,
+        "bars": 42,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 70
+      }
+    },
+    {
+      "id": "91ee5d357ba65f8526d6bb6a2226ff9f741437f8a341b260e9160ec02a9b5528",
+      "fileName": "Bach_English_Suite_No2_A_Minor_BWV_807_Prelude_TwoHands.mid",
+      "title": "Bach_English_Suite_No2_A_Minor_BWV_807_Prelude_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 321.456,
+        "durationTicks": 236159,
+        "ppq": 480,
+        "bars": 164,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 92
+      }
+    },
+    {
+      "id": "2873289ec8db7d88c1d5f29ca3e87fe770958cdc69515f19fa276b1fe04351ff",
+      "fileName": "Bach_Fugue_No._2_BWV_847_in_C_Minor_TwoHands.mid",
+      "title": "Bach_Fugue_No._2_BWV_847_in_C_Minor_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 105.829,
+        "durationTicks": 59519,
+        "ppq": 480,
+        "bars": 31,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 72
+      }
+    },
+    {
+      "id": "c360245e30194e08b155ec01354a00fdd77ff58d4aaaf072f0a2ddf489b19447",
+      "fileName": "Bach_Invention_No.8_bwv_779_TwoHands.mid",
+      "title": "Bach_Invention_No.8_bwv_779_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 49.999,
+        "durationTicks": 47999,
+        "ppq": 480,
+        "bars": 34,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "3185ee1e107c1e86fafd3db5aff3e1c71c2e6217a7a4aaeec5c6f72d1d11c2e7",
+      "fileName": "Bach_InvertedFugue_01_FourHands.mid",
+      "title": "Bach_InvertedFugue_01_FourHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 182.396,
+        "durationTicks": 138719,
+        "ppq": 480,
+        "bars": 73,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 100
+      }
+    },
+    {
+      "id": "f5ff471858de58ee5d21fc5e8012dd82ff96ae3421076dffa29a473c6950805b",
+      "fileName": "Bach_Little_Fugue_in_G_Piano_Remix_TwoHands.mid",
+      "title": "Bach_Little_Fugue_in_G_Piano_Remix_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 139.998,
+        "durationTicks": 132479,
+        "ppq": 480,
+        "bars": 68,
+        "timeSignatures": [
+          "5/4",
+          "4/4",
+          "5/4",
+          "4/4",
+          "17/16",
+          "4/4",
+          "23/16",
+          "4/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "3ffce256d5aa5995bd8f7494f7e8aa522f2a01fa00035a19cf86284258148cd7",
+      "fileName": "Bach_Minuet_BWV_Anhang_115_in_G_Minor_TwoHands.mid",
+      "title": "Bach_Minuet_BWV_Anhang_115_in_G_Minor_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 95.999,
+        "durationTicks": 92159,
+        "ppq": 480,
+        "bars": 64,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "cf96af1800e285a2235cbc3bb8a2094279403fd3f9e62900ffe7e9e359197e33",
+      "fileName": "Bach_Musette_TwoHands.mid",
+      "title": "Bach_Musette_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 63.986,
+        "durationTicks": 13437,
+        "ppq": 120,
+        "bars": 28,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 105
+      }
+    },
+    {
+      "id": "2f36cdf5856d94ea753d158773a5a91912ac30573642a33906860861f5778038",
+      "fileName": "Bach_Prelude_C_minor_BWV_999_TwoHands.mid",
+      "title": "Bach_Prelude_C_minor_BWV_999_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 63.998,
+        "durationTicks": 60959,
+        "ppq": 480,
+        "bars": 43,
+        "timeSignatures": [
+          "3/4",
+          "1/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "9a58cad2992834c54ef8aa04409ff5be89d2fcf52d1e3e19698e8109a077f9d1",
+      "fileName": "Bach_Prelude_Cello_Suite_No1_in_G_BWV_1007_TwoHands.mid",
+      "title": "Bach_Prelude_Cello_Suite_No1_in_G_BWV_1007_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 108.68,
+        "durationTicks": 65279,
+        "ppq": 480,
+        "bars": 34,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 50
+      }
+    },
+    {
+      "id": "0b8314e871972f0fc1ec69e9c535ee633c6f3591b0644758ff758f32ace42dbc",
+      "fileName": "Bach_Prelude_No6_BWV_851_D_Minor_TwoHands.mid",
+      "title": "Bach_Prelude_No6_BWV_851_D_Minor_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 92.45,
+        "durationTicks": 49919,
+        "ppq": 480,
+        "bars": 26,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 75
+      }
+    },
+    {
+      "id": "99a89a3aed571c23e195464eeabaaa80b3842f66d4ea641ad85106c61d439c53",
+      "fileName": "Bach_Prlude_No._2_BWV_847_in_C_Minor_TwoHands.mid",
+      "title": "Bach_Prlude_No._2_BWV_847_in_C_Minor_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 84.896,
+        "durationTicks": 72959,
+        "ppq": 480,
+        "bars": 38,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "981c217a66eb4edf5c57826ffa436bfaf45ae104939607d268d5e5431fefde5f",
+      "fileName": "Bach_Prlude_No._5_BWV_850_in_D_Major_TwoHands.mid",
+      "title": "Bach_Prlude_No._5_BWV_850_in_D_Major_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 69.356,
+        "durationTicks": 67199,
+        "ppq": 480,
+        "bars": 35,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 142
+      }
+    },
+    {
+      "id": "0b8314e871972f0fc1ec69e9c535ee633c6f3591b0644758ff758f32ace42dbc",
+      "fileName": "Bach_Prlude_No._6_BWV_851_in_D_Minor_TwoHands.mid",
+      "title": "Bach_Prlude_No._6_BWV_851_in_D_Minor_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 92.45,
+        "durationTicks": 49919,
+        "ppq": 480,
+        "bars": 26,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 75
+      }
+    },
+    {
+      "id": "9f96da20a58d6c76d94ef8f5fc1d225dc8c7e7cb1c42ab9be16185f5c351ca8c",
+      "fileName": "Bach_Toccata_and_Fugue_in_D_Minor_Piano_solo_TwoHands.mid",
+      "title": "Bach_Toccata_and_Fugue_in_D_Minor_Piano_solo_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 434.855,
+        "durationTicks": 274559,
+        "ppq": 480,
+        "bars": 143,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 60
+      }
+    },
+    {
+      "id": "b9d7e821c8d799087a7a4514bf538a5c5917d25fdbdd428ec728c584e52f5c92",
+      "fileName": "Bach_s_Little_Fugue_in_G_minor_BWV_578_Piano_TwoHands.mid",
+      "title": "Bach_s_Little_Fugue_in_G_minor_BWV_578_Piano_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 181.552,
+        "durationTicks": 130559,
+        "ppq": 480,
+        "bars": 68,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 94
+      }
+    },
+    {
+      "id": "eb9b1faf34781e6bf462f3b37d519b459a9b26561b423a068168a9d6447c9de1",
+      "fileName": "Bartk_Bla_For_Children_Book_2__08._Dance_Song_TwoHands.mid",
+      "title": "Bartk_Bla_For_Children_Book_2__08._Dance_Song_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 36.247,
+        "durationTicks": 32639,
+        "ppq": 480,
+        "bars": 34,
+        "timeSignatures": [
+          "2/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "8d720aab1dd85c607e2f54ee6f9b47d204f2d4a19e1f2ced6231e3b5606045a4",
+      "fileName": "Beethoven_-_Ecossaise_in_E_flat_major_-_WoO_86_TwoHands.mid",
+      "title": "Beethoven_-_Ecossaise_in_E_flat_major_-_WoO_86_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 31.999,
+        "durationTicks": 30719,
+        "ppq": 480,
+        "bars": 33,
+        "timeSignatures": [
+          "1/4",
+          "2/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "e23b1b9a97915a18517a306b08632beab375230239b39045baa54da2747dd2a5",
+      "fileName": "Beethoven_-_Fr_Elise_Bagatelle_No._25_WoO_59_TwoHands.mid",
+      "title": "Beethoven_-_Fr_Elise_Bagatelle_No._25_WoO_59_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 155.832,
+        "durationTicks": 89759,
+        "ppq": 480,
+        "bars": 127,
+        "timeSignatures": [
+          "1/8",
+          "3/8",
+          "2/8",
+          "1/8",
+          "3/8",
+          "2/8"
+        ],
+        "bpm": 72
+      }
+    },
+    {
+      "id": "9c955f29880e764b4a3c4780fae12524b8b7f2d3302150b15b2f5c768a95feea",
+      "fileName": "Beethoven_-_Sonata_No_20_G_Major_Op_49_1st_Mvmt_TwoHands.mid",
+      "title": "Beethoven_-_Sonata_No_20_G_Major_Op_49_1st_Mvmt_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 284.794,
+        "durationTicks": 332639,
+        "ppq": 480,
+        "bars": 174,
+        "timeSignatures": [
+          "2/2"
+        ],
+        "bpm": 146
+      }
+    },
+    {
+      "id": "d210b244631a187318335491271c76222fa1feccba358e87105cd33930af81b1",
+      "fileName": "Beethoven_Sonate_No10_1st_Mvmt_TwoHands.mid",
+      "title": "Beethoven_Sonate_No10_1st_Mvmt_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 417.697,
+        "durationTicks": 252239,
+        "ppq": 480,
+        "bars": 266,
+        "timeSignatures": [
+          "1/4",
+          "2/4",
+          "1/4",
+          "2/4",
+          "1/4",
+          "2/4",
+          "1/4"
+        ],
+        "bpm": 98
+      }
+    },
+    {
+      "id": "e1c7259a05bd900d9d80d8905a0a45f474ad4f54a9d7307b1c8300c88a3f6ed5",
+      "fileName": "Beethoven_Sonate_No10_3rd_Mvmt_TwoHands.mid",
+      "title": "Beethoven_Sonate_No10_3rd_Mvmt_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 250.81,
+        "durationTicks": 181919,
+        "ppq": 480,
+        "bars": 254,
+        "timeSignatures": [
+          "1/8",
+          "3/8",
+          "2/8"
+        ],
+        "bpm": 122
+      }
+    },
+    {
+      "id": "602f015cd0465fc6e8491bb24de2e4110cb1ffe8cf11ddb315b81715a17f2a6c",
+      "fileName": "Beethoven_Symphony_No._5_1st_movement_for_piano_TwoHands.mid",
+      "title": "Beethoven_Symphony_No._5_1st_movement_for_piano_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 459.077,
+        "durationTicks": 604319,
+        "ppq": 480,
+        "bars": 626,
+        "timeSignatures": [
+          "2/4",
+          "10/4",
+          "2/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "23d98aace4c275345b711ad0856c09570057d70b3bed7c42e1741615e51a212a",
+      "fileName": "Beethovens_5th_Symphony_TwoHands.mid",
+      "title": "Beethovens_5th_Symphony_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 151.799,
+        "durationTicks": 121439,
+        "ppq": 480,
+        "bars": 66,
+        "timeSignatures": [
+          "4/4",
+          "2/4",
+          "4/4",
+          "2/4",
+          "4/4",
+          "2/4",
+          "4/4",
+          "2/4",
+          "4/4"
+        ],
+        "bpm": 100
+      }
+    },
+    {
+      "id": "4f3d05878dd83f2e4c295dc2e3230038a7d1ae9922a2525dad7fcce66d6ae04c",
+      "fileName": "Bill_Evans_Autunm_Leaves_Portrait_in_Jazz_TwoHands.mid",
+      "title": "Bill_Evans_Autunm_Leaves_Portrait_in_Jazz_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 82.104,
+        "durationTicks": 124799,
+        "ppq": 480,
+        "bars": 65,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 190
+      }
+    },
+    {
+      "id": "14c726c9b39cdf698d8622321fcf2541742a6f02c5746cb14746c7429833c85d",
+      "fileName": "Carol_of_the_Bells_TwoHands.mid",
+      "title": "Carol_of_the_Bells_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 120.763,
+        "durationTicks": 172559,
+        "ppq": 480,
+        "bars": 120,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 180
+      }
+    },
+    {
+      "id": "9c276bc4a2940ef91d6718949694b62de63919e5c290fbb8cccee595e93233a1",
+      "fileName": "Carol_of_the_bells_Easy_piano_solo_TwoHands.mid",
+      "title": "Carol_of_the_bells_Easy_piano_solo_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 60.647,
+        "durationTicks": 84958,
+        "ppq": 480,
+        "bars": 59,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 184
+      }
+    },
+    {
+      "id": "fddc7fcbce9f901ef8360d9ff27878e5a2e0902ebafb83158664c4afe7534884",
+      "fileName": "Clair_de_Lune__Debussy_TwoHands.mid",
+      "title": "Clair_de_Lune__Debussy_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 274.228,
+        "durationTicks": 154799,
+        "ppq": 480,
+        "bars": 72,
+        "timeSignatures": [
+          "9/8"
+        ],
+        "bpm": 48
+      }
+    },
+    {
+      "id": "41265faf40e970b7f7f25635a183cd951a775a2b4f041a739374e1765e23847f",
+      "fileName": "Concerto_in_A_minor_A_Vivaldi.mid",
+      "title": "Concerto_in_A_minor_A_Vivaldi",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 495.021,
+        "durationTicks": 319919,
+        "ppq": 480,
+        "bars": 240,
+        "timeSignatures": [
+          "1/8",
+          "4/4",
+          "2/4"
+        ],
+        "bpm": 92
+      }
+    },
+    {
+      "id": "3168ef85de36093bcf20ef57987bf7a80f1f288bafff2910e0df8a69c2c7b1cc",
+      "fileName": "Czerny_op_599_no_39_TwoHands.mid",
+      "title": "Czerny_op_599_no_39_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 47.999,
+        "durationTicks": 46079,
+        "ppq": 480,
+        "bars": 24,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 120
+      }
+    },
+    {
+      "id": "c24351d43a216c6cf0bd237b4295ffcac031d532b09628dc6a1ae6f1f5ae7c83",
+      "fileName": "Dance_of_the_sugar_plum_fairy_v2_TwoHands.mid",
+      "title": "Dance_of_the_sugar_plum_fairy_v2_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 90.855,
+        "durationTicks": 50879,
+        "ppq": 480,
+        "bars": 53,
+        "timeSignatures": [
+          "2/4"
+        ],
+        "bpm": 70
+      }
+    },
+    {
+      "id": "fb62f93154a66ecb76ab8432f3e45d11d0f8a01c2889096d028c7e99eb2f2e89",
+      "fileName": "Divenire_Piano_TwoHands.mid",
+      "title": "Divenire_Piano_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 430.234,
+        "durationTicks": 273599,
+        "ppq": 480,
+        "bars": 190,
+        "timeSignatures": [
+          "6/8"
+        ],
+        "bpm": 65
+      }
+    },
+    {
+      "id": "22f3916ada8dcadbe994daa7f3bcb96b8384af67b3b2ff8860d908392a52ee48",
+      "fileName": "Due_Tramonti_-_Piano_TwoHands.mid",
+      "title": "Due_Tramonti_-_Piano_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 237.677,
+        "durationTicks": 99839,
+        "ppq": 480,
+        "bars": 53,
+        "timeSignatures": [
+          "4/4",
+          "3/4",
+          "4/4",
+          "2/4",
+          "4/4",
+          "3/4",
+          "4/4"
+        ],
+        "bpm": 6
+      }
+    },
+    {
+      "id": "fe071d8c554612b9428977ce9598ec51cb144ee484a7296daf25ee4a182c0d64",
+      "fileName": "Eine_Kleine_Nachtmusik_Easy_TwoHands.mid",
+      "title": "Eine_Kleine_Nachtmusik_Easy_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 44.215,
+        "durationTicks": 46079,
+        "ppq": 480,
+        "bars": 24,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 148
+      }
+    },
+    {
+      "id": "c5c7478412222c5f944054e9e37372b2a09afce9ac826f927faf4ce1482d418e",
+      "fileName": "Erik_Satie_-_Gnossienne_No._4_TwoHands.mid",
+      "title": "Erik_Satie_-_Gnossienne_No._4_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 222.22,
+        "durationTicks": 95999,
+        "ppq": 480,
+        "bars": 11,
+        "timeSignatures": [
+          "9/2",
+          "10/2"
+        ],
+        "bpm": 54
+      }
+    },
+    {
+      "id": "0261fd8a3181362627f90836838ea8a1468d5a7067b9d1b8403006c3537d2c39",
+      "fileName": "G_Minor_Bach_TwoHands.mid",
+      "title": "G_Minor_Bach_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 158.398,
+        "durationTicks": 126719,
+        "ppq": 480,
+        "bars": 66,
+        "timeSignatures": [
+          "4/4"
+        ],
+        "bpm": 100
+      }
+    },
+    {
+      "id": "da0cfb462b9b42ad4d8bd3c745463f9c24b06100d15f635399319031efaa6dc5",
+      "fileName": "Gershwin_Rhapsody_in_Blue_TwoHands.mid",
+      "title": "Gershwin_Rhapsody_in_Blue_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 981.331,
+        "durationTicks": 850799,
+        "ppq": 480,
+        "bars": 500,
+        "timeSignatures": [
+          "4/4",
+          "5/4",
+          "4/4",
+          "5/4",
+          "4/4",
+          "15/4",
+          "4/4",
+          "11/4",
+          "4/4",
+          "5/4",
+          "4/4",
+          "15/4",
+          "8/4",
+          "4/4",
+          "2/4",
+          "3/4",
+          "2/4",
+          "3/4",
+          "2/4",
+          "4/4"
+        ],
+        "bpm": 88
+      }
+    },
+    {
+      "id": "cb017b6c49827572faf8a187779c5c5439850658576a8453bf1e2b1b4cbef007",
+      "fileName": "Jesu_Joy_of_Mans_Desiring_-_J.S._Bach_TwoHands.mid",
+      "title": "Jesu_Joy_of_Mans_Desiring_-_J.S._Bach_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 187.822,
+        "durationTicks": 102239,
+        "ppq": 480,
+        "bars": 71,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 69
+      }
+    },
+    {
+      "id": "bbb50f4fc596f73042b2a3a7ac244e744faa3566250bd340e30cb39d147799e5",
+      "fileName": "Jesu_Joy_of_Mans_Desiring_Level_2B_TwoHands.mid",
+      "title": "Jesu_Joy_of_Mans_Desiring_Level_2B_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 130.497,
+        "durationTicks": 82079,
+        "ppq": 480,
+        "bars": 57,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 80
+      }
+    },
+    {
+      "id": "6fec24e88f82fd8c2aea348ac027c3baccf2cb18bc24b362176facc3d6410b9d",
+      "fileName": "bach_inventions_772_TwoHands.mid",
+      "title": "bach_inventions_772_TwoHands",
+      "composer": "",
+      "tags": [],
+      "facts": {
+        "durationSeconds": 97.167,
+        "durationTicks": 87839,
+        "ppq": 480,
+        "bars": 61,
+        "timeSignatures": [
+          "3/4"
+        ],
+        "bpm": 113
+      }
     }
   ]
 }
