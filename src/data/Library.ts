@@ -17,6 +17,7 @@ import type { OpenedSong } from './OpenedSong'
 import { DEFAULT_PROFILE_ID, type PianoMeisterDb } from './PianoMeisterDb'
 import type { UploadFile } from './UploadFile'
 import type { UploadResult } from './UploadResult'
+import { factsFailureKey, refreshStaleFacts } from './refreshStaleFacts'
 
 const LAST_SONG_ID = 'lastSongId'
 
@@ -44,18 +45,28 @@ export class Library {
   }
 
   async entries(): Promise<LibraryEntry[]> {
-    const [manifest, uploads, meta, overrides] = await Promise.all([
+    const [manifest, uploads, meta, overrides, hands] = await Promise.all([
       this.manifest(),
       this.db.uploads.orderBy('addedAt').toArray(),
       this.db.songMeta.toArray(),
       this.db.meterOverrides.toArray(),
+      this.db.handAssignments.toArray(),
     ])
     return buildEntries(
       manifest,
       uploads,
       new Map(meta.map((m) => [m.songId, m.edit])),
       new Map(overrides.map((o) => [o.songId, o.override])),
+      new Map(hands.filter((h) => h.profileId === this.profileId).map((h) => [h.songId, h.hands])),
     )
+  }
+
+  /**
+   * Brings uploads' stored facts up to FACTS_VERSION in the background, one file at a time;
+   * `onRefreshed` runs after each save (see refreshStaleFacts).
+   */
+  refreshStaleFacts(onRefreshed?: (songId: string) => void | Promise<void>) {
+    return refreshStaleFacts(this.db, onRefreshed)
   }
 
   async entry(songId: string): Promise<LibraryEntry | null> {
@@ -145,6 +156,7 @@ export class Library {
         await db.handAssignments.where('songId').equals(songId).delete()
         const last = await db.appState.get(LAST_SONG_ID)
         if (last?.value === songId) await db.appState.delete(LAST_SONG_ID)
+        await db.appState.delete(factsFailureKey(songId))
       },
     )
   }
