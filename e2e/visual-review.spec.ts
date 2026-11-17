@@ -10,6 +10,7 @@ import { test, expect, type Page } from '@playwright/test'
  */
 const OUT = 'test-results/visual'
 const PEDAL_DEMO = fileURLToPath(new URL('../test-fixtures/midi/pedal-demo.mid', import.meta.url))
+const METER_DEMO = fileURLToPath(new URL('../test-fixtures/midi/meter-demo.mid', import.meta.url))
 const CLARITY_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/clarity-demo.mid', import.meta.url),
 )
@@ -17,13 +18,13 @@ const ZOOM = -0.4
 
 type Settings = Record<string, Record<string, unknown>>
 
-/** Seeds v2 settings (sections merged over the defaults) before the app loads. */
+/** Seeds v3 settings (sections merged over the defaults) before the app loads. */
 async function seed(page: Page, settings: Settings) {
   await page.addInitScript(
     (value) => {
       localStorage.setItem('pianomeister.settings', value)
     },
-    JSON.stringify({ version: 2, settings }),
+    JSON.stringify({ version: 3, settings }),
   )
 }
 
@@ -241,13 +242,107 @@ test('@visual library page with details panel', async ({ page }) => {
   await shoot(page, 'library-details')
 })
 
-test('@visual settings panel', async ({ page }) => {
-  await page.goto('./')
-  await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
-  await page.getByTestId('open-settings').click()
-  await expect(page.getByTestId('render-readout')).toContainText('px')
-  await page.getByRole('complementary', { name: 'Settings' }).evaluate((el) => {
-    el.scrollTop = el.scrollHeight
-  })
-  await shoot(page, 'settings-panel')
-})
+// 6. Milestone 6 screens (UI foundation): each at 1280×720 and 1024×768 (iPad landscape), with
+// the default theme (Glacier) and Ember. Compare with docs/design/m6/.
+const M6_VIEWPORTS = [
+  { width: 1280, height: 720 },
+  { width: 1024, height: 768 },
+] as const
+const M6_THEMES = [
+  { name: 'glacier', appearance: {} },
+  { name: 'ember', appearance: { primary: '#FFB38A', secondary: '#FFD98A' } },
+] as const
+
+for (const viewport of M6_VIEWPORTS) {
+  for (const theme of M6_THEMES) {
+    const suffix = `${viewport.width}x${viewport.height}-${theme.name}`
+
+    test.describe(`m6 ${suffix}`, () => {
+      test.use({ viewport })
+
+      test.beforeEach(async ({ page }) => {
+        // The sidebar's open state is UI state (not a setting): start closed, Keyboard expanded.
+        await page.addInitScript(() => {
+          localStorage.setItem(
+            'pianomeister.ui',
+            JSON.stringify({ sidebarOpen: false, sidebarSections: ['keyboard'] }),
+          )
+        })
+        await seed(page, { appearance: theme.appearance, audio: { leftVolume: 0.6 } })
+      })
+
+      test(`@visual m6 player ${suffix}`, async ({ page }) => {
+        await showBar(page, 18)
+        // Off the controls, so none shows its hover state.
+        await page.mouse.move(640, 500)
+        await shoot(page, `m6-player-${suffix}`)
+      })
+
+      test(`@visual m6 player with sidebar ${suffix}`, async ({ page }) => {
+        await showBar(page, 18)
+        await page.getByTestId('toggle-sidebar').click()
+        await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
+        await settle(page)
+        await settle(page, 30)
+        await shoot(page, `m6-player-sidebar-${suffix}`)
+      })
+
+      for (const tab of ['audio', 'appearance'] as const) {
+        test(`@visual m6 settings ${tab} ${suffix}`, async ({ page }) => {
+          await showBar(page, 18)
+          await page.getByTestId('toggle-sidebar').click()
+          await page.getByTestId('open-all-settings').click()
+          await page.getByTestId(`tab-${tab}`).click()
+          await page.mouse.move(0, 0)
+          await settle(page, 30)
+          await shoot(page, `m6-settings-${tab}-${suffix}`)
+        })
+      }
+
+      test(`@visual m6 picker ${suffix}`, async ({ page }) => {
+        await showBar(page, 18)
+        await page.getByTestId('open-picker').click()
+        await expect(page.getByTestId('song-picker')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m6-picker-${suffix}`)
+      })
+
+      test(`@visual m6 picker meter changes ${suffix}`, async ({ page }) => {
+        await openUpload(page, METER_DEMO, 'Meter demo')
+        await page.getByTestId('open-picker').click()
+        await expect(page.getByTestId('picker-meter')).toHaveText('4/4+')
+        await page.getByTestId('meter-changes').click()
+        await expect(page.getByTestId('meter-runs')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m6-picker-meter-${suffix}`)
+      })
+
+      test(`@visual m6 loop popover ${suffix}`, async ({ page }) => {
+        await showBar(page, 18)
+        await page.getByTestId('open-loop').click()
+        await page.getByTestId('loop-from').fill('17')
+        await page.getByTestId('loop-to').fill('32')
+        await page.getByTestId('loop-to').press('Enter')
+        await page.getByTestId('loop-set').click()
+        const preRoll = page.getByTestId('setting-practice-preRollBeats').getByRole('slider')
+        await preRoll.focus()
+        for (let i = 0; i < 4; i++) await preRoll.press('ArrowLeft')
+        await settle(page, 30)
+        await shoot(page, `m6-loop-popover-${suffix}`)
+      })
+
+      test(`@visual m6 library ${suffix}`, async ({ page }) => {
+        // Through the player, so the library's backdrop is the scene's last frame.
+        await showBar(page, 18)
+        await page.getByTestId('open-picker').click()
+        await page.getByTestId('open-library').click()
+        await page.getByTestId('song-row').filter({ hasText: 'Minuet' }).click()
+        await expect(page.getByTestId('song-details')).toBeVisible()
+        // The composer list open, as in the mockup.
+        await page.getByRole('button', { name: 'Show all composers' }).click()
+        await settle(page, 30)
+        await shoot(page, `m6-library-${suffix}`)
+      })
+    })
+  }
+}

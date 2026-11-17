@@ -7,10 +7,9 @@ import {
   WebGLRenderTarget,
 } from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js'
+import type { Pass } from 'three/addons/postprocessing/Pass.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { CopyShader } from 'three/addons/shaders/CopyShader.js'
 
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
@@ -28,12 +27,16 @@ const MSAA_SAMPLES = 4
  * anti-aliasing mode can change at runtime without recreating the WebGL context:
  * - off: draw straight to the canvas;
  * - msaa: draw into a multisampled render target, then copy to the canvas;
- * - fxaa / smaa: draw into a render target, then three's FXAA or SMAA pass.
+ * - fxaa / smaa: draw into a render target, then three's FXAA or SMAA pass. Those passes are
+ *   loaded on first use (SMAA carries its lookup textures), keeping them out of the main
+ *   bundle; the previous mode keeps rendering until the pass has arrived.
  */
 export class RenderPipeline {
   readonly renderer: WebGLRenderer
   private composer: EffectComposer | null = null
   private settings: RenderSettings | null = null
+  /** Bumped per mode change, so a pass that arrives after a newer change is dropped. */
+  private build = 0
   private cssWidth = 1
   private cssHeight = 1
 
@@ -100,6 +103,21 @@ export class RenderPipeline {
   }
 
   private buildComposer(mode: RenderSettings['antialias']): void {
+    const build = ++this.build
+    if (mode !== 'fxaa' && mode !== 'smaa') {
+      this.installComposer(mode, null)
+      return
+    }
+    loadPostPass(mode).then(
+      (pass) => {
+        if (build !== this.build) pass.dispose()
+        else this.installComposer(mode, pass)
+      },
+      (e: unknown) => console.error(`[render] Couldn't load the ${mode} pass:`, e),
+    )
+  }
+
+  private installComposer(mode: RenderSettings['antialias'], postPass: Pass | null): void {
     this.disposeComposer()
     if (mode === 'off') return
     const target = new WebGLRenderTarget(1, 1, {
@@ -108,10 +126,9 @@ export class RenderPipeline {
     })
     const composer = new EffectComposer(this.renderer, target)
     composer.addPass(new RenderPass(this.scene, this.camera))
-    if (mode === 'msaa') composer.addPass(new ShaderPass(CopyShader))
-    if (mode === 'fxaa') composer.addPass(new FXAAPass())
-    if (mode === 'smaa') composer.addPass(new SMAAPass())
+    composer.addPass(postPass ?? new ShaderPass(CopyShader))
     this.composer = composer
+    this.resize(this.cssWidth, this.cssHeight)
   }
 
   private disposeComposer(): void {
@@ -120,4 +137,14 @@ export class RenderPipeline {
     this.composer.dispose()
     this.composer = null
   }
+}
+
+/** FXAA or SMAA, loaded on demand. */
+async function loadPostPass(mode: 'fxaa' | 'smaa'): Promise<Pass> {
+  if (mode === 'fxaa') {
+    const { FXAAPass } = await import('three/addons/postprocessing/FXAAPass.js')
+    return new FXAAPass()
+  }
+  const { SMAAPass } = await import('three/addons/postprocessing/SMAAPass.js')
+  return new SMAAPass()
 }

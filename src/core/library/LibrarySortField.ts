@@ -1,1 +1,1 @@
-export type LibrarySortField = 'title' | 'composer' | 'duration' | 'dateAdded' | 'source'
+export type LibrarySortField = 'title' | 'composer' | 'duration' | 'bars' | 'dateAdded' | 'source'

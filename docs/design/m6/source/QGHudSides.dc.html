@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Player layout: info and controls on the sides</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200;300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: 720px; overflow: hidden; background: #05070F; font-family: 'Inter Tight', system-ui, sans-serif; color: #E8ECF6">
+  <div style="position: absolute; inset: 0"><dc-import name="Scene" hint-size="100%,720px"></dc-import></div>
+
+  <!-- timeline along the top edge: always visible -->
+  <div aria-label="Song position: bar 18 of 64, loop bars 17 to 32" style="position: absolute; left: 0; right: 0; top: 0; height: 28px">
+    <div style="position: absolute; left: 28px; right: 28px; top: 12px; height: 3px; border-radius: 2px; background: repeating-linear-gradient(90deg, rgba(232,236,246,0.16) 0 calc(100%/64 - 1px), rgba(5,7,15,0.9) calc(100%/64 - 1px) calc(100%/64))"></div>
+    <div style="position: absolute; left: calc(28px + (100% - 56px) * 0.25); width: calc((100% - 56px) * 0.25); top: 7px; height: 13px; border-radius: 4px; background: rgba(126,224,195,0.12); border: 1px solid rgba(126,224,195,0.45)"></div>
+    <div style="position: absolute; left: 28px; width: calc((100% - 56px) * 0.27); top: 12px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, rgba(138,180,255,0.3), {{accent}})"></div>
+    <div style="position: absolute; left: calc(28px + (100% - 56px) * 0.27); top: 7px; width: 13px; height: 13px; margin-left: -6px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 0 12px rgba(138,180,255,0.9)"></div>
+    <span style="position: absolute; left: calc(28px + (100% - 56px) * 0.25); top: 22px; font-size: 10px; color: #7EE0C3; transform: translateX(-50%)">17</span>
+    <span style="position: absolute; left: calc(28px + (100% - 56px) * 0.5); top: 22px; font-size: 10px; color: #7EE0C3; transform: translateX(-50%)">32</span>
+  </div>
+
+  <!-- LEFT COLUMN: what you're playing + where you are, then app menus -->
+  <div style="position: absolute; top: 50px; left: 28px; bottom: 200px; display: flex; flex-direction: column">
+    <section aria-label="Song and position" style="display: flex; flex-direction: column; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">
+      <div style="font-size: 17px; font-weight: 500">Minuet in G</div>
+      <div style="font-size: 13px; color: #A7B0C6; margin-top: 2px">Christian Petzold · B section</div>
+      <!-- bar:beat — each digit group has a fixed width in its own font, so nothing moves -->
+      <div style="display: flex; align-items: baseline; margin-top: 16px">
+        <span style="font-size: 13px; color: #8F9AB6; margin-right: 8px">bar</span>
+        <span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9); display: inline-block; width: 2ch; text-align: right">18</span>
+        <span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9); color: #5E6884; margin: 0 2px">:</span>
+        <span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9); display: inline-block; width: 1ch">2</span>
+        <span style="font-size: 13px; color: #8F9AB6; margin-left: 8px">beat</span>
+        <span aria-label="Beat 2 of 3" style="align-self: center; display: flex; flex-direction: column; gap: 5px; margin-left: 14px; padding-top: 4px"><span style="width: 5px; height: 5px; border-radius: 999px; background: rgba(232,236,246,0.28)"></span><span style="width: 5px; height: 5px; border-radius: 999px; background: {{accent}}; box-shadow: 0 0 8px {{accent}}"></span><span style="width: 5px; height: 5px; border-radius: 999px; background: rgba(232,236,246,0.28)"></span></span>
+      </div>
+      <div style="font-size: 13px; color: #A7B0C6; margin-top: 10px">bar 18 of 64</div>
+    </section>
+
+    <nav aria-label="App" style="margin-top: 44px; display: flex; flex-direction: column; gap: 4px">
+      <button aria-label="Change song (O)" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0; border: 0; background: transparent; color: rgba(200,206,220,0.4); cursor: pointer; filter: grayscale(1) drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg></span></button>
+      <button aria-label="Library (L)" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0; border: 0; background: transparent; color: #FFFFFF; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v16M10 4v16M15 5l4 15"></path></svg></span><span style="font-size: 13px; color: #E8ECF6; white-space: nowrap; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">Library<span style="color: #8F9AB6; margin-left: 8px">L</span></span></button>
+      <button aria-label="Playfield panel (P)" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0; border: 0; background: transparent; color: {{accent}}; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg></span></button>
+      <button aria-label="Settings (,)" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0; border: 0; background: transparent; color: rgba(200,206,220,0.4); cursor: pointer; filter: grayscale(1) drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"></path></svg></span></button>
+    </nav>
+  </div>
+
+  <!-- RIGHT COLUMN: tempo + time, then playback -->
+  <div style="position: absolute; top: 50px; right: 28px; display: flex; flex-direction: column; align-items: flex-end">
+    <section aria-label="Tempo and time" style="display: flex; flex-direction: column; align-items: flex-end; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">
+      <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9)">107</span><span style="font-size: 13px; color: #8F9AB6">bpm</span></div>
+      <div style="font-size: 13px; color: #A7B0C6; margin-top: 10px"><span style="color: {{accent}}">85%</span> of 126 bpm</div>
+      <div style="font-size: 15px; color: #DCE3F3; margin-top: 12px; font-variant-numeric: tabular-nums">0:52 <span style="color: #6F7A96">/ 1:31</span></div>
+    </section>
+
+    <div role="toolbar" aria-label="Playback" style="margin-top: 36px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 6px; margin-right: -9px">
+        <button aria-label="Previous bar" style="width: 42px; height: 42px; border: 0; background: transparent; color: rgba(232,236,246,0.85); display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14M18 6l-9 6 9 6z"></path></svg></button>
+        <button aria-label="Play" style="width: 50px; height: 50px; border: 1.5px solid rgba(232,236,246,0.9); border-radius: 999px; background: transparent; color: #FFFFFF; display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l10 6-10 6z"></path></svg></button>
+        <button aria-label="Next bar" style="width: 42px; height: 42px; border: 0; background: transparent; color: rgba(232,236,246,0.85); display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 5v14M6 6l9 6-9 6z"></path></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-top: 6px">
+        <div style="display: flex; align-items: center; gap: 4px">
+          <span style="font-size: 13px; color: #7EE0C3; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">bars 17–32</span>
+          <button aria-label="Loop options" style="width: 20px; height: 40px; border: 0; background: transparent; color: #A7B0C6; display: grid; place-items: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+          <button aria-label="Loop bars 17 to 32: on" aria-pressed="true" style="width: 24px; height: 40px; padding: 0; border: 0; background: transparent; color: #7EE0C3; display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 0 6px rgba(126,224,195,0.55))"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"></path></svg></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px">
+          <span style="font-size: 13px; color: {{accent}}; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">85%</span>
+          <span style="width: 20px"></span>
+          <button aria-label="Tempo 85%: open tempo" aria-pressed="true" style="width: 24px; height: 40px; padding: 0; border: 0; background: transparent; color: {{accent}}; display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 0 6px rgba(138,180,255,0.55))"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15a8 8 0 1 1 16 0"></path><path d="M12 15l4-5"></path><circle cx="12" cy="15" r="1.2"></circle></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#8AB4FF","options":["#8AB4FF","#7EE0C3","#E8ECF6"]},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#8AB4FF' };
+  }
+}
+</script>
+</body>
+</html>

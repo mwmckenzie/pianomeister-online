@@ -64,9 +64,27 @@ export const useLibraryStore = defineStore('library', () => {
 
   const groups = computed(() => groupEntries(visible.value, groupBy.value))
 
+  /** Started once, on the first load (uploads and imports always get current facts). */
+  let factsChecked = false
+
+  /**
+   * Recomputes uploads whose stored facts predate FACTS_VERSION, in the background; the list
+   * (and so the picker and library) updates as each one is saved.
+   */
+  function refreshStaleFacts(): void {
+    if (factsChecked) return
+    factsChecked = true
+    library
+      .refreshStaleFacts(async () => {
+        entries.value = await library.entries()
+      })
+      .catch((e: unknown) => console.warn("[library] Couldn't update stored song facts:", e))
+  }
+
   async function refresh(): Promise<void> {
     entries.value = await library.entries()
     loaded.value = true
+    refreshStaleFacts()
     // A tag may have disappeared with an edit or delete.
     const known = new Set(allTags.value.map((t) => t.toLocaleLowerCase()))
     tagFilter.value = tagFilter.value.filter((t) => known.has(t.toLocaleLowerCase()))

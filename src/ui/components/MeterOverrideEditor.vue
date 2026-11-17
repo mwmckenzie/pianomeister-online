@@ -86,6 +86,7 @@ function save(): void {
         Time signature
         <input
           v-model.number="numerator"
+          class="form-control"
           data-testid="override-numerator"
           type="number"
           min="1"
@@ -96,6 +97,7 @@ function save(): void {
       /
       <select
         v-model.number="denominator"
+        class="form-control"
         aria-label="Beat unit"
         data-testid="override-denominator"
       >
@@ -111,19 +113,40 @@ function save(): void {
       <template v-if="startMode === 'barBeat'">
         <label>
           Bar
-          <input v-model.number="startBar" type="number" min="1" aria-label="Start bar" />
+          <input
+            v-model.number="startBar"
+            class="form-control"
+            type="number"
+            min="1"
+            aria-label="Start bar"
+          />
         </label>
         <label>
           Beat
-          <input v-model.number="startBeat" type="number" min="1" aria-label="Start beat" />
+          <input
+            v-model.number="startBeat"
+            class="form-control"
+            type="number"
+            min="1"
+            aria-label="Start beat"
+          />
         </label>
         <span class="muted">(in the file's own bars)</span>
       </template>
       <label v-else>
         Tick
-        <input v-model.number="startTick" type="number" min="0" step="1" aria-label="Start tick" />
+        <input
+          v-model.number="startTick"
+          class="form-control"
+          type="number"
+          min="0"
+          step="1"
+          aria-label="Start tick"
+        />
       </label>
-      <button type="button" @click="startAtFirstNote">Start bar 1 at the first note</button>
+      <button type="button" class="btn-text" @click="startAtFirstNote">
+        Start bar 1 at the first note
+      </button>
     </div>
     <p class="muted" data-testid="override-preview">
       <template v-if="preview">
@@ -133,10 +156,22 @@ function save(): void {
       <template v-else>Enter a valid time signature and start.</template>
     </p>
     <div class="row">
-      <button type="button" :disabled="draft === null || unchanged" @click="save">
+      <button
+        type="button"
+        class="btn-primary"
+        :disabled="draft === null || unchanged"
+        @click="save"
+      >
         Save meter
       </button>
-      <button type="button" :disabled="override === null" @click="emit('clear')">Clear</button>
+      <button
+        type="button"
+        class="btn-outline"
+        :disabled="override === null"
+        @click="emit('clear')"
+      >
+        Clear
+      </button>
       <span v-if="override" class="muted">
         Override active: {{ override.timeSignature.numerator }}/{{
           override.timeSignature.denominator
@@ -147,19 +182,61 @@ function save(): void {
 </template>
 
 <style scoped>
+.meter {
+  font-size: var(--text-sm);
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem 0.6rem;
-  margin: 0.35rem 0;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0;
+  color: var(--text-2);
+}
+
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 input[type='number'] {
-  width: 4rem;
+  width: 4.5rem;
 }
 
 .muted {
-  color: #8c9abf;
+  color: var(--text-3);
+}
+
+button {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: var(--weight-medium);
+}
+
+.btn-outline {
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+.btn-text {
+  padding: 0;
+  background: transparent;
+  color: var(--primary);
 }
 </style>

@@ -1,3 +1,4 @@
+import { DEFAULT_HAND_ASSIGNMENT } from '../hands/HandAssignment'
 import type { LibraryEntry } from '../library/LibraryEntry'
 
 /** A library entry for list-operation tests; override only what the test cares about. */
@@ -24,6 +25,7 @@ export function makeEntry(
     override: null,
     bars: 30,
     timeSignature: '4/4',
+    hands: DEFAULT_HAND_ASSIGNMENT,
     addedAt: null,
     ...fields,
   }

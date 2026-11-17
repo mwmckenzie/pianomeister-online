@@ -5,7 +5,7 @@ test('opens the player as the home page', async ({ page }) => {
   await page.goto('./')
   await expect(page.getByTestId('stage')).toBeVisible()
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Playfield panel (P)' })).toBeVisible()
 })
 
 test('serves a web app manifest that Chromium parses without errors', async ({ page }) => {

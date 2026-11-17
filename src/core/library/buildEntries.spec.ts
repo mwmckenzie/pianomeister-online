@@ -64,4 +64,22 @@ describe('buildEntries', () => {
       timeSignature: '3/4',
     })
   })
+
+  it('uses the stored hands, else the default from the channels, else channel 0/1', () => {
+    const withChannels: SongFacts = {
+      ...facts,
+      channels: [
+        { channel: 2, noteCount: 10, minPitch: 60, maxPitch: 80, averagePitch: 70 },
+        { channel: 3, noteCount: 10, minPitch: 30, maxPitch: 50, averagePitch: 40 },
+      ],
+    }
+    const songs = { version: 1 as const, songs: [{ ...manifest.songs[0]!, facts: withChannels }] }
+    const [byChannels] = buildEntries(songs, [], new Map(), new Map())
+    expect(byChannels?.hands).toEqual({ right: [2], left: [3] })
+    const stored = { right: [3], left: [] }
+    const [byStore] = buildEntries(songs, [], new Map(), new Map(), new Map([['b1', stored]]))
+    expect(byStore?.hands).toEqual(stored)
+    const [oldFacts] = buildEntries(manifest, [], new Map(), new Map())
+    expect(oldFacts?.hands).toEqual({ right: [0], left: [1] })
+  })
 })

@@ -4,16 +4,24 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import type { Hand } from '@/core/hands/Hand'
 import { defaultHands } from '@/core/hands/defaultHands'
 import type { HandAssignment } from '@/core/hands/HandAssignment'
+import { allComposers } from '@/core/library/composerSuggestions'
+import { formatTempoRange } from '@/core/library/formatTempoRange'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import type { SongMetaFields } from '@/core/library/SongMetaFields'
 import { noteName } from '@/core/noteName'
 import { BarMap } from '@/core/timing/BarMap'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
+import { summariseMeter } from '@/core/timing/summariseMeter'
 import type { OpenedSong } from '@/data/OpenedSong'
 
 import { formatTime } from '../format/formatTime'
 import { useLibraryStore } from '../stores/libraryStore'
+import AppButton from './AppButton.vue'
+import ComboboxField from './ComboboxField.vue'
+import IconButton from './IconButton.vue'
 import MeterOverrideEditor from './MeterOverrideEditor.vue'
+import MeterReadout from './MeterReadout.vue'
+import SelectField from './SelectField.vue'
 import TagEditor from './TagEditor.vue'
 
 const props = defineProps<{ readonly songId: string }>()
@@ -32,6 +40,7 @@ const handsRevision = ref(0)
 const title = ref('')
 const composer = ref('')
 const confirmingDelete = ref(false)
+const editingMeter = ref(false)
 
 /** Loads the song and its stored settings; also used to undo a change whose save failed. */
 async function load(songId: string): Promise<void> {
@@ -53,6 +62,7 @@ watch(
   (songId) => {
     opened.value = null
     confirmingDelete.value = false
+    editingMeter.value = false
     void load(songId)
   },
   { immediate: true },
@@ -73,12 +83,6 @@ async function resetMeta(): Promise<void> {
   if (await store.resetMeta(props.songId)) syncFields()
 }
 
-/**
- * Saves one text field (on blur, or Enter, which blurs) and waits for the write. Afterwards the
- * field shows what is stored: the saved value (trimmed; an emptied title falls back to the
- * original), or, if the save failed, the previous value while the error is shown. Other fields
- * are sent as stored, so a save never carries along another field's unsaved text.
- */
 /**
  * Metadata saves run one at a time, and each builds its fields when it runs, from the entry as
  * stored by then: two quick edits (title, then composer) must not race, or the second would
@@ -102,6 +106,13 @@ function queueMeta(fields: (stored: LibraryEntry) => SongMetaFields): Promise<vo
  */
 async function saveField(field: 'title' | 'composer'): Promise<void> {
   const value = field === 'title' ? title.value : composer.value
+  const stored = field === 'title' ? entry.value?.title : entry.value?.composer
+  // Leaving the composer field after choosing a name commits the same text again.
+  if (value.trim() === stored) {
+    if (field === 'title') title.value = stored
+    else composer.value = stored
+    return
+  }
   await queueMeta((stored) => ({
     title: field === 'title' ? value : stored.title,
     composer: field === 'composer' ? value : stored.composer,
@@ -120,16 +131,25 @@ function blurOnEnter(event: KeyboardEvent): void {
   if (event.target instanceof HTMLInputElement) event.target.blur()
 }
 
-const tempos = computed(() =>
-  (opened.value?.song.tempoEvents ?? []).map(
-    (e) => `${(60e6 / e.microsPerQuarter).toFixed(1)} BPM @ ${e.tick}`,
-  ),
-)
-const meters = computed(() =>
-  (opened.value?.song.timeSignatureEvents ?? []).map(
-    (e) => `${e.numerator}/${e.denominator} @ ${e.tick}`,
-  ),
-)
+const composers = computed(() => allComposers(store.entries))
+const HAND_OPTIONS = [
+  { value: 'right', label: 'Right' },
+  { value: 'left', label: 'Left' },
+  { value: 'hidden', label: 'Hidden' },
+] as const
+/** The meter as played (override applied): main meter, and its changes when from the file. */
+const meter = computed(() => {
+  const e = entry.value
+  if (e === null) return null
+  if (opened.value !== null) return summariseMeter(BarMap.fromSong(opened.value.song, e.override))
+  return { main: e.timeSignature, changes: 0, runs: [{ bar: 1, meter: e.timeSignature }] }
+})
+const meterSource = computed(() => {
+  const override = entry.value?.override ?? null
+  return override === null
+    ? ' from file · bar 1 at tick 0'
+    : ` override · bar 1 at tick ${override.barOneStartTick}`
+})
 const fileBars = computed(() =>
   opened.value === null ? 0 : BarMap.fromSong(opened.value.song, null).barCount,
 )
@@ -191,237 +211,262 @@ function play(): void {
 </script>
 
 <template>
-  <aside class="details" aria-label="Song details">
-    <header>
-      <h2>{{ entry?.title ?? 'Song' }}</h2>
-      <button type="button" aria-label="Close details" @click="emit('close')">✕</button>
+  <aside class="details" aria-label="Song details" data-testid="song-details">
+    <header class="head">
+      <h2 class="visually-hidden">{{ entry?.title ?? 'Song' }}</h2>
+      <p v-if="entry" class="source" :title="entry.fileName" data-testid="details-source">
+        {{ entry.source === 'bundled' ? 'Bundled song' : 'Uploaded' }} · {{ entry.fileName }}
+      </p>
     </header>
 
-    <div class="actions">
-      <button type="button" class="primary" data-testid="details-play" @click="play">Play</button>
-    </div>
+    <div class="scroll">
+      <p v-if="loadError" class="error">{{ loadError }}</p>
+      <p v-if="store.error" class="error" role="alert" data-testid="details-error">
+        {{ store.error }}
+        <IconButton icon="close" label="Dismiss error" size="sm" @click="store.clearError()" />
+      </p>
 
-    <p v-if="loadError" class="error">{{ loadError }}</p>
-    <p v-if="store.error" class="error" role="alert" data-testid="details-error">
-      {{ store.error }}
-      <button type="button" aria-label="Dismiss error" @click="store.clearError()">✕</button>
-    </p>
-
-    <fieldset v-if="entry">
-      <legend>Metadata</legend>
-      <label>
-        Title
-        <input
-          v-model="title"
-          data-testid="meta-title"
-          @change="saveField('title')"
-          @keydown.enter="blurOnEnter"
-        />
-      </label>
-      <label>
-        Composer
-        <input
-          v-model="composer"
-          data-testid="meta-composer"
-          @change="saveField('composer')"
-          @keydown.enter="blurOnEnter"
-        />
-      </label>
-      <div class="field">
-        Tags
-        <TagEditor
-          :model-value="entry.tags"
-          :suggestions="store.allTags"
-          @update:model-value="saveTags"
-        />
-      </div>
-      <button type="button" :disabled="!entry.edited" data-testid="meta-reset" @click="resetMeta">
-        Reset to original
-      </button>
-      <span v-if="entry.edited" class="muted"> Original: {{ entry.original.title }}</span>
-    </fieldset>
-
-    <template v-if="opened && entry">
-      <fieldset>
-        <legend>Hands</legend>
-        <table class="hands">
-          <tbody>
-            <tr v-for="c in opened.song.channels" :key="`${c.channel}-${handsRevision}`">
-              <th scope="row">Channel {{ c.channel }}</th>
-              <td>
-                <select
-                  :value="handOf(c.channel)"
-                  :aria-label="`Channel ${c.channel} hand`"
-                  :data-testid="`hand-ch${c.channel}`"
-                  @change="
-                    setHand(
-                      c.channel,
-                      ($event.target as HTMLSelectElement).value as Hand | 'hidden',
-                    )
-                  "
-                >
-                  <option value="right">Right</option>
-                  <option value="left">Left</option>
-                  <option value="hidden">Hidden</option>
-                </select>
-              </td>
-              <td class="muted">
-                {{ c.noteCount }} notes, {{ noteName(c.minPitch) }}–{{ noteName(c.maxPitch) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="row">
-          <button type="button" @click="swapHands">Swap hands</button>
-          <button type="button" :disabled="handsAreDefault" @click="restoreDefaultHands">
-            Restore default
-          </button>
+      <template v-if="entry">
+        <label class="field">
+          <span class="label">Title</span>
+          <input
+            v-model="title"
+            class="text-input"
+            data-testid="meta-title"
+            @change="saveField('title')"
+            @keydown.enter="blurOnEnter"
+          />
+        </label>
+        <div class="field">
+          <span class="label">Composer</span>
+          <ComboboxField
+            v-model="composer"
+            :options="composers"
+            label="Composer"
+            all-label="All composers"
+            data-testid="meta-composer"
+            @commit="saveField('composer')"
+          />
         </div>
-      </fieldset>
+        <div class="field">
+          <span class="label">Tags</span>
+          <TagEditor
+            :model-value="entry.tags"
+            :suggestions="store.allTags"
+            @update:model-value="saveTags"
+          />
+        </div>
+        <div class="row">
+          <AppButton
+            variant="text"
+            size="sm"
+            icon="reset"
+            :disabled="!entry.edited"
+            data-testid="meta-reset"
+            @click="resetMeta"
+          >
+            Reset to original
+          </AppButton>
+          <span v-if="entry.edited" class="muted">Original: {{ entry.original.title }}</span>
+        </div>
+      </template>
 
-      <fieldset>
-        <legend>Meter</legend>
+      <template v-if="opened && entry">
+        <h3 class="section-caps">Hands</h3>
+        <div
+          v-for="c in opened.song.channels"
+          :key="`${c.channel}-${handsRevision}`"
+          class="hand-row"
+        >
+          <span
+            class="hand-channel"
+            :title="`${c.noteCount} notes, ${noteName(c.minPitch)}–${noteName(c.maxPitch)}`"
+          >
+            Channel {{ c.channel }} · {{ c.noteCount }} notes
+          </span>
+          <SelectField
+            class="compact"
+            :model-value="handOf(c.channel)"
+            :options="HAND_OPTIONS"
+            :label="`Channel ${c.channel} hand`"
+            :data-testid="`hand-ch${c.channel}`"
+            @update:model-value="setHand(c.channel, $event)"
+          />
+        </div>
+        <div class="row">
+          <AppButton size="sm" @click="swapHands">Swap hands</AppButton>
+          <AppButton size="sm" :disabled="handsAreDefault" @click="restoreDefaultHands">
+            Restore default
+          </AppButton>
+        </div>
+
+        <h3 class="section-caps">Meter</h3>
+        <p v-if="meter" class="meter" data-testid="meter-line">
+          <MeterReadout :summary="meter">{{ meterSource }}</MeterReadout>
+        </p>
+        <AppButton
+          v-if="!entry.override && !editingMeter"
+          variant="text"
+          size="sm"
+          data-testid="edit-meter"
+          @click="editingMeter = true"
+        >
+          Override meter…
+        </AppButton>
         <MeterOverrideEditor
+          v-else
           :song="opened.song"
           :override="entry.override"
           @save="saveOverride"
           @clear="store.clearOverride(songId)"
         />
-      </fieldset>
 
-      <fieldset>
-        <legend>File</legend>
-        <dl>
-          <dt>File name</dt>
-          <dd>{{ entry.fileName }}</dd>
-          <dt>Source</dt>
-          <dd>{{ entry.source === 'bundled' ? 'Bundled' : 'Uploaded' }}</dd>
-          <dt>Format / ppq / tracks</dt>
-          <dd>{{ opened.song.format }} / {{ opened.song.ppq }} / {{ opened.song.trackCount }}</dd>
-          <dt>Duration</dt>
-          <dd>
-            {{ formatTime(opened.song.durationSeconds) }} ({{ opened.song.durationTicks }} ticks)
-          </dd>
+        <h3 class="section-caps">File</h3>
+        <dl class="facts">
+          <dt>Length</dt>
+          <dd>{{ formatTime(opened.song.durationSeconds) }}</dd>
           <dt>Bars</dt>
           <dd>
             {{ fileBars }} in the file
-            <template v-if="entry.override">· {{ entry.bars }} with the meter override</template>
+            <template v-if="entry.override">· {{ entry.bars }} with the override</template>
           </dd>
           <dt>Tempo</dt>
-          <dd>{{ tempos.join(', ') || 'none (120 BPM)' }}</dd>
-          <dt>Time signatures</dt>
-          <dd>{{ meters.join(', ') || 'none (4/4)' }}</dd>
+          <dd>{{ formatTempoRange(entry.facts) }}</dd>
+          <dt>Format</dt>
+          <dd>
+            MIDI {{ opened.song.format }} · {{ opened.song.trackCount }} tracks · ppq
+            {{ opened.song.ppq }}
+          </dd>
         </dl>
-      </fieldset>
 
-      <fieldset v-if="entry.source === 'uploaded'">
-        <legend>Delete</legend>
-        <button
-          v-if="!confirmingDelete"
-          type="button"
-          data-testid="delete-upload"
-          @click="confirmingDelete = true"
-        >
-          Delete upload…
-        </button>
-        <div v-else class="row">
-          <span>Delete “{{ entry.title }}” and its edits?</span>
-          <button type="button" class="danger" data-testid="confirm-delete" @click="deleteUpload">
-            Delete
-          </button>
-          <button type="button" @click="confirmingDelete = false">Cancel</button>
-        </div>
-      </fieldset>
-    </template>
+        <template v-if="entry.source === 'uploaded'">
+          <AppButton
+            v-if="!confirmingDelete"
+            size="sm"
+            danger
+            data-testid="delete-upload"
+            @click="confirmingDelete = true"
+          >
+            Delete upload…
+          </AppButton>
+          <div v-else class="row confirm">
+            <span>Delete “{{ entry.title }}” and its edits?</span>
+            <AppButton size="sm" danger data-testid="confirm-delete" @click="deleteUpload">
+              Delete
+            </AppButton>
+            <AppButton size="sm" @click="confirmingDelete = false">Cancel</AppButton>
+          </div>
+        </template>
+      </template>
+    </div>
+
+    <footer class="foot">
+      <AppButton variant="primary" class="play" data-testid="details-play" @click="play">
+        Play
+      </AppButton>
+    </footer>
   </aside>
 </template>
 
 <style scoped>
 .details {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 26rem;
-  overflow-y: auto;
-  padding: 0.75rem 1rem 1.5rem;
-  background: rgb(10 14 28 / 97%);
-  border-left: 1px solid rgb(120 140 190 / 25%);
-  font-size: 0.85rem;
-  z-index: 20;
-  box-sizing: border-box;
-}
-
-/* Narrow screens: a full-screen sheet. */
-@media (width < 900px) {
-  .details {
-    left: 0;
-    width: auto;
-    border-left: 0;
-  }
-}
-
-header {
   display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 0.5rem;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 340px;
+  min-height: 0;
+  border-left: 1px solid var(--divider);
 }
 
-h2 {
+.head {
+  padding: 18px 18px 0;
+}
+
+.source {
   margin: 0;
-  font-size: 1.1rem;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.actions {
-  margin: 0.6rem 0;
+.scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 18px 18px;
+  overflow-y: auto;
 }
 
-fieldset {
-  margin: 0.75rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgb(120 140 190 / 20%);
-  border-radius: 6px;
-}
-
-legend {
-  color: #9fb0d8;
-}
-
-label,
 .field {
   display: grid;
-  gap: 0.15rem;
-  margin: 0.35rem 0 0.5rem;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.label {
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+.text-input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-field);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 5%);
+  color: var(--text-strong);
+  font-size: var(--text-base);
+}
+
+.text-input:focus,
+.text-input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: none;
+}
+
+.section-caps {
+  margin: 18px 0 8px;
+  color: var(--text-4);
 }
 
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem 0.6rem;
-  margin-top: 0.35rem;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
-.hands th {
-  text-align: left;
-  font-weight: normal;
-  padding-right: 0.5rem;
+.hand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
 }
 
-.hands td {
-  padding: 0.15rem 0.5rem 0.15rem 0;
+.hand-channel {
+  color: var(--text-soft);
+  font-size: var(--text-md);
 }
 
-dl {
+.meter {
+  margin: 0 0 var(--space-1);
+  color: var(--text-soft);
+  font-size: var(--text-md);
+}
+
+.facts {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.2rem 0.75rem;
-  margin: 0;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-sm);
 }
 
 dt {
-  color: #8c9abf;
+  color: var(--text-3);
 }
 
 dd {
@@ -430,19 +475,35 @@ dd {
 }
 
 .muted {
-  color: #8c9abf;
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .error {
-  color: #ff6b6b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--danger);
+  font-size: var(--text-sm);
 }
 
-.primary {
-  font-weight: 600;
-  padding: 0.3rem 1.2rem;
+.confirm {
+  font-size: var(--text-sm);
 }
 
-.danger {
-  color: #ff8a8a;
+.foot {
+  display: flex;
+  gap: var(--space-2);
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--divider);
+}
+
+.play {
+  flex: 1;
 }
 </style>

@@ -8,9 +8,9 @@ Living document. The brief (`docs/brief.md`) records *decided* scope; this file 
 |---|---|---|---|
 | 0–3 | Setup, core, sound, engine | — | ✅ done |
 | 4 | Library | Library page, uploads, song details, backup, web app manifest | ✅ done |
-| 5 | **Visual clarity** | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing) | in progress |
-| 6 | **UI foundation** | Design system, app shell with navigation, tabbed settings, animated menus/tabs; restyle Library; replace the player's temporary controls | |
-| 7 | **Profiles, bookmarks, stats** | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens | |
+| 5 | **Visual clarity** | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing) | ✅ done |
+| 6 | **UI foundation** | Design system (tokens + Reka UI components), settings registry with reset to default everywhere; settings in two homes (playfield sidebar + settings window); Quiet player HUD with toolbar and timeline; song picker; restyled Library; animated menus (respect reduced motion) | in progress |
+| 7 | **Profiles, bookmarks, stats** | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens; bookmark manager page; picker stats and sorting (plays, time, last played, bookmarks); "Full song" tracked as a bookmark | |
 | 8 | **Section overview & loop editor** | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection | |
 | 9 | **Visual polish** | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects | |
 | 10 | **Hand caging** | Per-bar hand-position look-ahead (design session first, using code from the Unity app) | |

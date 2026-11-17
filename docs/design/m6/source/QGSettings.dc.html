@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>All settings window</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit}
+select{font:inherit}
+input{font:inherit}
+a{color:#8AB4FF}a:hover{color:#B7D0FF}
+.rst{position:relative;flex-shrink:0;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:#8F9AB6;opacity:.3;display:inline-grid;place-items:center;cursor:pointer;transition:opacity .15s,background .15s}
+.rst[data-changed="true"]{opacity:.95;color:var(--acc)}
+.rst:hover,.rst:focus-visible{opacity:1;background:rgba(255,255,255,.08)}
+.rst:hover::after,.rst:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);right:-4px;white-space:nowrap;padding:4px 8px;border-radius:6px;background:#0B1020;border:1px solid rgba(255,255,255,.14);color:#E8ECF6;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;pointer-events:none;z-index:20}
+.secrst{align-self:flex-end;display:inline-flex;align-items:center;gap:6px;padding:4px 6px;border:0;border-radius:6px;background:transparent;color:#8F9AB6;font-size:12px;cursor:pointer}
+.secrst:hover{color:#E8ECF6;background:rgba(255,255,255,.06)}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: 720px; overflow: hidden; background: #05070F; font-family: 'Inter Tight', system-ui, sans-serif; color: #E8ECF6; --acc: {{p}}">
+  <div style="position: absolute; inset: 0"><dc-import name="Scene" hint-size="100%,720px"></dc-import></div>
+  <div style="position: absolute; inset: 0; background: rgba(5,7,15,0.6)"></div>
+
+  <div role="dialog" aria-label="Settings" style="{{dialogStyle}}">
+    <nav aria-label="Settings sections" style="width: 220px; flex-shrink: 0; padding: 22px 12px; border-right: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 2px">
+      <div style="font-size: 20px; font-weight: 500; padding: 0 12px 16px">Settings</div>
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="9">
+        <button aria-current="{{t.current}}" onClick="{{t.pick}}" style="{{t.style}}"><span>{{t.label}}</span><span aria-label="{{t.dotLabel}}" style="{{t.dot}}"></span></button>
+      </sc-for>
+      <div style="margin-top: auto; padding: 14px 12px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: #A7B0C6; display: flex; flex-direction: column; gap: 8px">Camera, keyboard and note looks live in the playfield panel.
+        <button style="align-self: flex-start; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #E8ECF6; font-size: 13px; cursor: pointer">Open playfield panel</button>
+      </div>
+    </nav>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 22px 30px 10px">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 500">{{tabLabel}}</h2>
+        <button aria-label="Close settings" style="width: 40px; height: 40px; border: 0; border-radius: 999px; background: rgba(255,255,255,0.06); color: #C9D2E8; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 6px 30px 20px; display: flex; flex-direction: column; gap: 22px">
+
+        <!-- ============ AUDIO ============ -->
+        <sc-if value="{{isAudio}}" hint-placeholder-val="{{ true }}">
+          <section aria-label="Volume" style="display: flex; flex-direction: column; gap: 12px">
+            <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Volume</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #DCE3F3">
+              <div style="display: flex; align-items: center; gap: 8px"><label for="s-master" style="flex: 1">Master</label><span style="color: #FFFFFF">{{c.master.v}}%</span><button class="rst" data-tip="Reset to default" aria-label="Reset master volume to default" data-changed="{{c.master.changed}}" onClick="{{c.master.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+              <input id="s-master" type="range" min="0" max="100" value="{{c.master.v}}" onInput="{{c.master.set}}" style="accent-color: {{p}}">
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px">
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #DCE3F3">
+                <div style="display: flex; align-items: center; gap: 8px"><label for="s-rh" style="flex: 1">Right hand</label><span style="color: #FFFFFF">{{c.rh.v}}%</span><button class="rst" data-tip="Reset to default" aria-label="Reset right hand volume to default" data-changed="{{c.rh.changed}}" onClick="{{c.rh.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+                <input id="s-rh" type="range" min="0" max="100" value="{{c.rh.v}}" onInput="{{c.rh.set}}" style="accent-color: {{p}}">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div role="group" aria-label="Right hand" style="display: flex; padding: 3px; border-radius: 10px; background: rgba(255,255,255,0.06)">
+                    <sc-for list="{{c.rhMode.opts}}" as="o" hint-placeholder-count="3"><button aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for>
+                  </div>
+                  <button class="rst" data-tip="Reset to default" aria-label="Reset right hand mode to default" data-changed="{{c.rhMode.changed}}" onClick="{{c.rhMode.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #DCE3F3">
+                <div style="display: flex; align-items: center; gap: 8px"><label for="s-lh" style="flex: 1">Left hand</label><span style="color: #FFFFFF">{{c.lh.v}}%</span><button class="rst" data-tip="Reset to default" aria-label="Reset left hand volume to default" data-changed="{{c.lh.changed}}" onClick="{{c.lh.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+                <input id="s-lh" type="range" min="0" max="100" value="{{c.lh.v}}" onInput="{{c.lh.set}}" style="accent-color: {{p}}">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div role="group" aria-label="Left hand" style="display: flex; padding: 3px; border-radius: 10px; background: rgba(255,255,255,0.06)">
+                    <sc-for list="{{c.lhMode.opts}}" as="o" hint-placeholder-count="3"><button aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for>
+                  </div>
+                  <button class="rst" data-tip="Reset to default" aria-label="Reset left hand mode to default" data-changed="{{c.lhMode.changed}}" onClick="{{c.lhMode.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+                </div>
+              </div>
+            </div>
+            <button class="secrst" onClick="{{resetVolume}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>Reset volume</button>
+          </section>
+
+          <section aria-label="Pre-roll and metronome" style="display: flex; flex-direction: column; gap: 12px">
+            <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Pre-roll &amp; metronome</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px">
+              <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #DCE3F3">
+                <div style="display: flex; align-items: center; gap: 8px"><label for="s-quiet" style="flex: 1">Quiet pre-roll level</label><span style="color: #FFFFFF">{{c.quiet.v}}%</span><button class="rst" data-tip="Reset to default" aria-label="Reset quiet pre-roll level to default" data-changed="{{c.quiet.changed}}" onClick="{{c.quiet.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+                <input id="s-quiet" type="range" min="0" max="100" value="{{c.quiet.v}}" onInput="{{c.quiet.set}}" style="accent-color: {{p}}">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #DCE3F3">
+                <div style="display: flex; align-items: center; gap: 8px"><label for="s-metvol" style="flex: 1">Metronome volume</label><span style="color: #FFFFFF">{{c.metVol.v}}%</span><button class="rst" data-tip="Reset to default" aria-label="Reset metronome volume to default" data-changed="{{c.metVol.changed}}" onClick="{{c.metVol.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+                <input id="s-metvol" type="range" min="0" max="100" value="{{c.metVol.v}}" onInput="{{c.metVol.set}}" style="accent-color: {{p}}">
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; font-size: 14px; color: #DCE3F3">
+              <span style="flex: 1">Metronome</span>
+              <div role="group" aria-label="Metronome" style="display: flex; padding: 3px; border-radius: 10px; background: rgba(255,255,255,0.06)">
+                <sc-for list="{{c.met.opts}}" as="o" hint-placeholder-count="3"><button aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for>
+              </div>
+              <button class="rst" data-tip="Reset to default" aria-label="Reset metronome mode to default" data-changed="{{c.met.changed}}" onClick="{{c.met.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+            </div>
+            <button class="secrst" onClick="{{resetPreroll}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>Reset pre-roll &amp; metronome</button>
+          </section>
+
+          <section aria-label="Sound source" style="display: flex; flex-direction: column; gap: 10px">
+            <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Sound source</h3>
+            <div style="display: flex; align-items: center; gap: 14px; font-size: 14px; color: #DCE3F3">
+              <label for="s-out" style="flex: 1">Output</label>
+              <select id="s-out" style="height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 14px"><option>Built-in grand piano</option><option>MIDI out (choose a device under MIDI)</option></select>
+              <button class="rst" data-tip="Reset to default" aria-label="Reset output to default" data-changed="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- ============ APPEARANCE ============ -->
+        <sc-if value="{{isLook}}" hint-placeholder-val="{{ false }}">
+          <section aria-label="Menu colors" style="display: flex; flex-direction: column; gap: 12px">
+            <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Menu colors</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 28px">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #DCE3F3">
+                <input id="s-primary" type="color" value="{{c.primary.v}}" onInput="{{c.primary.set}}" style="width: 36px; height: 36px; padding: 0; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; background: transparent; cursor: pointer">
+                <label for="s-primary" style="flex: 1; display: flex; flex-direction: column"><span>Primary</span><span style="font-size: 12px; color: #8F9AB6">Buttons, sliders, selection</span></label>
+                <span style="font-size: 13px; color: #A7B0C6; font-variant-numeric: tabular-nums">{{c.primary.v}}</span>
+                <button class="rst" data-tip="Reset to default" aria-label="Reset primary color to default" data-changed="{{c.primary.changed}}" onClick="{{c.primary.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #DCE3F3">
+                <input id="s-secondary" type="color" value="{{c.secondary.v}}" onInput="{{c.secondary.set}}" style="width: 36px; height: 36px; padding: 0; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; background: transparent; cursor: pointer">
+                <label for="s-secondary" style="flex: 1; display: flex; flex-direction: column"><span>Secondary</span><span style="font-size: 12px; color: #8F9AB6">Charts, ranges, highlights</span></label>
+                <span style="font-size: 13px; color: #A7B0C6; font-variant-numeric: tabular-nums">{{c.secondary.v}}</span>
+                <button class="rst" data-tip="Reset to default" aria-label="Reset secondary color to default" data-changed="{{c.secondary.changed}}" onClick="{{c.secondary.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+              <span style="font-size: 13px; color: #A7B0C6; margin-right: 4px">Presets</span>
+              <sc-for list="{{presets}}" as="pr" hint-placeholder-count="5">
+                <button onClick="{{pr.pick}}" aria-label="{{pr.name}} preset" style="{{pr.style}}"><span style="{{pr.a}}"></span><span style="{{pr.b}}"></span><span style="font-size: 13px">{{pr.name}}</span></button>
+              </sc-for>
+            </div>
+            <div aria-label="Preview" style="display: flex; align-items: center; gap: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08)">
+              <button style="height: 36px; padding: 0 14px; border-radius: 10px; border: 0; background: {{p}}; color: #0B1020; font-size: 13px; font-weight: 600">Load bookmark</button>
+              <span style="padding: 6px 12px; border-radius: 8px; background: {{pSoft}}; color: #FFFFFF; font-size: 13px">Selected</span>
+              <input type="range" value="60" aria-label="Preview slider" style="width: 110px; accent-color: {{p}}">
+              <span aria-hidden="true" style="position: relative; width: 110px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.10)"><span style="position: absolute; top: 0; bottom: 0; left: 25%; width: 30%; border-radius: 3px; background: {{s}}"></span></span>
+              <span aria-hidden="true" style="display: flex; align-items: flex-end; gap: 3px; height: 28px"><span style="width: 6px; height: 40%; border-radius: 2px; background: {{sSoft}}"></span><span style="width: 6px; height: 70%; border-radius: 2px; background: {{sSoft}}"></span><span style="width: 6px; height: 30%; border-radius: 2px; background: {{sSoft}}"></span><span style="width: 6px; height: 100%; border-radius: 2px; background: {{s}}"></span></span>
+            </div>
+            <button class="secrst" onClick="{{resetColors}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>Reset menu colors</button>
+          </section>
+
+          <section aria-label="Glass panels" style="display: flex; flex-direction: column; gap: 12px">
+            <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Glass panels</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px">
+              <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #DCE3F3">
+                <div style="display: flex; align-items: center; gap: 8px"><label for="s-opacity" style="flex: 1">Panel opacity</label><span style="color: #FFFFFF">{{c.opacity.v}}%</span><button class="rst" data-tip="Reset to default" aria-label="Reset panel opacity to default" data-changed="{{c.opacity.changed}}" onClick="{{c.opacity.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+                <input id="s-opacity" type="range" min="30" max="95" value="{{c.opacity.v}}" onInput="{{c.opacity.set}}" style="accent-color: {{p}}">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #DCE3F3">
+                <div style="display: flex; align-items: center; gap: 8px"><label for="s-blur" style="flex: 1">Background blur</label><span style="color: #FFFFFF">{{c.blur.v}} px</span><button class="rst" data-tip="Reset to default" aria-label="Reset background blur to default" data-changed="{{c.blur.changed}}" onClick="{{c.blur.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button></div>
+                <input id="s-blur" type="range" min="0" max="40" value="{{c.blur.v}}" onInput="{{c.blur.set}}" style="accent-color: {{p}}">
+              </div>
+            </div>
+            <button class="secrst" onClick="{{resetGlass}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>Reset glass panels</button>
+          </section>
+
+          <section aria-label="Motion" style="display: flex; flex-direction: column; gap: 12px">
+            <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Motion</h3>
+            <div style="display: flex; align-items: center; gap: 14px; font-size: 14px; color: #DCE3F3">
+              <span style="flex: 1">Menu animations</span>
+              <div role="group" aria-label="Menu animations" style="display: flex; padding: 3px; border-radius: 10px; background: rgba(255,255,255,0.06)">
+                <sc-for list="{{c.motion.opts}}" as="o" hint-placeholder-count="3"><button aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for>
+              </div>
+              <button class="rst" data-tip="Reset to default" aria-label="Reset menu animations to default" data-changed="{{c.motion.changed}}" onClick="{{c.motion.reset}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{isOther}}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 40px 0; font-size: 14px; color: #A7B0C6">Not drawn in this mockup. Audio and Appearance show the patterns every tab uses.</div>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px 30px; border-top: 1px solid rgba(255,255,255,0.08)">
+        <span style="flex: 1; font-size: 13px; color: #8F9AB6">{{changedNote}}</span>
+        <button onClick="{{resetTab}}" style="display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: #DCE3F3; font-size: 13px; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>Reset all {{tabLabel}} settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // tab: active settings tab; v: current values (a few differ from DEFAULTS so the reset icons show both states)
+    this.state = { tab: 'audio', v: { master: 80, rh: 100, lh: 60, rhMode: 'On', lhMode: 'On', quiet: 25, metVol: 70, met: 'Pre-roll only',
+      primary: '#8AB4FF', secondary: '#7EE0C3', opacity: 58, blur: 26, motion: 'Follow system' } };
+  }
+  renderVals() {
+    var self = this, st = this.state, v = st.v;
+    var DEF = { master: 80, rh: 100, lh: 100, rhMode: 'On', lhMode: 'On', quiet: 25, metVol: 70, met: 'Pre-roll only',
+      primary: '#8AB4FF', secondary: '#7EE0C3', opacity: 58, blur: 26, motion: 'Follow system' };
+    var GROUPS = { volume: ['master', 'rh', 'lh', 'rhMode', 'lhMode'], preroll: ['quiet', 'metVol', 'met'], colors: ['primary', 'secondary'], glass: ['opacity', 'blur'], motion: ['motion'] };
+    var TABS = [['general', 'General'], ['practice', 'Practice'], ['audio', 'Audio'], ['appearance', 'Appearance'], ['midi', 'MIDI'], ['profiles', 'Profiles'], ['library', 'Library & data'], ['shortcuts', 'Shortcuts'], ['about', 'About']];
+    var TAB_KEYS = { audio: GROUPS.volume.concat(GROUPS.preroll), appearance: GROUPS.colors.concat(GROUPS.glass, GROUPS.motion) };
+
+    function hexA(hex, a) {
+      var n = parseInt(hex.slice(1), 16);
+      return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+    }
+    var P = v.primary, S = v.secondary;
+    function setVals(patch) { self.setState({ v: Object.assign({}, st.v, patch) }); }
+    function resetKeys(keys) { var p = {}; keys.forEach(function (k) { p[k] = DEF[k]; }); setVals(p); }
+    function changed(k) { return v[k] !== DEF[k]; }
+    function ctl(k, numeric) {
+      return { v: v[k], changed: changed(k) ? 'true' : 'false',
+        set: function (e) { var x = e && e.target ? e.target.value : v[k]; var p = {}; p[k] = numeric ? Number(x) : x; setVals(p); },
+        reset: function () { resetKeys([k]); } };
+    }
+    function seg(k, labels) {
+      var c = ctl(k);
+      c.opts = labels.map(function (l) {
+        var on = v[k] === l;
+        return { label: l, on: on ? 'true' : 'false',
+          style: 'padding: 6px 14px; border: 0; border-radius: 8px; font-size: 13px; cursor: pointer; color: ' + (on ? '#FFFFFF' : '#C9D2E8') + '; background: ' + (on ? hexA(P, 0.24) : 'transparent'),
+          pick: function () { var p = {}; p[k] = l; setVals(p); } };
+      });
+      return c;
+    }
+
+    var c = {
+      master: ctl('master', true), rh: ctl('rh', true), lh: ctl('lh', true), quiet: ctl('quiet', true), metVol: ctl('metVol', true),
+      rhMode: seg('rhMode', ['On', 'Mute', 'Solo']), lhMode: seg('lhMode', ['On', 'Mute', 'Solo']), met: seg('met', ['Off', 'Pre-roll only', 'Always']),
+      primary: ctl('primary'), secondary: ctl('secondary'), opacity: ctl('opacity', true), blur: ctl('blur', true),
+      motion: seg('motion', ['Follow system', 'Full', 'Reduced'])
+    };
+
+    var PRESETS = [['Glacier', '#8AB4FF', '#7EE0C3'], ['Aurora', '#7EE0C3', '#C3A6FF'], ['Ember', '#FFB38A', '#FFD98A'], ['Orchid', '#D3A6FF', '#8AB4FF'], ['Mono', '#E8ECF6', '#A7B0C6']];
+    var presets = PRESETS.map(function (pr) {
+      var on = pr[1] === P && pr[2] === S;
+      return { name: pr[0],
+        style: 'display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px 5px 6px; border-radius: 999px; cursor: pointer; color: #DCE3F3; background: transparent; border: 1px solid ' + (on ? P : 'rgba(255,255,255,0.14)'),
+        a: 'width: 14px; height: 14px; border-radius: 999px; background: ' + pr[1],
+        b: 'width: 14px; height: 14px; border-radius: 999px; margin-right: 4px; background: ' + pr[2],
+        pick: function () { setVals({ primary: pr[1], secondary: pr[2] }); } };
+    });
+
+    var tabs = TABS.map(function (t) {
+      var on = t[0] === st.tab, keys = TAB_KEYS[t[0]] || [], mod = keys.some(changed);
+      return { label: t[1], current: on ? 'true' : 'false', dotLabel: mod ? 'has changes' : '',
+        style: 'display: flex; align-items: center; justify-content: space-between; text-align: left; padding: 10px 12px; border: 0; border-radius: 10px; font-size: 15px; cursor: pointer; color: ' + (on ? '#FFFFFF' : '#C9D2E8') + '; font-weight: ' + (on ? '500' : '400') + '; background: ' + (on ? hexA(P, 0.16) : 'transparent'),
+        dot: 'width: 6px; height: 6px; border-radius: 999px; background: ' + (mod ? P : 'transparent'),
+        pick: function () { self.setState({ tab: t[0] }); } };
+    });
+    var tabLabel = TABS.filter(function (t) { return t[0] === st.tab; })[0][1];
+    var tabKeys = TAB_KEYS[st.tab] || [];
+    var nChanged = tabKeys.filter(changed).length;
+
+    return {
+      p: P, s: S, pSoft: hexA(P, 0.22), sSoft: hexA(S, 0.55),
+      dialogStyle: 'position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 980px; max-width: calc(100% - 40px); height: 620px; display: flex; border-radius: 22px; background: rgba(18,24,44,' + (v.opacity / 100) + '); backdrop-filter: blur(' + v.blur + 'px) saturate(140%); -webkit-backdrop-filter: blur(' + v.blur + 'px) saturate(140%); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 24px 80px rgba(0,0,0,0.55); overflow: hidden',
+      c: c, presets: presets, tabs: tabs, tabLabel: tabLabel,
+      isAudio: st.tab === 'audio', isLook: st.tab === 'appearance', isOther: st.tab !== 'audio' && st.tab !== 'appearance',
+      changedNote: nChanged === 0 ? 'All at defaults' : nChanged === 1 ? '1 setting changed from default' : nChanged + ' settings changed from default',
+      resetVolume: function () { resetKeys(GROUPS.volume); },
+      resetPreroll: function () { resetKeys(GROUPS.preroll); },
+      resetColors: function () { resetKeys(GROUPS.colors); },
+      resetGlass: function () { resetKeys(GROUPS.glass); },
+      resetTab: function () { resetKeys(tabKeys); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -50,6 +50,16 @@ describe('sortEntries', () => {
     expect(titles('duration', 'asc')).toEqual(['etude 9', 'Air', 'Étude 10', 'Canon'])
   })
 
+  it('sorts by bar count as shown (override applied), ties by title', () => {
+    const withBars = entries.map((e, i) => ({ ...e, bars: [16, 64, 16, 8][i] ?? 0 }))
+    expect(sortEntries(withBars, 'bars', 'asc').map((e) => e.title)).toEqual([
+      'Canon',
+      'Air',
+      'Étude 10',
+      'etude 9',
+    ])
+  })
+
   it('sorts by date added with bundled songs oldest, ties by title', () => {
     expect(titles('dateAdded', 'desc')).toEqual(['etude 9', 'Air', 'Canon', 'Étude 10'])
   })

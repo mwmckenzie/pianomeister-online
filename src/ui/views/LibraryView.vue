@@ -1,94 +1,101 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { formatAddedAt } from '@/core/library/formatAddedAt'
 import type { LibrarySortField } from '@/core/library/LibrarySortField'
 import type { ImportReport } from '@/data/ImportReport'
 import type { UploadResult } from '@/data/UploadResult'
 
+import AppButton from '../components/AppButton.vue'
+import AppIcon from '../components/AppIcon.vue'
+import SearchField from '../components/SearchField.vue'
+import SelectField from '../components/SelectField.vue'
 import SongDetailsPanel from '../components/SongDetailsPanel.vue'
-import { formatBytes } from '../format/formatBytes'
+import SongRow from '../components/SongRow.vue'
+import SortableHeader from '../components/SortableHeader.vue'
+import { formatStorage } from '../format/formatStorage'
 import { formatTime } from '../format/formatTime'
+import { summariseImport, summariseUploads } from '../format/summariseUploads'
+import { useLibraryBackup } from '../library/useLibraryBackup'
+import { sceneSnapshot } from '../playback/sceneSnapshot'
 import { useLibraryStore } from '../stores/libraryStore'
 
+/**
+ * The library page (docs/design/m6/source/QGLibrary.dc.html): filters on the left, the song
+ * table in the middle (its headers are the sort controls), and the details of the selected song
+ * on the right, always shown (the first song until another is chosen).
+ */
 const router = useRouter()
 const store = useLibraryStore()
 const { search, sortField, sortDirection, groupBy, tagFilter, sourceFilter } = storeToRefs(store)
-
+const backup = useLibraryBackup()
 const uploadInput = useTemplateRef<HTMLInputElement>('uploadInput')
 const importInput = useTemplateRef<HTMLInputElement>('importInput')
+const songList = useTemplateRef<HTMLElement>('songList')
 
 const selectedId = ref<string | null>(null)
-const busy = ref(false)
-const error = ref('')
 const uploadResults = ref<readonly UploadResult[]>([])
 const importReport = ref<ImportReport | null>(null)
 const dragDepth = ref(0)
+/** For the "Added" column; a page left open past midnight is fine with yesterday's "Today". */
+const now = Date.now()
 
-const SORT_FIELDS: readonly { readonly value: LibrarySortField; readonly label: string }[] = [
-  { value: 'title', label: 'Title' },
+const busy = backup.busy
+const error = backup.error
+
+const GROUP_OPTIONS = [
+  { value: 'none', label: 'None' },
   { value: 'composer', label: 'Composer' },
-  { value: 'duration', label: 'Duration' },
-  { value: 'dateAdded', label: 'Date added' },
-  { value: 'source', label: 'Source' },
+  { value: 'tag', label: 'Tag' },
+] as const
+const COLUMNS: readonly {
+  readonly field: LibrarySortField
+  readonly label: string
+  readonly num?: boolean
+}[] = [
+  { field: 'title', label: 'Title' },
+  { field: 'composer', label: 'Composer' },
+  { field: 'duration', label: 'Length', num: true },
+  { field: 'bars', label: 'Bars', num: true },
+  { field: 'dateAdded', label: 'Added', num: true },
 ]
 
-const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
-
-const storageLine = computed(() => {
-  const s = store.storage
-  if (s === null) return ''
-  const persisted = s.persisted === null ? 'unknown' : s.persisted ? 'persistent' : 'not persistent'
-  const usage = s.usage === null ? '' : ` · ${formatBytes(s.usage)} used`
-  return `Storage: ${persisted}${usage}`
+const sources = computed(() => {
+  const count = (source: 'bundled' | 'uploaded') =>
+    store.entries.filter((e) => e.source === source).length
+  return [
+    { value: 'all', label: 'All songs', count: store.entries.length },
+    { value: 'bundled', label: 'Bundled', count: count('bundled') },
+    { value: 'uploaded', label: 'Uploaded', count: count('uploaded') },
+  ] as const
 })
 
-/** "2 added, 1 duplicate, 1 rejected — not a MIDI file" */
-function summarise(results: readonly UploadResult[]): string {
-  const count = (outcome: UploadResult['outcome']) =>
-    results.filter((r) => r.outcome === outcome).length
-  const parts = [`${count('added')} added`]
-  if (count('duplicate') > 0) parts.push(`${count('duplicate')} duplicate`)
-  const rejected = results.filter((r) => r.outcome === 'rejected')
-  if (rejected.length > 0) {
-    const reasons = [...new Set(rejected.map((r) => r.reason))].join('; ')
-    parts.push(`${rejected.length} rejected — ${reasons}`)
-  }
-  return parts.join(', ')
-}
-
+const storageLine = computed(() => formatStorage(store.storage))
 const uploadSummary = computed(() =>
-  uploadResults.value.length === 0 ? '' : summarise(uploadResults.value),
+  uploadResults.value.length === 0 ? '' : summariseUploads(uploadResults.value),
+)
+const importSummary = computed(() =>
+  importReport.value === null ? '' : summariseImport(importReport.value),
+)
+/** The rows in display order (groups flattened), for ↑/↓. */
+const rows = computed(() => store.groups.flatMap((g) => g.entries))
+const backdrop = computed(() =>
+  sceneSnapshot.value === null ? undefined : { backgroundImage: `url(${sceneSnapshot.value})` },
 )
 
-const importSummary = computed(() => {
-  const r = importReport.value
-  if (r === null) return ''
-  const parts = [`Imported: ${summarise(r.uploads)}`]
-  const applied = r.metaApplied + r.overridesApplied
-  if (applied > 0) parts.push(`${applied} song settings applied`)
-  const kept = r.metaKept + r.overridesKept
-  if (kept > 0) parts.push(`local edits kept for ${kept} (not overwritten)`)
-  if (r.unknownSongs > 0) parts.push(`${r.unknownSongs} skipped (song not in library)`)
-  return parts.join('. ')
-})
+// The details panel always shows a song: keep the selection on a visible row.
+watch(
+  rows,
+  (list) => {
+    if (!list.some((e) => e.songId === selectedId.value)) selectedId.value = list[0]?.songId ?? null
+  },
+  { immediate: true },
+)
 
-async function run(action: () => Promise<void>): Promise<void> {
-  busy.value = true
-  error.value = ''
-  try {
-    await action()
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
-    console.error('[library]', e)
-  } finally {
-    busy.value = false
-  }
-}
-
-function uploadFiles(files: readonly File[]): Promise<void> {
-  return run(async () => {
+function uploadFiles(files: readonly File[]): Promise<unknown> {
+  return backup.run(async () => {
     importReport.value = null
     uploadResults.value = await store.upload(files)
   })
@@ -101,27 +108,13 @@ function onUploadChosen(event: Event): void {
   if (files.length > 0) void uploadFiles(files)
 }
 
-function onImportChosen(event: Event): void {
+async function onImportChosen(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (file === undefined) return
-  void run(async () => {
-    uploadResults.value = []
-    importReport.value = await store.importArchive(new Uint8Array(await file.arrayBuffer()))
-  })
-}
-
-function exportLibrary(): void {
-  void run(async () => {
-    const bytes = await store.exportArchive()
-    const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: 'application/zip' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `pianomeister-library-${new Date().toISOString().slice(0, 10)}.zip`
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 10_000)
-  })
+  uploadResults.value = []
+  importReport.value = await backup.importFile(file)
 }
 
 function sortBy(field: LibrarySortField): void {
@@ -132,6 +125,30 @@ function sortBy(field: LibrarySortField): void {
     // Newest first is the useful default for dates.
     sortDirection.value = field === 'dateAdded' ? 'desc' : 'asc'
   }
+}
+
+function ariaSort(field: LibrarySortField): 'ascending' | 'descending' | 'none' {
+  if (sortField.value !== field) return 'none'
+  return sortDirection.value === 'asc' ? 'ascending' : 'descending'
+}
+
+function move(step: number): void {
+  const list = rows.value
+  const index = list.findIndex((e) => e.songId === selectedId.value)
+  const next = list[Math.min(list.length - 1, Math.max(0, index + step))]
+  if (next === undefined) return
+  selectedId.value = next.songId
+  void nextTick(() =>
+    songList.value?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }),
+  )
+}
+
+function onListKeyDown(event: KeyboardEvent): void {
+  const step: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 }
+  const by = step[event.key]
+  if (by === undefined) return
+  event.preventDefault()
+  move(by)
 }
 
 async function play(songId: string): Promise<void> {
@@ -166,17 +183,12 @@ function onDrop(event: DragEvent): void {
   if (files.length > 0) void uploadFiles(files)
 }
 
-function onKeyDown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') selectedId.value = null
-}
-
 onMounted(() => {
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragover', onDragOver)
   window.addEventListener('dragleave', onDragLeave)
   window.addEventListener('drop', onDrop)
-  window.addEventListener('keydown', onKeyDown)
-  void run(async () => {
+  void backup.run(async () => {
     await store.refresh()
     await store.refreshStorage()
   })
@@ -187,25 +199,41 @@ onBeforeUnmount(() => {
   window.removeEventListener('dragover', onDragOver)
   window.removeEventListener('dragleave', onDragLeave)
   window.removeEventListener('drop', onDrop)
-  window.removeEventListener('keydown', onKeyDown)
 })
 </script>
 
 <template>
-  <main class="library" :class="{ 'with-details': selectedId !== null }">
-    <header class="top">
-      <RouterLink :to="{ name: 'player' }" class="back">← Player</RouterLink>
-      <h1>Library</h1>
-      <div class="buttons">
-        <button type="button" :disabled="busy" data-testid="upload" @click="uploadInput?.click()">
-          Upload…
-        </button>
-        <button type="button" :disabled="busy" data-testid="export" @click="exportLibrary">
+  <main class="library-page">
+    <div
+      class="backdrop"
+      :class="{ snapshot: backdrop !== undefined }"
+      :style="backdrop"
+      data-testid="library-backdrop"
+    />
+    <div class="window glass">
+      <header class="top">
+        <RouterLink :to="{ name: 'player' }" class="back" data-testid="back-to-player">
+          <AppIcon name="chevronLeft" :size="18" /> Player
+        </RouterLink>
+        <!-- The Bookmarks tab joins in milestone 7. -->
+        <nav class="tabs" role="tablist" aria-label="Library sections">
+          <span role="tab" aria-selected="true" class="tab active">Library</span>
+        </nav>
+        <SearchField v-model="search" label="Search library" data-testid="search" />
+        <AppButton
+          variant="primary"
+          :disabled="busy"
+          data-testid="upload"
+          @click="uploadInput?.click()"
+        >
+          Upload MIDI
+        </AppButton>
+        <AppButton :disabled="busy" data-testid="export" @click="backup.exportLibrary()">
           Export
-        </button>
-        <button type="button" :disabled="busy" data-testid="import" @click="importInput?.click()">
-          Import…
-        </button>
+        </AppButton>
+        <AppButton :disabled="busy" data-testid="import" @click="importInput?.click()">
+          Import
+        </AppButton>
         <input
           ref="uploadInput"
           type="file"
@@ -223,136 +251,151 @@ onBeforeUnmount(() => {
           data-testid="import-input"
           @change="onImportChosen"
         />
+      </header>
+
+      <div class="body">
+        <aside class="filters" aria-label="Filters">
+          <div class="group sources" role="group" aria-labelledby="source-heading">
+            <h2 id="source-heading" class="section-caps">Source</h2>
+            <button
+              v-for="s in sources"
+              :key="s.value"
+              type="button"
+              class="source"
+              :aria-pressed="sourceFilter === s.value"
+              :data-testid="`source-${s.value}`"
+              @click="sourceFilter = s.value"
+            >
+              {{ s.label }} <span class="count">{{ s.count }}</span>
+            </button>
+          </div>
+
+          <div v-if="store.allTags.length > 0" class="group">
+            <h2 class="section-caps">Tags</h2>
+            <div class="chips" role="group" aria-label="Filter by tag">
+              <button
+                v-for="tag in store.allTags"
+                :key="tag"
+                type="button"
+                class="chip"
+                :aria-pressed="tagFilter.some((t) => t.toLowerCase() === tag.toLowerCase())"
+                :data-testid="`tag-filter-${tag}`"
+                @click="store.toggleTag(tag)"
+              >
+                {{ tag }}
+              </button>
+            </div>
+          </div>
+
+          <div class="group">
+            <h2 class="section-caps">Group by</h2>
+            <SelectField
+              v-model="groupBy"
+              :options="GROUP_OPTIONS"
+              label="Group by"
+              data-testid="group"
+            />
+          </div>
+
+          <p class="storage">
+            <span data-testid="storage-status">{{ storageLine }}</span>
+            <span v-if="busy"> · working…</span>
+          </p>
+        </aside>
+
+        <section class="list" aria-label="Songs">
+          <div v-if="uploadSummary || importSummary || error || store.error" class="notices">
+            <p v-if="uploadSummary" class="notice" data-testid="upload-summary">
+              {{ uploadSummary }}
+            </p>
+            <p v-if="importSummary" class="notice" data-testid="import-summary">
+              {{ importSummary }}
+            </p>
+            <p v-if="error" class="error" role="alert" data-testid="library-error">{{ error }}</p>
+            <p v-if="store.error" class="error" role="alert" data-testid="library-write-error">
+              {{ store.error }}
+              <button
+                type="button"
+                class="dismiss"
+                aria-label="Dismiss error"
+                @click="store.clearError()"
+              >
+                <AppIcon name="close" :size="14" />
+              </button>
+            </p>
+          </div>
+          <div class="table-head" role="row">
+            <span
+              v-for="c in COLUMNS"
+              :key="c.field"
+              role="columnheader"
+              :class="{ num: c.num }"
+              :aria-sort="ariaSort(c.field)"
+            >
+              <SortableHeader
+                :label="c.label"
+                :active="sortField === c.field"
+                :direction="sortDirection"
+                :align="c.num ? 'end' : 'start'"
+                :data-testid="`sort-${c.field}`"
+                @sort="sortBy(c.field)"
+              />
+            </span>
+          </div>
+          <div
+            ref="songList"
+            class="rows"
+            role="listbox"
+            tabindex="0"
+            aria-label="Songs"
+            :aria-activedescendant="selectedId ? `song-${selectedId}` : undefined"
+            @keydown="onListKeyDown"
+          >
+            <div
+              v-for="group in store.groups"
+              :key="group.label"
+              role="group"
+              :aria-label="group.label || 'All songs'"
+            >
+              <div v-if="group.label !== ''" class="group-label">
+                {{ group.label }} <span class="count">{{ group.entries.length }}</span>
+              </div>
+              <SongRow
+                v-for="e in group.entries"
+                :id="`song-${e.songId}`"
+                :key="`${group.label}/${e.songId}`"
+                role="option"
+                :title="e.title"
+                :selected="e.songId === selectedId"
+                :aria-selected="e.songId === selectedId"
+                data-testid="song-row"
+                @click="selectedId = e.songId"
+                @dblclick="play(e.songId)"
+              >
+                <span class="cell-text composer" :title="e.composer">{{ e.composer }}</span>
+                <span class="num">{{ formatTime(e.facts.durationSeconds) }}</span>
+                <span class="num">{{ e.bars }}</span>
+                <span class="num muted">{{ formatAddedAt(e.addedAt, now) }}</span>
+              </SongRow>
+            </div>
+          </div>
+          <p v-if="store.loaded && store.visible.length === 0" class="empty">No songs match.</p>
+          <button type="button" class="drop-zone" @click="uploadInput?.click()">
+            Drop .mid files anywhere to add them
+          </button>
+        </section>
+
+        <SongDetailsPanel
+          v-if="selectedId !== null"
+          :song-id="selectedId"
+          @close="selectedId = rows[0]?.songId ?? null"
+          @play="selectedId !== null && play(selectedId)"
+        />
+        <aside v-else class="no-details" aria-label="Song details">
+          {{ store.loaded ? 'No song selected.' : '' }}
+        </aside>
       </div>
-    </header>
-
-    <section class="controls" aria-label="Find songs">
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Search title, composer, tags"
-        aria-label="Search"
-        data-testid="search"
-      />
-      <label>
-        Sort
-        <select v-model="sortField" data-testid="sort">
-          <option v-for="f in SORT_FIELDS" :key="f.value" :value="f.value">{{ f.label }}</option>
-        </select>
-      </label>
-      <button
-        type="button"
-        :aria-label="sortDirection === 'asc' ? 'Ascending' : 'Descending'"
-        @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
-      >
-        {{ sortDirection === 'asc' ? '↑' : '↓' }}
-      </button>
-      <label>
-        Group
-        <select v-model="groupBy" data-testid="group">
-          <option value="none">None</option>
-          <option value="composer">Composer</option>
-          <option value="tag">Tag</option>
-        </select>
-      </label>
-      <div class="segmented" role="group" aria-label="Source">
-        <button
-          v-for="s in ['all', 'bundled', 'uploaded'] as const"
-          :key="s"
-          type="button"
-          :aria-pressed="sourceFilter === s"
-          @click="sourceFilter = s"
-        >
-          {{ s === 'all' ? 'All' : s === 'bundled' ? 'Bundled' : 'Uploaded' }}
-        </button>
-      </div>
-    </section>
-
-    <section v-if="store.allTags.length > 0" class="chips" aria-label="Filter by tag">
-      <button
-        v-for="tag in store.allTags"
-        :key="tag"
-        type="button"
-        class="chip"
-        :aria-pressed="tagFilter.some((t) => t.toLowerCase() === tag.toLowerCase())"
-        :data-testid="`tag-filter-${tag}`"
-        @click="store.toggleTag(tag)"
-      >
-        {{ tag }}
-      </button>
-    </section>
-
-    <p class="status muted">
-      <span data-testid="storage-status">{{ storageLine }}</span>
-      <span v-if="busy"> · working…</span>
-    </p>
-    <p v-if="uploadSummary" class="notice" data-testid="upload-summary">{{ uploadSummary }}</p>
-    <p v-if="importSummary" class="notice" data-testid="import-summary">{{ importSummary }}</p>
-    <p v-if="error" class="error" role="alert" data-testid="library-error">{{ error }}</p>
-    <p v-if="store.error" class="error" role="alert" data-testid="library-write-error">
-      {{ store.error }}
-      <button type="button" aria-label="Dismiss error" @click="store.clearError()">✕</button>
-    </p>
-
-    <table class="songs">
-      <thead>
-        <tr>
-          <th scope="col">
-            <button type="button" class="sort" @click="sortBy('title')">Title</button>
-          </th>
-          <th scope="col">
-            <button type="button" class="sort" @click="sortBy('composer')">Composer</button>
-          </th>
-          <th scope="col">Tags</th>
-          <th scope="col" class="num">
-            <button type="button" class="sort" @click="sortBy('duration')">Length</button>
-          </th>
-          <th scope="col" class="num">Bars</th>
-          <th scope="col">Meter</th>
-          <th scope="col" class="num">BPM</th>
-          <th scope="col">
-            <button type="button" class="sort" @click="sortBy('source')">Source</button>
-          </th>
-          <th scope="col">
-            <button type="button" class="sort" @click="sortBy('dateAdded')">Added</button>
-          </th>
-        </tr>
-      </thead>
-      <tbody v-for="group in store.groups" :key="group.label">
-        <tr v-if="group.label !== ''" class="group">
-          <th colspan="9" scope="rowgroup">{{ group.label }} ({{ group.entries.length }})</th>
-        </tr>
-        <tr
-          v-for="e in group.entries"
-          :key="`${group.label}/${e.songId}`"
-          :class="{ selected: e.songId === selectedId }"
-          data-testid="song-row"
-          tabindex="0"
-          @click="selectedId = e.songId"
-          @keydown.enter="selectedId = e.songId"
-        >
-          <td class="title">{{ e.title }}</td>
-          <td>{{ e.composer }}</td>
-          <td>
-            <span v-for="t in e.tags" :key="t" class="tag">{{ t }}</span>
-          </td>
-          <td class="num">{{ formatTime(e.facts.durationSeconds) }}</td>
-          <td class="num">{{ e.bars }}</td>
-          <td>{{ e.timeSignature }}</td>
-          <td class="num">{{ Math.round(e.facts.bpm) }}</td>
-          <td>{{ e.source === 'bundled' ? 'Bundled' : 'Uploaded' }}</td>
-          <td>{{ e.addedAt === null ? '' : dateFormat.format(e.addedAt) }}</td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-if="store.loaded && store.visible.length === 0" class="muted">No songs match.</p>
-
-    <SongDetailsPanel
-      v-if="selectedId !== null"
-      :song-id="selectedId"
-      @close="selectedId = null"
-      @play="play(selectedId)"
-    />
+    </div>
 
     <div v-if="dragDepth > 0" class="drop" data-testid="drop-overlay">
       Drop MIDI files to add them to the library
@@ -361,167 +404,319 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.library {
-  min-height: 100vh;
-  box-sizing: border-box;
-  padding: 0.75rem 1rem 2rem;
-  background: #05070f;
-  color: #e6ecff;
-  font-size: 0.9rem;
+.library-page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
 }
 
-@media (width >= 900px) {
-  .library.with-details {
-    padding-right: 27rem;
-  }
+/* The player's last frame, blurred, behind the glass (static gradient when there is none). */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 110%, rgb(40 70 140 / 25%), transparent 60%),
+    linear-gradient(180deg, #05070f, #0a0f1e);
+}
+
+.backdrop.snapshot {
+  inset: -32px;
+  background-position: center;
+  background-size: cover;
+  filter: blur(12px);
+}
+
+.backdrop::after {
+  position: absolute;
+  inset: 0;
+  background: rgb(5 7 15 / 72%);
+  content: '';
+}
+
+.window {
+  position: absolute;
+  inset: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  --glass-alpha: 0.55;
 }
 
 .top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
+  gap: var(--space-3);
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--divider);
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.3rem;
+.top :deep(.search-field) {
+  min-width: 200px;
+}
+
+.top :deep(.btn.md) {
+  min-height: 40px;
+  padding: 0 14px;
+}
+
+.top :deep(.btn.primary) {
+  padding: 0 16px;
 }
 
 .back {
-  color: #9fb0d8;
-}
-
-.buttons {
-  display: flex;
-  gap: 0.4rem;
-  margin-left: auto;
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.9rem;
-  margin: 0.75rem 0 0.5rem;
-}
-
-.controls input[type='search'] {
-  flex: 1 1 14rem;
-  max-width: 24rem;
-}
-
-.segmented {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--radius-md);
+  background: var(--field);
+  color: var(--text-1);
+  font-size: var(--text-md);
+  text-decoration: none;
 }
 
-.segmented button[aria-pressed='true'],
-.chip[aria-pressed='true'] {
-  background: #3a4a6e;
-  color: #fff;
+.tabs {
+  display: flex;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--field);
+}
+
+.tab {
+  padding: 8px 16px;
+  border-radius: 9px;
+  color: var(--text-2);
+  font-size: var(--text-md);
+}
+
+.tab.active {
+  background: rgb(var(--primary-rgb) / 22%);
+  color: var(--text-strong);
+  font-weight: var(--weight-medium);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 18px;
+  width: 190px;
+  padding: 16px 14px;
+  overflow-y: auto;
+  border-right: 1px solid var(--divider);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sources {
+  gap: 4px;
+}
+
+.group .section-caps {
+  padding-bottom: 2px;
+  color: var(--text-4);
+}
+
+.sources .section-caps {
+  padding-bottom: 4px;
+}
+
+.source {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.source:hover {
+  background: var(--field);
+}
+
+.source[aria-pressed='true'] {
+  background: rgb(var(--primary-rgb) / 16%);
+  color: var(--text-strong);
+}
+
+.count {
+  color: var(--text-4);
+}
+
+.source[aria-pressed='true'] .count {
+  color: var(--text-3);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 6px;
 }
 
 .chip {
-  border-radius: 999px;
-  padding: 0.15rem 0.6rem;
+  padding: 5px 10px;
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-soft);
+  font-size: var(--text-sm);
+  cursor: pointer;
 }
 
-.status {
-  margin: 0.5rem 0 0.25rem;
+.chip[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: rgb(var(--primary-rgb) / 18%);
+  color: var(--text-strong);
 }
 
-.notice {
-  margin: 0.25rem 0;
-  color: #c8d4f0;
+.storage {
+  margin: auto 0 0;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  line-height: 1.5;
 }
 
-.muted {
-  color: #8c9abf;
+.list {
+  --song-columns: minmax(0, 2.2fr) minmax(0, 1.6fr) 64px 56px 80px;
+  --song-row-padding: 12px 18px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.notices {
+  padding: var(--space-3) 18px 0;
+}
+
+.notice,
+.error {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 10px;
+  background: var(--field);
+  font-size: var(--text-sm);
 }
 
 .error {
-  color: #ff6b6b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--danger);
 }
 
-.songs {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0.5rem;
-}
-
-.songs th,
-.songs td {
-  padding: 0.35rem 0.5rem;
-  text-align: left;
-  border-bottom: 1px solid rgb(120 140 190 / 15%);
-  vertical-align: top;
-}
-
-.songs .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.songs tbody tr[data-testid='song-row'] {
-  cursor: pointer;
-}
-
-.songs tbody tr[data-testid='song-row']:hover,
-.songs tr.selected {
-  background: rgb(58 74 110 / 35%);
-}
-
-.group th {
-  padding-top: 0.9rem;
-  color: #9fb0d8;
-  font-weight: 600;
-}
-
-.title {
-  font-weight: 600;
-}
-
-.sort {
-  padding: 0;
+.dismiss {
   border: 0;
-  background: none;
+  background: transparent;
   color: inherit;
-  font: inherit;
-  font-weight: 600;
   cursor: pointer;
 }
 
-.tag {
-  display: inline-block;
-  margin: 0 0.25rem 0.15rem 0;
-  padding: 0 0.45rem;
-  border-radius: 999px;
-  background: rgb(92 111 153 / 35%);
+.table-head {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: grid;
+  grid-template-columns: var(--song-columns);
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--divider-soft);
+  background: rgb(var(--glass-rgb) / 92%);
 }
 
-/* Narrow screens: hide the less important columns. */
-@media (width < 700px) {
-  .songs th:nth-child(n + 5),
-  .songs td:nth-child(n + 5) {
-    display: none;
-  }
+.table-head .num {
+  display: grid;
+  justify-items: end;
+}
+
+.rows:focus-visible {
+  box-shadow: inset var(--focus-ring-field);
+}
+
+.composer {
+  color: var(--text-soft);
+}
+
+.group-label {
+  padding: 14px 18px 6px;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.empty {
+  padding: var(--space-4) 18px;
+  color: var(--text-3);
+  font-size: var(--text-md);
+}
+
+.drop-zone {
+  flex-shrink: 0;
+  margin: 16px 18px;
+  padding: 18px;
+  border: 1.5px dashed rgb(255 255 255 / 18%);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.drop-zone:hover {
+  color: var(--text-1);
+}
+
+.no-details {
+  flex-shrink: 0;
+  width: 340px;
+  padding: 18px;
+  border-left: 1px solid var(--divider);
+  color: var(--text-3);
+  font-size: var(--text-md);
 }
 
 .drop {
   position: fixed;
+  z-index: 90;
   inset: 0;
   display: grid;
   place-items: center;
+  border: 3px dashed var(--primary);
   background: rgb(5 7 15 / 85%);
-  border: 3px dashed #5c6f99;
-  font-size: 1.4rem;
-  z-index: 30;
+  color: var(--text-1);
+  font-size: var(--text-xl);
   pointer-events: none;
+}
+
+/* 1024 px: the filter and details columns keep their widths; the table narrows. */
+@media (width < 1100px) {
+  .list {
+    --song-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) 52px 40px 72px;
+    --song-row-padding: 12px 14px;
+  }
+
+  .table-head {
+    padding: 12px 14px;
+  }
 }
 </style>

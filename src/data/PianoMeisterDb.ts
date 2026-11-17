@@ -7,7 +7,7 @@ import type { StoredSongMeta } from './StoredSongMeta'
 import type { StoredUpload } from './StoredUpload'
 import { toPlainData } from './toPlainData'
 
-/** Until profiles arrive (milestone 5), everything per-profile belongs to this one. */
+/** Until profiles arrive (milestone 7), everything per-profile belongs to this one. */
 export const DEFAULT_PROFILE_ID = 'default'
 
 /**
@@ -30,6 +30,10 @@ export class PianoMeisterDb extends Dexie {
       handAssignments: '[profileId+songId], songId',
       appState: 'key',
     })
+    // v2: the schema step only (same tables and indexes). Upload facts are brought up to date
+    // separately, whenever they predate FACTS_VERSION (refreshStaleFacts), so a fact added
+    // after a database has upgraded still reaches its uploads.
+    this.version(2).stores({})
     // Every write on every table stores plain data, so callers can't break a write by passing
     // Vue reactive state (IndexedDB rejects proxies with a DataCloneError).
     this.use({

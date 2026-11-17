@@ -49,6 +49,7 @@ src/
 
 - For anything touching more than one file: plan first, then implement.
 - Every `core/` change ships with unit tests.
+- Whenever `SongFacts` gains or changes a field, bump `FACTS_VERSION` (`src/core/library/FACTS_VERSION.ts`) and run `npm run songs:manifest`. Stored uploads with older facts are then recomputed in the background on the next load; never rely on a Dexie upgrade to refresh facts.
 - Definition of done: `npm run check` passes, `npm run build` passes, and for UI/visual changes you have viewed the result.
 - Small, focused commits with conventional prefixes (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`).
 - Never edit `dist/`, `.idea/`, or lockfiles by hand.

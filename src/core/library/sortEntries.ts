@@ -11,6 +11,8 @@ const COMPARE: Record<LibrarySortField, Compare> = {
   title: byTitle,
   composer: (a, b) => collator.compare(a.composer, b.composer),
   duration: (a, b) => a.facts.durationSeconds - b.facts.durationSeconds,
+  // As shown: with the meter override applied.
+  bars: (a, b) => a.bars - b.bars,
   // Bundled songs (no date) count as the oldest.
   dateAdded: (a, b) => (a.addedAt ?? 0) - (b.addedAt ?? 0),
   source: (a, b) => (a.source === b.source ? 0 : a.source === 'bundled' ? -1 : 1),

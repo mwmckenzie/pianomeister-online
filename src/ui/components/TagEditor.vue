@@ -41,10 +41,11 @@ function onKeyDown(event: KeyboardEvent): void {
   <div class="tags">
     <span v-for="tag in modelValue" :key="tag" class="tag">
       {{ tag }}
-      <button type="button" :aria-label="`Remove tag ${tag}`" @click="remove(tag)">✕</button>
+      <button type="button" :aria-label="`Remove tag ${tag}`" @click="remove(tag)">×</button>
     </span>
     <input
       v-model="draft"
+      class="form-control"
       :list="listId"
       data-testid="tag-input"
       aria-label="Add tag"
@@ -69,29 +70,43 @@ function onKeyDown(event: KeyboardEvent): void {
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
   align-items: center;
+  gap: var(--space-2);
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.1rem 0.25rem 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: rgb(92 111 153 / 35%);
+  gap: 2px;
+  min-height: 28px;
+  padding: 0 2px 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: rgb(255 255 255 / 8%);
+  color: var(--text-soft);
+  font-size: var(--text-sm);
 }
 
 .tag button {
-  padding: 0 0.25rem;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
   border: 0;
+  border-radius: 50%;
   background: none;
-  color: inherit;
+  color: var(--text-3);
+  font-size: 16px;
   cursor: pointer;
 }
 
+.tag button:hover {
+  background: var(--field-hover);
+  color: var(--text-1);
+}
+
 input {
-  flex: 1 1 6rem;
-  min-width: 6rem;
+  flex: 1 1 8rem;
+  min-width: 8rem;
 }
 </style>

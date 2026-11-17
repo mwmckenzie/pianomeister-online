@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Song and bookmark picker</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit}
+input{font:inherit}
+a{color:#8AB4FF}a:hover{color:#B7D0FF}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: 720px; overflow: hidden; background: #05070F; font-family: 'Inter Tight', system-ui, sans-serif; color: #E8ECF6">
+  <div style="position: absolute; inset: 0"><dc-import name="Scene" hint-size="100%,720px"></dc-import></div>
+  <div style="position: absolute; inset: 0; background: rgba(5,7,15,0.6)"></div>
+
+  <div role="dialog" aria-label="Choose a song or bookmark" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 1180px; max-width: calc(100% - 32px); height: 640px; display: flex; flex-direction: column; border-radius: 22px; background: rgba(18,24,44,0.6); backdrop-filter: blur(26px) saturate(140%); -webkit-backdrop-filter: blur(26px) saturate(140%); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 24px 80px rgba(0,0,0,0.55); overflow: hidden">
+    <div style="display: flex; align-items: center; gap: 16px; padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.08)">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 500; flex-shrink: 0">What to practice</h2>
+      <label style="flex: 1; display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-radius: 12px; background: rgba(255,255,255,0.06); color: #A7B0C6; font-size: 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search songs</span><input type="search" placeholder="Search title, composer or tag" style="flex: 1; border: 0; background: transparent; color: #FFFFFF; font-size: 14px; outline: none"></label>
+      <button aria-label="Close" style="width: 40px; height: 40px; border: 0; border-radius: 999px; background: rgba(255,255,255,0.06); color: #C9D2E8; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <!-- Songs -->
+      <div style="width: 440px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; min-height: 0">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 36px 50px 56px 74px; gap: 10px; align-items: center; padding: 12px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.06)">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Songs</span>
+          <button onClick="{{sh.bms.click}}" aria-label="Sort songs by bookmarks" title="Bookmarks" style="{{sh.bms.style}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>{{sh.bms.arrow}}</button>
+          <button onClick="{{sh.plays.click}}" aria-label="Sort songs by plays" style="{{sh.plays.style}}">Plays{{sh.plays.arrow}}</button>
+          <button onClick="{{sh.time.click}}" aria-label="Sort songs by practice time" style="{{sh.time.style}}">Time{{sh.time.arrow}}</button>
+          <button onClick="{{sh.last.click}}" aria-label="Sort songs by last practiced" style="{{sh.last.style}}">Last{{sh.last.arrow}}</button>
+        </div>
+        <div role="listbox" aria-label="Songs" style="flex: 1; min-height: 0; overflow: auto; padding: 4px 0">
+          <sc-for list="{{songs}}" as="song" hint-placeholder-count="5">
+            <button role="option" aria-selected="{{song.selected}}" onClick="{{song.pick}}" style="{{song.style}}">
+              <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{song.title}}</span><span style="font-size: 12px; color: #A7B0C6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{song.composer}}</span></span>
+              <span style="text-align: right; color: #C9D2E8">{{song.bms}}</span><span style="text-align: right">{{song.plays}}</span><span style="text-align: right">{{song.time}}</span><span style="text-align: right; color: #A7B0C6">{{song.last}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div style="flex: 1; min-width: 0; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow: auto">
+        <div>
+          <div style="font-size: 19px; font-weight: 500; letter-spacing: -0.01em">{{cur.title}}</div>
+          <div style="font-size: 13px; color: #A7B0C6; margin-top: 2px">{{cur.composer}} · {{cur.source}}</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 13px">
+          <div><div style="font-size: 11px; color: #8F9AB6">Length</div><div>{{cur.length}}</div></div>
+          <div><div style="font-size: 11px; color: #8F9AB6">Bars</div><div>{{cur.bars}}</div></div>
+          <div><div style="font-size: 11px; color: #8F9AB6">Meter</div><div>{{cur.meter}}</div></div>
+          <div><div style="font-size: 11px; color: #8F9AB6">Tempo</div><div style="white-space: nowrap">{{cur.bpm}}</div></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <div><div style="font-size: 12px; color: #A7B0C6">Played</div><div style="font-size: 20px; font-weight: 300">{{cur.plays}}</div></div>
+          <div><div style="font-size: 12px; color: #A7B0C6">Practice</div><div style="font-size: 20px; font-weight: 300">{{cur.time}}</div></div>
+          <div><div style="font-size: 12px; color: #A7B0C6">Last</div><div style="font-size: 20px; font-weight: 300">{{cur.last}}</div></div>
+        </div>
+        <div aria-label="Song practice minutes per day, last 14 days" style="display: flex; align-items: flex-end; gap: 3px; height: 34px; flex-shrink: 0">
+          <sc-for list="{{songChart}}" as="c" hint-placeholder-count="14"><span style="{{c.style}}"></span></sc-for>
+        </div>
+        <div style="height: 1px; background: rgba(255,255,255,0.08); flex-shrink: 0"></div>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div>
+            <div style="font-size: 16px; font-weight: 500">{{bm.name}}</div>
+            <div style="font-size: 13px; color: #A7B0C6; margin-top: 2px">{{bm.line}}</div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+            <div><div style="font-size: 12px; color: #A7B0C6">Played</div><div style="font-size: 20px; font-weight: 300">{{bm.plays}}</div></div>
+            <div><div style="font-size: 12px; color: #A7B0C6">Practice</div><div style="font-size: 20px; font-weight: 300">{{bm.time}}</div></div>
+            <div><div style="font-size: 12px; color: #A7B0C6">Share</div><div style="font-size: 20px; font-weight: 300">{{bm.share}}</div></div>
+          </div>
+          <div aria-label="Practice minutes per day for this selection, last 14 days" style="display: flex; align-items: flex-end; gap: 3px; height: 34px">
+            <sc-for list="{{bmChart}}" as="c" hint-placeholder-count="14"><span style="{{c.style}}"></span></sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bookmarks -->
+      <div style="width: 380px; flex-shrink: 0; border-left: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; min-height: 0">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 44px 50px 62px; gap: 8px; align-items: center; padding: 12px 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.06)">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Load</span>
+          <button onClick="{{bh.plays.click}}" aria-label="Sort bookmarks by plays" style="{{bh.plays.style}}">Plays{{bh.plays.arrow}}</button>
+          <button onClick="{{bh.time.click}}" aria-label="Sort bookmarks by practice time" style="{{bh.time.style}}">Time{{bh.time.arrow}}</button>
+          <button onClick="{{bh.last.click}}" aria-label="Sort bookmarks by last practiced" style="{{bh.last.style}}">Last{{bh.last.arrow}}</button>
+        </div>
+        <div role="listbox" aria-label="Bookmarks" style="flex: 1; min-height: 0; overflow: auto; padding: 4px 0">
+          <button role="option" aria-selected="{{full.selected}}" onClick="{{full.pick}}" style="{{full.style}}">
+            <span style="display: flex; flex-direction: column; gap: 5px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 500">Full song</span><span style="font-size: 12px; color: #A7B0C6">1–{{cur.bars}}</span></span><span aria-hidden="true" style="position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.10)"><span style="{{full.barStyle}}"></span></span></span>
+            <span style="text-align: right">{{full.plays}}</span><span style="text-align: right">{{full.time}}</span><span style="text-align: right; color: #A7B0C6">{{full.last}}</span>
+          </button>
+          <div style="height: 1px; margin: 4px 14px; background: rgba(255,255,255,0.06)"></div>
+          <sc-for list="{{bms}}" as="b" hint-placeholder-count="2">
+            <button role="option" aria-selected="{{b.selected}}" onClick="{{b.pick}}" style="{{b.style}}">
+              <span style="display: flex; flex-direction: column; gap: 5px; min-width: 0"><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><span style="font-size: 12px; color: #A7B0C6; flex-shrink: 0">{{b.range}}</span></span><span aria-hidden="true" style="position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.10)"><span style="{{b.barStyle}}"></span></span></span>
+              <span style="text-align: right">{{b.plays}}</span><span style="text-align: right">{{b.time}}</span><span style="text-align: right; color: #A7B0C6">{{b.last}}</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{emptyBms}}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 10px 14px; font-size: 13px; color: #A7B0C6">No bookmarks yet. Set a loop in the player and save it as a bookmark.</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid rgba(255,255,255,0.08)">
+      <button style="height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #E8ECF6; font-size: 14px; cursor: pointer">Cancel</button>
+      <button style="height: 44px; padding: 0 20px; border-radius: 12px; border: 0; background: {{accent}}; color: #0B1020; font-size: 14px; font-weight: 600; cursor: pointer">{{loadLabel}}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#8AB4FF","options":["#8AB4FF","#7EE0C3","#E8ECF6"]},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // s: selected song index into SONGS, b: selected bookmark (-1 = full song)
+    // sk/sd: song sort key and direction (1 = most / most recent), bk/bd: same for bookmarks
+    this.state = { s: 0, b: -1, sk: 'last', sd: 1, bk: 'last', bd: 1 };
+  }
+  renderVals() {
+    var self = this;
+    var accent = this.props.accent ?? '#8AB4FF';
+    var SONGS = [
+      { title: 'Minuet in G', composer: 'Christian Petzold', source: 'Bundled', length: '1:31', bars: 64, meter: '3/4', bpmMin: 120, bpmMax: 126, plays: 23, mins: 41, days: 0,
+        chart: [0,20,0,45,30,0,0,60,25,0,40,15,80,100], full: { plays: 9, mins: 21, days: 1, share: '51%' }, bms: [
+        { name: 'B section', start: 17, end: 32, tempo: '85%', hands: 'both hands', pre: 2, plays: 9, mins: 14, days: 0, share: '34%' },
+        { name: 'Left hand only', start: 1, end: 8, tempo: '70%', hands: 'right muted', pre: 4, plays: 5, mins: 6, days: 1, share: '15%' } ] },
+      { title: 'Canon in D', composer: 'Johann Pachelbel', source: 'Bundled', length: '4:07', bars: 102, meter: '4/4', bpmMin: 96, bpmMax: 100, plays: 8, mins: 47, days: 1,
+        chart: [30,0,0,50,0,70,0,0,40,0,90,0,100,0], full: { plays: 2, mins: 22, days: 5, share: '46%' }, bms: [
+        { name: 'Variations', start: 9, end: 16, tempo: '80%', hands: 'both hands', pre: 2, plays: 6, mins: 12, days: 1, share: '26%' },
+        { name: 'Arpeggio run', start: 45, end: 52, tempo: '60%', hands: 'both hands', pre: 4, plays: 4, mins: 9, days: 4, share: '19%' },
+        { name: 'Ending', start: 97, end: 102, tempo: '100%', hands: 'both hands', pre: 0, plays: 3, mins: 4, days: 8, share: '9%' } ] },
+      { title: 'Invention No. 1', composer: 'J. S. Bach', source: 'Bundled', length: '1:37', bars: 22, meter: '4/4', bpmMin: 113, bpmMax: 113, plays: 12, mins: 28, days: 3,
+        chart: [0,60,40,0,0,100,30,0,50,0,70,0,0,0], full: { plays: 2, mins: 12, days: 3, share: '43%' }, bms: [
+        { name: 'Opening', start: 1, end: 4, tempo: '75%', hands: 'both hands', pre: 2, plays: 7, mins: 11, days: 3, share: '39%' },
+        { name: 'Sequence', start: 7, end: 10, tempo: '65%', hands: 'left muted', pre: 2, plays: 3, mins: 5, days: 9, share: '18%' } ] },
+      { title: 'Gymnopédie No. 1', composer: 'Erik Satie', source: 'Uploaded', length: '3:12', bars: 78, meter: '3/4', bpmMin: 66, bpmMax: 72, plays: 4, mins: 15, days: 9,
+        chart: [40,100,0,60,0,0,30,0,0,0,0,0,0,0], full: { plays: 4, mins: 15, days: 9, share: '100%' }, bms: [] },
+      { title: 'Für Elise', composer: 'Ludwig van Beethoven', source: 'Uploaded', length: '2:55', bars: 103, meter: '3/8', bpmMin: 60, bpmMax: 76, plays: 0, mins: 0, days: 999,
+        chart: [0,0,0,0,0,0,0,0,0,0,0,0,0,0], full: { plays: 0, mins: 0, days: 999, share: '—' }, bms: [] }
+    ];
+
+    function fmtTime(m) { return m === 0 ? '—' : m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; }
+    function fmtLast(d) { return d === 999 ? 'Never' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 7 ? d + ' days' : 'Last week'; }
+    function fmtBpm(x) { return x.bpmMin === x.bpmMax ? x.bpmMin + ' bpm' : x.bpmMin + '–' + x.bpmMax + ' bpm'; }
+    function sortVal(x, key) { return key === 'last' ? -x.days : key === 'bms' ? x.bms.length : key === 'time' ? x.mins : x.plays; }
+    function sorter(key, dir) {
+      return function (a, b) { var d = (sortVal(b.v, key) - sortVal(a.v, key)) * dir; return d !== 0 ? d : a.i - b.i; };
+    }
+    function header(key, activeKey, dir, onClick) {
+      var active = key === activeKey;
+      return {
+        style: 'display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding: 4px 0; border: 0; background: transparent; cursor: pointer; font-size: 12px; font-weight: ' + (active ? '600' : '500') + '; color: ' + (active ? accent : '#8F9AB6'),
+        arrow: active ? (dir === 1 ? ' ↓' : ' ↑') : '',
+        click: function () { onClick(key, active ? -dir : 1); }
+      };
+    }
+    function chart(vals) {
+      return vals.map(function (v, i) {
+        var last = i === vals.length - 1 && v > 0;
+        return { style: 'flex: 1; height: ' + Math.max(v, 4) + '%; border-radius: 2px; background: ' + (v === 0 ? 'rgba(255,255,255,0.08)' : last ? accent : 'rgba(138,180,255,0.6)') };
+      });
+    }
+    function rangeBar(start, end, bars) {
+      var left = ((start - 1) / bars) * 100, width = ((end - start + 1) / bars) * 100;
+      return 'position: absolute; top: 0; bottom: 0; left: ' + left.toFixed(1) + '%; width: ' + Math.max(2, width).toFixed(1) + '%; border-radius: 3px; background: ' + accent;
+    }
+
+    var st = this.state, cur = SONGS[st.s];
+    var setSongSort = function (k, d) { self.setState({ sk: k, sd: d }); };
+    var setBmSort = function (k, d) { self.setState({ bk: k, bd: d }); };
+
+    var songBase = 'display: grid; grid-template-columns: minmax(0, 1fr) 36px 50px 56px 74px; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; border: 0; color: #E8ECF6; font-size: 13px; text-align: left; cursor: pointer; ';
+    var songs = SONGS.map(function (v, i) { return { v: v, i: i }; }).sort(sorter(st.sk, st.sd)).map(function (o) {
+      var x = o.v, sel = o.i === st.s;
+      return { title: x.title, composer: x.composer, bms: x.bms.length || '—', plays: x.plays || '—', time: fmtTime(x.mins), last: fmtLast(x.days),
+        selected: sel ? 'true' : 'false', style: songBase + 'font-size: 14px; background: ' + (sel ? 'rgba(138,180,255,0.14)' : 'transparent'),
+        pick: function () { self.setState({ s: o.i, b: -1 }); } };
+    });
+
+    var bmBase = 'display: grid; grid-template-columns: minmax(0, 1fr) 44px 50px 62px; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: 0; color: #E8ECF6; font-size: 13px; text-align: left; cursor: pointer; ';
+    var bms = cur.bms.map(function (v, i) { return { v: v, i: i }; }).sort(sorter(st.bk, st.bd)).map(function (o) {
+      var b = o.v, sel = o.i === st.b;
+      return { name: b.name, range: b.start + '–' + b.end, plays: b.plays || '—', time: fmtTime(b.mins), last: fmtLast(b.days),
+        selected: sel ? 'true' : 'false', style: bmBase + 'font-size: 14px; background: ' + (sel ? 'rgba(138,180,255,0.14)' : 'transparent'),
+        barStyle: rangeBar(b.start, b.end, cur.bars), pick: function () { self.setState({ b: o.i }); } };
+    });
+
+    var bm = st.b >= 0 ? cur.bms[st.b] : null;
+    var k = st.b + 1; // 0 = full song
+    var bmVals = cur.chart.map(function (v, i) { return (i + k * 2) % 3 === 0 ? 0 : Math.round(v * (k === 0 ? 0.5 : k === 1 ? 0.7 : 0.45)); });
+
+    return {
+      accent: accent,
+      songs: songs, bms: bms, songChart: chart(cur.chart), bmChart: chart(bmVals),
+      sh: { bms: header('bms', st.sk, st.sd, setSongSort), plays: header('plays', st.sk, st.sd, setSongSort), time: header('time', st.sk, st.sd, setSongSort), last: header('last', st.sk, st.sd, setSongSort) },
+      bh: { plays: header('plays', st.bk, st.bd, setBmSort), time: header('time', st.bk, st.bd, setBmSort), last: header('last', st.bk, st.bd, setBmSort) },
+      cur: { title: cur.title, composer: cur.composer, source: cur.source, length: cur.length, bars: cur.bars, meter: cur.meter, bpm: fmtBpm(cur), plays: cur.plays + '×', time: fmtTime(cur.mins), last: fmtLast(cur.days) },
+      full: { selected: bm ? 'false' : 'true', style: bmBase + 'font-size: 14px; background: ' + (bm ? 'transparent' : 'rgba(138,180,255,0.14)'),
+        barStyle: rangeBar(1, cur.bars, cur.bars), plays: cur.full.plays || '—', time: fmtTime(cur.full.mins), last: fmtLast(cur.full.days),
+        pick: function () { self.setState({ b: -1 }); } },
+      emptyBms: cur.bms.length === 0,
+      bm: bm ? { name: bm.name, line: 'Bars ' + bm.start + '–' + bm.end + ' · ' + bm.tempo + ' · ' + bm.hands + ' · pre-roll ' + bm.pre, plays: bm.plays + '×', time: fmtTime(bm.mins), share: bm.share }
+        : { name: 'Full song', line: 'Bars 1–' + cur.bars + ' · 100% · both hands', plays: cur.full.plays + '×', time: fmtTime(cur.full.mins), share: cur.full.share },
+      loadLabel: bm ? 'Load bookmark' : 'Load full song'
+    };
+  }
+}
+</script>
+</body>
+</html>

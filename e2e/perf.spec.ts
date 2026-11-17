@@ -65,19 +65,28 @@ async function canvasInfo(page: Page) {
 }
 
 const VARIANTS = [
-  { name: 'default', stored: null },
+  { name: 'default', stored: null, sidebarOpen: false },
+  // Milestone 6: the glass playfield sidebar open beside the (narrower) highway.
+  { name: 'sidebar-open', stored: null, sidebarOpen: true },
   {
     name: 'highest',
     stored: {
-      version: 2,
+      version: 3,
       settings: { render: { scaleAuto: false, scale: 2, maxPixelRatio: 4, antialias: 'smaa' } },
     },
+    sidebarOpen: false,
   },
 ] as const
 
 for (const variant of VARIANTS) {
   test(`@perf Canon for 20 s, ${variant.name} settings`, async ({ page }) => {
     await seed(page, variant.stored)
+    await page.addInitScript((open) => {
+      localStorage.setItem(
+        'pianomeister.ui',
+        JSON.stringify({ sidebarOpen: open, sidebarSections: ['camera', 'keyboard'] }),
+      )
+    }, variant.sidebarOpen)
     await openCanon(page)
     await page.getByRole('button', { name: 'Next bar' }).click()
     await page.getByRole('button', { name: 'Play', exact: true }).click()

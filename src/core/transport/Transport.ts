@@ -92,6 +92,11 @@ export class Transport {
     return this.window !== null && this.position < this.window.endSec
   }
 
+  /** The count-in being played now, or null outside one (the HUD shows its target bar). */
+  get activePreRoll(): PreRollWindow | null {
+    return this.inPreRoll ? this.window : null
+  }
+
   setSong(song: TransportSong): void {
     const { tempoMap } = song
     const notes = song.notes
