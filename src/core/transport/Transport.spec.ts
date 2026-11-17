@@ -246,6 +246,16 @@ describe('Transport', () => {
     expect(transport.inPreRoll).toBe(true)
   })
 
+  it('exposes the active pre-roll window only while inside it', () => {
+    expect(transport.activePreRoll).toBeNull()
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
+    transport.seekToBar(3)
+    transport.play()
+    expect(transport.activePreRoll).toMatchObject({ targetTick: 2 * BAR, beats: 2, endSec: 4 })
+    run(1.01)
+    expect(transport.activePreRoll).toBeNull()
+  })
+
   it('snaps prevBar like a media player and clamps next/prev to the song', () => {
     transport.seekToBar(3)
     transport.prevBar() // exactly at a bar start → previous bar

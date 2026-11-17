@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { importMidi } from '../song/importMidi'
 import { computeSongFacts } from './computeSongFacts'
+import { FACTS_VERSION } from './FACTS_VERSION'
 import type { SongManifest } from './SongManifest'
 
 const songsDir = new URL('../../../public/songs/', import.meta.url)
@@ -34,6 +35,13 @@ describe('bundled song manifest', () => {
       }
     }
     expect(problems).toEqual([])
+  })
+
+  it("stores every bundled song's facts at the current FACTS_VERSION", () => {
+    const outdated = manifest.songs
+      .filter((s) => s.facts.factsVersion !== FACTS_VERSION)
+      .map((s) => stale(`${s.fileName} has facts version ${s.facts.factsVersion ?? 'missing'}`))
+    expect(outdated).toEqual([])
   })
 
   it('has a title for every song and starts with the Minuet (the first-run default)', () => {

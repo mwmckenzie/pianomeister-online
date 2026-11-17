@@ -1,3 +1,5 @@
+import { defaultHands } from '../hands/defaultHands'
+import { DEFAULT_HAND_ASSIGNMENT, type HandAssignment } from '../hands/HandAssignment'
 import type { MeterOverride } from '../timing/MeterOverride'
 import { effectiveBars } from './effectiveBars'
 import type { LibraryEntry } from './LibraryEntry'
@@ -9,12 +11,16 @@ import type { SongMetaFields } from './SongMetaFields'
 import type { SongSource } from './SongSource'
 import type { UploadInfo } from './UploadInfo'
 
-/** Merges bundled songs, uploads, metadata edits and meter overrides into library entries. */
+/**
+ * Merges bundled songs, uploads, metadata edits, meter overrides and stored hand assignments
+ * into library entries.
+ */
 export function buildEntries(
   manifest: SongManifest,
   uploads: readonly UploadInfo[],
   meta: ReadonlyMap<string, SongMetaEdit>,
   overrides: ReadonlyMap<string, MeterOverride>,
+  hands: ReadonlyMap<string, HandAssignment> = new Map(),
 ): LibraryEntry[] {
   const entry = (
     songId: string,
@@ -40,6 +46,9 @@ export function buildEntries(
         override === null
           ? facts.timeSignatures.join(' → ')
           : `${override.timeSignature.numerator}/${override.timeSignature.denominator}`,
+      hands:
+        hands.get(songId) ??
+        (facts.channels === undefined ? DEFAULT_HAND_ASSIGNMENT : defaultHands(facts.channels)),
       addedAt,
     }
   }

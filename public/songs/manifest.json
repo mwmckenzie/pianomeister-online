@@ -10,6 +10,7 @@
         "baroque"
       ],
       "facts": {
+        "factsVersion": 1,
         "durationSeconds": 91.427,
         "durationTicks": 92159,
         "ppq": 480,
@@ -17,7 +18,35 @@
         "timeSignatures": [
           "3/4"
         ],
-        "bpm": 126
+        "bpm": 126,
+        "bpmMin": 126,
+        "bpmMax": 126,
+        "channels": [
+          {
+            "channel": 0,
+            "noteCount": 258,
+            "minPitch": 59,
+            "maxPitch": 83,
+            "averagePitch": 71.43
+          },
+          {
+            "channel": 1,
+            "noteCount": 150,
+            "minPitch": 43,
+            "maxPitch": 64,
+            "averagePitch": 56.44
+          }
+        ],
+        "meter": {
+          "main": "3/4",
+          "changes": 0,
+          "runs": [
+            {
+              "bar": 1,
+              "meter": "3/4"
+            }
+          ]
+        }
       }
     },
     {
@@ -29,6 +58,7 @@
         "baroque"
       ],
       "facts": {
+        "factsVersion": 1,
         "durationSeconds": 246.596,
         "durationTicks": 195839,
         "ppq": 480,
@@ -36,7 +66,35 @@
         "timeSignatures": [
           "4/4"
         ],
-        "bpm": 100
+        "bpm": 100,
+        "bpmMin": 100,
+        "bpmMax": 100,
+        "channels": [
+          {
+            "channel": 0,
+            "noteCount": 786,
+            "minPitch": 62,
+            "maxPitch": 86,
+            "averagePitch": 73.66
+          },
+          {
+            "channel": 1,
+            "noteCount": 803,
+            "minPitch": 38,
+            "maxPitch": 66,
+            "averagePitch": 52.79
+          }
+        ],
+        "meter": {
+          "main": "4/4",
+          "changes": 0,
+          "runs": [
+            {
+              "bar": 1,
+              "meter": "4/4"
+            }
+          ]
+        }
       }
     },
     {
@@ -48,6 +106,7 @@
         "baroque"
       ],
       "facts": {
+        "factsVersion": 1,
         "durationSeconds": 97.167,
         "durationTicks": 87839,
         "ppq": 480,
@@ -55,7 +114,35 @@
         "timeSignatures": [
           "3/4"
         ],
-        "bpm": 113
+        "bpm": 113,
+        "bpmMin": 113,
+        "bpmMax": 113,
+        "channels": [
+          {
+            "channel": 0,
+            "noteCount": 307,
+            "minPitch": 36,
+            "maxPitch": 84,
+            "averagePitch": 71.95
+          },
+          {
+            "channel": 1,
+            "noteCount": 265,
+            "minPitch": 38,
+            "maxPitch": 83,
+            "averagePitch": 59.08
+          }
+        ],
+        "meter": {
+          "main": "3/4",
+          "changes": 0,
+          "runs": [
+            {
+              "bar": 1,
+              "meter": "3/4"
+            }
+          ]
+        }
       }
     }
   ]
