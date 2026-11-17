@@ -236,6 +236,27 @@ export class Engine {
     }
   }
 
+  /**
+   * The scene as it is now, scaled down to at most `maxWidth` pixels wide, as a JPEG data URL
+   * (the library's backdrop). It renders a frame first: a WebGL canvas can only be read in the
+   * same task that drew it.
+   */
+  captureFrame(maxWidth = 960): string | null {
+    const pipeline = this.pipeline
+    if (pipeline === null) return null
+    const source = pipeline.renderer.domElement
+    if (source.width === 0 || source.height === 0) return null
+    pipeline.render()
+    const scale = Math.min(1, maxWidth / source.width)
+    const copy = document.createElement('canvas')
+    copy.width = Math.max(1, Math.round(source.width * scale))
+    copy.height = Math.max(1, Math.round(source.height * scale))
+    const context = copy.getContext('2d')
+    if (context === null) return null
+    context.drawImage(source, 0, 0, copy.width, copy.height)
+    return copy.toDataURL('image/jpeg', 0.85)
+  }
+
   /** Internal resolution and anti-aliasing actually in use. */
   renderInfo(): RenderInfo | null {
     return this.pipeline?.info() ?? null
