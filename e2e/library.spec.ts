@@ -4,18 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { test, expect, type Page } from '@playwright/test'
 import { strFromU8, unzipSync } from 'fflate'
 
+import { choose, watchErrors } from './support'
+
 const PEDAL_DEMO = fileURLToPath(new URL('../test-fixtures/midi/pedal-demo.mid', import.meta.url))
 const MINUET = fileURLToPath(new URL('../public/songs/minuet-in-g.mid', import.meta.url))
-
-/** Collects console errors and page errors for the whole test. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = []
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text())
-  })
-  page.on('pageerror', (error) => errors.push(String(error)))
-  return errors
-}
 
 const row = (page: Page, title: string) => page.getByTestId('song-row').filter({ hasText: title })
 
@@ -29,7 +21,11 @@ async function uploadPedalDemo(page: Page) {
 test('uploads a MIDI file, and reports duplicates and rejected files', async ({ page }) => {
   const errors = watchErrors(page)
   await uploadPedalDemo(page)
-  await expect(row(page, 'Pedal demo')).toContainText('Uploaded')
+  // The source shows in the filter counts and the details panel, not in the row.
+  await expect(row(page, 'Pedal demo')).not.toContainText('uploaded')
+  await expect(page.getByTestId('source-uploaded')).toContainText('1')
+  await row(page, 'Pedal demo').click()
+  await expect(page.getByTestId('details-source')).toHaveText('Uploaded · pedal-demo.mid')
   await expect(page.getByTestId('storage-status')).toContainText('Storage:')
 
   await page.getByTestId('upload-input').setInputFiles([
@@ -77,11 +73,12 @@ test('edits title, composer and tags; they persist and are searchable', async ({
   await expect(page.getByTestId('meta-composer')).toHaveValue('Pachelbel, Johann')
   await page.getByTestId('tag-input').fill('wedding')
   await page.getByTestId('tag-input').press('Enter')
-  await expect(row(page, 'Canon (practice)')).toContainText('wedding')
+  // Tags aren't shown in the rows (m6); they appear as a filter.
+  await expect(page.getByTestId('tag-filter-wedding')).toBeVisible()
 
   await page.reload()
   await expect(row(page, 'Canon (practice)')).toContainText('Pachelbel, Johann')
-  await expect(row(page, 'Canon (practice)')).toContainText('wedding')
+  await expect(page.getByTestId('tag-filter-wedding')).toBeVisible()
 
   await page.getByTestId('search').fill('pachelbel johann')
   await expect(page.getByTestId('song-row')).toHaveCount(1)
@@ -100,11 +97,13 @@ test('hand channels and a meter override carry over to the player', async ({ pag
   const errors = watchErrors(page)
   await uploadPedalDemo(page)
   await row(page, 'Pedal demo').click()
-  await page.getByTestId('hand-ch1').selectOption('hidden')
+  await choose(page, page.getByTestId('hand-ch1'), 'Hidden')
+  await page.getByTestId('edit-meter').click()
   await page.getByTestId('override-numerator').fill('3')
   await expect(page.getByTestId('override-preview')).toContainText('11 bars')
   await page.getByRole('button', { name: 'Save meter' }).click()
-  await expect(row(page, 'Pedal demo')).toContainText('3/4')
+  await expect(page.getByTestId('meter-line')).toContainText('3/4 override')
+  await expect(row(page, 'Pedal demo')).toContainText('11')
 
   await page.getByTestId('details-play').click()
   await expect(page.getByTestId('hud-title')).toHaveText('Pedal demo')
@@ -126,9 +125,11 @@ async function failStorageWrites(page: Page) {
   })
 }
 
+const HAND_LABEL: Record<string, string> = { right: 'Right', left: 'Left', hidden: 'Hidden' }
+
 async function expectHands(page: Page, ch0: string, ch1: string) {
-  await expect(page.getByTestId('hand-ch0')).toHaveValue(ch0)
-  await expect(page.getByTestId('hand-ch1')).toHaveValue(ch1)
+  await expect(page.getByTestId('hand-ch0')).toHaveText(HAND_LABEL[ch0] ?? ch0)
+  await expect(page.getByTestId('hand-ch1')).toHaveText(HAND_LABEL[ch1] ?? ch1)
 }
 
 async function reopenDetails(page: Page, title: string) {
@@ -148,13 +149,14 @@ test('swap hands, per-channel changes and restore default persist', async ({ pag
   await reopenDetails(page, 'Canon in D')
   await expectHands(page, 'left', 'right')
 
-  await page.getByTestId('hand-ch1').selectOption('hidden')
+  await choose(page, page.getByTestId('hand-ch1'), 'Hidden')
   await expectHands(page, 'left', 'hidden')
   await reopenDetails(page, 'Canon in D')
   await expectHands(page, 'left', 'hidden')
 
   await page.getByTestId('details-play').click()
   await expect(page.getByTestId('hud-hands')).toHaveText('R – · L ch0')
+  await page.getByTestId('open-picker').click()
   await page.getByTestId('open-library').click()
   await row(page, 'Canon in D').click()
 
@@ -178,7 +180,8 @@ test('a failed save is shown, logged, and undone in the panel', async ({ page })
   await expect(page.getByTestId('details-error')).toContainText("Couldn't save the hand channels")
   await expectHands(page, 'right', 'left')
   // A per-channel change that fails snaps back to the stored hand.
-  await page.getByTestId('hand-ch1').selectOption('hidden')
+  await page.getByTestId('hand-ch1').click()
+  await page.getByRole('option', { name: 'Hidden', exact: true }).click()
   await expectHands(page, 'right', 'left')
   expect(errors.filter((e) => e.includes("Couldn't save the hand channels"))).toHaveLength(2)
   await page.getByRole('button', { name: 'Dismiss error' }).first().click()
@@ -213,6 +216,7 @@ test('the player reopens the last opened song after a reload', async ({ page }) 
   const errors = watchErrors(page)
   await page.goto('./')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
+  await page.getByTestId('open-picker').click()
   await page.getByTestId('open-library').click()
   await row(page, 'Canon in D').click()
   await page.getByTestId('details-play').click()
@@ -249,5 +253,39 @@ test('exports, deletes and re-imports an upload with its metadata', async ({ pag
   await page.getByTestId('import-input').setInputFiles(await download.path())
   await expect(page.getByTestId('import-summary')).toContainText('Imported: 1 added')
   await expect(row(page, 'Pedal study')).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('the details panel always shows a song; headers sort, including by date added', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  // Opened directly, there's no player frame: the static backdrop.
+  await expect(page.getByTestId('library-backdrop')).not.toHaveClass(/snapshot/)
+  // The first row is selected and its details are shown.
+  await expect(page.getByTestId('song-row').first()).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByTestId('song-details')).toBeVisible()
+  await expect(page.getByTestId('meta-title')).toHaveValue('Canon in D')
+
+  // ↓ moves the selection.
+  await page.getByTestId('song-row').first().click()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByTestId('meta-title')).toHaveValue(/^Invention No. 1/)
+
+  await page.getByTestId('upload-input').setInputFiles(PEDAL_DEMO)
+  await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
+  await expect(row(page, 'Pedal demo')).toContainText('Today')
+  await page.getByTestId('sort-dateAdded').click()
+  await expect(page.locator('[aria-sort="descending"]')).toContainText('Added')
+  await expect(page.getByTestId('song-row').first()).toContainText('Pedal demo')
+  await page.getByTestId('sort-bars').click()
+  await expect(page.locator('[aria-sort="ascending"]')).toContainText('Bars')
+
+  // Filtering out the selected song moves the selection to a visible one.
+  await page.getByTestId('source-bundled').click()
+  await expect(page.getByTestId('song-details')).toBeVisible()
+  await expect(row(page, 'Pedal demo')).toBeHidden()
+  await expect(page.locator('[data-testid="song-row"][aria-selected="true"]')).toHaveCount(1)
   expect(errors).toEqual([])
 })

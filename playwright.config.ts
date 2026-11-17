@@ -54,6 +54,9 @@ export default defineConfig({
     {
       name: 'visual',
       grep: /@visual/,
+      // Headless (CI=1) renders WebGL in software; glass panels over the canvas make some
+      // screenshots take longer than the default 30 s.
+      timeout: 90_000,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1600, height: 900 },
