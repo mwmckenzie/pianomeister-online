@@ -1,0 +1,100 @@
+/*
+ * Design tokens (brief decisions 52–55). Components use only these variables, never raw colours.
+ * applyTheme() overrides the primary/secondary colours, the glass values and data-motion at
+ * runtime from the Appearance settings.
+ */
+:root {
+  /* Surfaces */
+  --bg: #05070f;
+  --bg-raised: #0b1020;
+  --glass-rgb: 18 24 44;
+  --glass-alpha: 0.58;
+  --glass-blur: 26px;
+  /* Opaque enough to read over the scene where blur is 0 or unsupported. */
+  --glass-alpha-solid: 0.9;
+  --scrim: rgb(5 7 15 / 60%);
+  --field: rgb(255 255 255 / 6%);
+  --field-hover: rgb(255 255 255 / 9%);
+  /* Borders and dividers as in the m6 reference sources. */
+  --border: rgb(255 255 255 / 12%);
+  --border-field: rgb(255 255 255 / 14%);
+  --border-strong: rgb(255 255 255 / 16%);
+  --divider: rgb(255 255 255 / 8%);
+  --divider-soft: rgb(255 255 255 / 6%);
+  --scrollbar: rgb(201 210 232 / 22%);
+  --scrollbar-hover: rgb(201 210 232 / 36%);
+
+  /* Text levels (from the mockups) */
+  --text-strong: #fff;
+  --text-1: #e8ecf6;
+  --text-soft: #dce3f3;
+  --text-2: #c9d2e8;
+  --text-3: #a7b0c6;
+  --text-4: #8f9ab6;
+  --danger: #ff8a8a;
+
+  /* Menu colours (Glacier) and their translucent variants via rgb(var(--…-rgb) / α) */
+  --primary: #8ab4ff;
+  --primary-rgb: 138 180 255;
+  --on-primary: #0b1020;
+  --secondary: #7ee0c3;
+  --secondary-rgb: 126 224 195;
+  --selection: rgb(var(--primary-rgb) / 16%);
+  --focus-ring: 0 0 0 2px rgb(var(--primary-rgb) / 70%);
+  /* Text fields: a 1 px primary ring on focus, nothing at rest. */
+  --focus-ring-field: 0 0 0 1px var(--primary);
+
+  /* Type */
+  --font: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* The scale of the m6 reference sources (body text 14 px). */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 22px;
+  --text-hero: 44px;
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --tracking-caps: 0.08em;
+
+  /* Spacing (4 px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Radii */
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 22px;
+  --radius-full: 999px;
+
+  /* Shadows */
+  --shadow-panel: 0 24px 80px rgb(0 0 0 / 55%);
+  --shadow-pop: 0 12px 32px rgb(0 0 0 / 45%);
+  /* HUD text over the scene (no panels behind it); the big numbers also get a soft glow. */
+  --text-shadow-hud: 0 1px 10px rgb(0 0 0 / 90%);
+  --text-shadow-hud-number: 0 0 22px rgb(var(--primary-rgb) / 30%), 0 1px 10px rgb(0 0 0 / 90%);
+  --icon-shadow-hud: drop-shadow(0 1px 6px rgb(0 0 0 / 85%));
+
+  /* Motion. --move scales every movement: 0 under reduced motion (fades only). */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 300ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --move: 1;
+}
+
+:root[data-motion='reduced'] {
+  --move: 0;
+}

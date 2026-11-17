@@ -20,3 +20,19 @@ Sample playback uses [smplr](https://github.com/danigb/smplr) by danigb, **MIT L
 ## @tonejs/midi
 
 MIDI file parsing uses [@tonejs/midi](https://github.com/Tonejs/Midi), **MIT License**.
+
+## Inter Tight (font)
+
+The interface font is [Inter Tight](https://github.com/rsms/inter-tight), Copyright 2022 The
+Inter Project Authors, licensed under the **SIL Open Font License 1.1** (full text in
+`src/ui/theme/fonts/OFL.txt`).
+
+The woff2 files (weights 300/400/500/600, latin and latin-ext subsets) were downloaded once
+from the [Fontsource](https://fontsource.org/fonts/inter-tight) package
+`@fontsource/inter-tight@5.3.0` and are self-hosted in `src/ui/theme/fonts/`; the app makes no
+runtime font requests.
+
+## Reka UI
+
+Accessible headless UI primitives (dialogs, tabs, sliders, combo boxes, …) come from
+[Reka UI](https://reka-ui.com), **MIT License**. All styling is our own.

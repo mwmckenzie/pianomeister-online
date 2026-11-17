@@ -19,6 +19,7 @@
     "lint:fix": "oxlint . --fix && eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
     "songs:manifest": "node scripts/build-song-manifest.mjs",
+    "songs:manifest:check": "node scripts/build-song-manifest.mjs --check",
     "test:perf": "playwright test --project=perf"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "dexie": "^4.4.7",
     "fflate": "^0.8.3",
     "pinia": "^4.0.3",
+    "reka-ui": "^2.11.0",
     "smplr": "^1.2.0",
     "three": "^0.187.0",
     "vue": "^3.5.42",
