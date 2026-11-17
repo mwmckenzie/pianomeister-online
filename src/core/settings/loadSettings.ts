@@ -1,11 +1,12 @@
 import { constrainKeyboard } from './constrainKeyboard'
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
 import type { PlayerSettings } from './PlayerSettings'
-import { SETTING_CHOICES } from './SETTING_CHOICES'
-import { SETTING_RANGES } from './SETTING_RANGES'
+import type { AnySettingDefinition } from './SettingDefinition'
+import { SETTING_KEYS } from './SETTING_KEYS'
+import { settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 2
+export const SETTINGS_VERSION = 3
 
 type Raw = Record<string, unknown>
 
@@ -17,6 +18,8 @@ type Raw = Record<string, unknown>
 const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
   // v2 adds the keyboard and render sections and new keys in highway, notes and effects.
   1: (settings) => settings,
+  // v3 adds the audio, practice and appearance sections (brief decision 63).
+  2: (settings) => settings,
 }
 
 const COLOR = /^#[0-9a-f]{6}$/i
@@ -50,39 +53,30 @@ export function loadSettings(raw: unknown): PlayerSettings {
   }
   if (version !== SETTINGS_VERSION) return DEFAULT_SETTINGS
 
-  const ranges = SETTING_RANGES as Record<string, Record<string, readonly [number, number]>>
-  const choices = SETTING_CHOICES as Record<string, Record<string, readonly string[]>>
   const out: Record<string, Raw> = {}
-  for (const [section, defaults] of Object.entries(DEFAULT_SETTINGS)) {
+  for (const key of SETTING_KEYS) {
+    const [section, field] = key.split('.') as [string, string]
     const source = isRecord(stored[section]) ? stored[section] : {}
-    const merged: Raw = {}
-    for (const [key, fallback] of Object.entries(defaults as Raw)) {
-      merged[key] = coerce(source[key], fallback, ranges[section]?.[key], choices[section]?.[key])
-    }
-    out[section] = merged
+    out[section] ??= {}
+    out[section][field] = coerce(source[field], settingDefinition(key))
   }
   const settings = out as unknown as PlayerSettings
   // Limits that depend on other settings (black height vs thickness, press depths).
   return { ...settings, keyboard: constrainKeyboard(settings.keyboard) }
 }
 
-function coerce(
-  value: unknown,
-  fallback: unknown,
-  range?: readonly [number, number],
-  choices?: readonly string[],
-): unknown {
-  if (typeof fallback === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
-    return range === undefined ? value : Math.min(range[1], Math.max(range[0], value))
+function coerce(value: unknown, def: AnySettingDefinition): unknown {
+  switch (def.kind) {
+    case 'number':
+      if (typeof value !== 'number' || !Number.isFinite(value)) return def.default
+      return Math.min(def.max, Math.max(def.min, value))
+    case 'boolean':
+      return typeof value === 'boolean' ? value : def.default
+    case 'choice':
+      return def.options.some((o) => o.value === value) ? value : def.default
+    case 'color':
+      return typeof value === 'string' && COLOR.test(value) ? value.toUpperCase() : def.default
   }
-  if (typeof fallback === 'boolean') return typeof value === 'boolean' ? value : fallback
-  if (typeof fallback === 'string') {
-    if (typeof value !== 'string') return fallback
-    if (choices !== undefined) return choices.includes(value) ? value : fallback
-    return COLOR.test(value) ? value.toUpperCase() : fallback
-  }
-  return fallback
 }
 
 function isRecord(value: unknown): value is Raw {

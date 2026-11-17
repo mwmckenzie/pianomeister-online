@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
 import { loadSettings, SETTINGS_VERSION, storedSettings } from './loadSettings'
-import { SETTING_RANGES } from './SETTING_RANGES'
+import { SETTINGS_REGISTRY as R } from './SETTINGS_REGISTRY'
 
 const stored = (settings: unknown, version = SETTINGS_VERSION) => ({ version, settings })
 
@@ -34,8 +34,8 @@ describe('loadSettings', () => {
     const loaded = loadSettings(
       stored({ camera: { tiltDeg: 5, distanceOffset: 9 }, opacity: { lane: -1 } }),
     )
-    expect(loaded.camera.tiltDeg).toBe(SETTING_RANGES.camera.tiltDeg[0])
-    expect(loaded.camera.distanceOffset).toBe(SETTING_RANGES.camera.distanceOffset[1])
+    expect(loaded.camera.tiltDeg).toBe(R['camera.tiltDeg'].min)
+    expect(loaded.camera.distanceOffset).toBe(R['camera.distanceOffset'].max)
     expect(loaded.opacity.lane).toBe(0)
   })
 
@@ -92,14 +92,17 @@ describe('loadSettings', () => {
     expect(loaded.effects).toEqual({ ...DEFAULT_SETTINGS.effects, enabled: false })
     expect(loaded.keyboard).toEqual(DEFAULT_SETTINGS.keyboard)
     expect(loaded.render).toEqual(DEFAULT_SETTINGS.render)
-    // Saved again, it is a v2 entry that round-trips.
-    expect(storedSettings(loaded).version).toBe(2)
+    expect(loaded.audio).toEqual(DEFAULT_SETTINGS.audio)
+    // Saved again, it is a current-version entry that round-trips.
+    expect(storedSettings(loaded).version).toBe(SETTINGS_VERSION)
     expect(loadSettings(JSON.parse(JSON.stringify(storedSettings(loaded))))).toEqual(loaded)
   })
 
   it('applies the keyboard limits to stored values', () => {
     const loaded = loadSettings(
-      stored({ keyboard: { thickness: 0.5, blackHeight: 0.8, pressDepthBlack: 0.8, pressDepthWhite: 0.9 } }),
+      stored({
+        keyboard: { thickness: 0.5, blackHeight: 0.8, pressDepthBlack: 0.8, pressDepthWhite: 0.9 },
+      }),
     )
     expect(loaded.keyboard.blackHeight).toBe(0.5)
     expect(loaded.keyboard.pressDepthBlack).toBeCloseTo(0.42, 12)
@@ -114,15 +117,15 @@ describe('loadSettings', () => {
         render: { antialias: 'taa', scale: 9, maxPixelRatio: 0 },
       }),
     )
-    expect(loaded.keyboard.gap).toBe(SETTING_RANGES.keyboard.gap[1])
+    expect(loaded.keyboard.gap).toBe(R['keyboard.gap'].max)
     expect(loaded.keyboard.blackHeight).toBe(0)
     expect(loaded.keyboard.edgeProfile).toBe('chamfer')
     expect(loaded.keyboard.pressDepthWhite).toBe(0.3)
     // blackHeight −1 → 0, so black keys can't be pressed at all (cross-setting limit).
     expect(loaded.keyboard.pressDepthBlack).toBe(0)
     expect(loaded.notes.blackLiftMode).toBe('manual')
-    expect(loaded.notes.blackLift).toBe(SETTING_RANGES.notes.blackLift[1])
-    expect(loaded.notes.headHeight).toBe(SETTING_RANGES.notes.headHeight[0])
+    expect(loaded.notes.blackLift).toBe(R['notes.blackLift'].max)
+    expect(loaded.notes.headHeight).toBe(R['notes.headHeight'].min)
     expect(loaded.render.antialias).toBe('msaa')
     expect(loaded.render.scale).toBe(2)
     expect(loaded.render.maxPixelRatio).toBe(1)
@@ -157,5 +160,43 @@ describe('loadSettings', () => {
       blackLaneShadingStrength: 0.22,
     })
     expect(DEFAULT_SETTINGS.effects).toMatchObject({ minScale: 0.6, maxScale: 1.7 })
+  })
+
+  it('migrates v2 settings: all values kept, audio/practice/appearance get their defaults', () => {
+    const v2 = {
+      ...JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
+      camera: { tiltDeg: 30, distanceOffset: 0.2, pan: -2 },
+      keyboard: { ...DEFAULT_SETTINGS.keyboard, edgeProfile: 'rounded', gap: 0.1 },
+      render: { scaleAuto: false, scale: 1.5, maxPixelRatio: 3, antialias: 'smaa' },
+    }
+    delete v2.audio
+    delete v2.practice
+    delete v2.appearance
+    const loaded = loadSettings(stored(v2, 2))
+    expect(loaded.camera).toEqual(v2.camera)
+    expect(loaded.keyboard).toEqual(v2.keyboard)
+    expect(loaded.render).toEqual(v2.render)
+    expect(loaded.audio).toEqual(DEFAULT_SETTINGS.audio)
+    expect(loaded.practice).toEqual(DEFAULT_SETTINGS.practice)
+    expect(loaded.appearance).toEqual(DEFAULT_SETTINGS.appearance)
+  })
+
+  it('validates the new v3 sections', () => {
+    const loaded = loadSettings(
+      stored({
+        audio: { master: 3, rightAudio: 'solo', leftAudio: 'loud', metronomeMode: 'preRoll' },
+        practice: { preRollBeats: 40, preRollMode: 'quiet' },
+        appearance: { primary: '#ffb38a', secondary: 'orange', blur: -5, motion: 'reduced' },
+      }),
+    )
+    expect(loaded.audio.master).toBe(1)
+    expect(loaded.audio.rightAudio).toBe('solo')
+    expect(loaded.audio.leftAudio).toBe('on')
+    expect(loaded.audio.metronomeMode).toBe('preRoll')
+    expect(loaded.practice).toEqual({ preRollBeats: 16, preRollMode: 'quiet' })
+    expect(loaded.appearance.primary).toBe('#FFB38A')
+    expect(loaded.appearance.secondary).toBe('#7EE0C3')
+    expect(loaded.appearance.blur).toBe(0)
+    expect(loaded.appearance.motion).toBe('reduced')
   })
 })

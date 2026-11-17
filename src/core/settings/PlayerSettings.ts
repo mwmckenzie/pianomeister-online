@@ -1,5 +1,9 @@
+import type { HandAudio } from '../practice/HandAudio'
+import type { PreRollMode } from '../transport/PreRollMode'
+
 /**
- * Player view settings, persisted in localStorage until profiles arrive (milestone 7).
+ * App settings (playfield, audio, practice, appearance), persisted in localStorage until
+ * profiles arrive (milestone 7). Each setting is declared once in SETTINGS_REGISTRY.
  * Colors are #rrggbb; opacities, transparencies and strengths are 0–1; lengths are world units
  * (1 = one white-key width).
  */
@@ -95,5 +99,35 @@ export interface PlayerSettings {
     /** Upper bound for the resulting pixel ratio. */
     readonly maxPixelRatio: number
     readonly antialias: 'off' | 'msaa' | 'fxaa' | 'smaa'
+  }
+  readonly audio: {
+    /** 0–1. */
+    readonly master: number
+    readonly rightVolume: number
+    readonly leftVolume: number
+    readonly rightAudio: HandAudio
+    readonly leftAudio: HandAudio
+    /** Gain for pre-roll notes in 'quiet' mode, 0–1. */
+    readonly quietLevel: number
+    readonly metronomeMode: 'off' | 'preRoll' | 'always'
+    readonly metronomeVolume: number
+    /** Only the built-in piano until MIDI out (milestone 11). */
+    readonly output: 'piano'
+  }
+  readonly practice: {
+    readonly preRollBeats: number
+    readonly preRollMode: PreRollMode
+  }
+  readonly appearance: {
+    /** UI colours only (never the note palette). */
+    readonly primary: string
+    readonly secondary: string
+    /** Glass panel opacity, 0.3–0.95. */
+    readonly panelOpacity: number
+    /** Background blur behind glass panels, px. */
+    readonly blur: number
+    readonly motion: 'system' | 'full' | 'reduced'
+    /** Seconds without input before the player's controls fade out while playing. */
+    readonly hideControls: 'off' | '2' | '3' | '5' | '10'
   }
 }
