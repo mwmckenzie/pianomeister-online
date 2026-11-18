@@ -12,6 +12,10 @@ import {
 /**
  * A centred glass dialog (Reka Dialog): focus is trapped while open, Esc and the backdrop close
  * it, and focus returns to what opened it.
+ *
+ * With `showTitle` it lays itself out like the picker and settings window: a padded title, the
+ * default slot as the body, and the `footer` slot as a right-aligned button row (`.dialog-text`
+ * styles a plain paragraph). Without it, the content brings its own layout (picker, settings).
  */
 defineOptions({ inheritAttrs: false })
 withDefaults(
@@ -52,11 +56,19 @@ function onKeyDown(event: KeyboardEvent): void {
         v-bind="$attrs"
         @keydown="onKeyDown"
       >
-        <DialogTitle :class="showTitle ? 'dialog-title' : 'visually-hidden'">{{
-          title
-        }}</DialogTitle>
-        <DialogDescription class="visually-hidden">{{ description ?? title }}</DialogDescription>
-        <slot />
+        <template v-if="showTitle">
+          <header class="dialog-header">
+            <DialogTitle class="dialog-title">{{ title }}</DialogTitle>
+          </header>
+          <DialogDescription class="visually-hidden">{{ description ?? title }}</DialogDescription>
+          <div class="dialog-body"><slot /></div>
+          <footer v-if="$slots.footer" class="dialog-footer"><slot name="footer" /></footer>
+        </template>
+        <template v-else>
+          <DialogTitle class="visually-hidden">{{ title }}</DialogTitle>
+          <DialogDescription class="visually-hidden">{{ description ?? title }}</DialogDescription>
+          <slot />
+        </template>
       </DialogContent>
     </DialogPortal>
   </DialogRoot>
@@ -89,9 +101,39 @@ function onKeyDown(event: KeyboardEvent): void {
   outline: none;
 }
 
+/* The standard layout (showTitle): the picker's spacing — 22 px sides, 10 px between buttons. */
+.dialog-header {
+  flex-shrink: 0;
+  padding: 20px 22px 0;
+}
+
 .dialog-title {
   margin: 0;
   font-size: var(--text-xl);
   font-weight: var(--weight-medium);
+  line-height: 1.3;
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 22px 0;
+  overflow-y: auto;
+}
+
+.dialog-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 22px 22px;
+}
+
+.dialog-text {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.5;
 }
 </style>

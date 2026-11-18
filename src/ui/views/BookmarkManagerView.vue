@@ -409,11 +409,11 @@ onMounted(async () => {
       width="460px"
       data-testid="discard-duplicate"
     >
-      <p class="leave-text" data-testid="discard-duplicate-text">
+      <p class="dialog-text" data-testid="discard-duplicate-text">
         It has the same settings as “{{ leaveTwin }}”, so it won’t be kept unless you change
         something.
       </p>
-      <div class="leave-actions">
+      <template #footer>
         <!-- First, so it has the focus: Enter keeps editing. -->
         <AppButton
           variant="primary"
@@ -425,7 +425,7 @@ onMounted(async () => {
         <AppButton danger data-testid="discard-duplicate-confirm" @click="answerLeave(true)">
           Discard duplicate
         </AppButton>
-      </div>
+      </template>
     </AppDialog>
   </main>
 </template>
@@ -656,18 +656,6 @@ onMounted(async () => {
   margin: 0 2px;
   color: var(--text-1);
   vertical-align: -3px;
-}
-
-.leave-text {
-  margin: var(--space-3) 0 var(--space-5);
-  color: var(--text-2);
-  line-height: 1.5;
-}
-
-.leave-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
 }
 
 /* 1024 px: the side panels keep their widths, the rows tighten. */

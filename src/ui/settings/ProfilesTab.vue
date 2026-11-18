@@ -288,7 +288,7 @@ onMounted(() => {
     @update:open="(value: boolean) => !value && (deleting = null)"
   >
     <p class="dialog-text" data-testid="profile-delete-text">{{ deleteText }}</p>
-    <footer class="dialog-foot">
+    <template #footer>
       <AppButton @click="deleting = null">Cancel</AppButton>
       <AppButton
         variant="primary"
@@ -298,7 +298,7 @@ onMounted(() => {
       >
         Delete profile
       </AppButton>
-    </footer>
+    </template>
   </AppDialog>
 </template>
 
@@ -426,19 +426,5 @@ onMounted(() => {
   font-weight: 300;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.dialog-text {
-  margin: 0;
-  padding: 0 var(--space-6);
-  color: var(--text-2);
-  line-height: 1.5;
-}
-
-.dialog-foot {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  padding: var(--space-5) var(--space-6) var(--space-6);
 }
 </style>

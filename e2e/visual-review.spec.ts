@@ -439,6 +439,34 @@ for (const viewport of M6_VIEWPORTS) {
         await settle(page, 30)
         await shoot(page, `m7-profiles-${suffix}`)
       })
+
+      // Confirm dialogs use AppDialog's standard layout (padding, title, footer): one size and
+      // theme is enough to catch a dialog that loses it.
+      if (suffix === '1280x720-glacier') {
+        test(`@visual dialog discard duplicate ${suffix}`, async ({ page }) => {
+          await page.getByTestId('menu-library').click()
+          await page.getByTestId('tab-bookmarks').click()
+          await page.getByTestId('bookmark-row').filter({ hasText: 'B section' }).click()
+          await page.getByTestId('bookmark-duplicate').click()
+          await page.getByTestId('bookmark-row').filter({ hasText: 'Left hand alone' }).click()
+          await expect(page.getByTestId('discard-duplicate')).toBeVisible()
+          await settle(page, 30)
+          await shoot(page, `dialog-discard-duplicate-${suffix}`)
+        })
+
+        test(`@visual dialog profile delete ${suffix}`, async ({ page }) => {
+          await page.getByTestId('menu-settings').click()
+          await page.getByTestId('tab-profiles').click()
+          await page
+            .getByTestId('profile-row')
+            .filter({ hasText: 'Anna' })
+            .getByTestId('profile-delete')
+            .click()
+          await expect(page.getByTestId('profile-delete-dialog')).toBeVisible()
+          await settle(page, 30)
+          await shoot(page, `dialog-profile-delete-${suffix}`)
+        })
+      }
     })
   }
 }
