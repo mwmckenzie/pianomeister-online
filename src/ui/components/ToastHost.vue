@@ -34,6 +34,16 @@ function onOpenChange(id: number, open: boolean): void {
     >
       <ToastTitle class="message">{{ toast.message }}</ToastTitle>
       <ToastAction
+        v-for="action in toast.actions ?? []"
+        :key="action.label"
+        class="undo"
+        :alt-text="action.label"
+        :data-testid="`toast-${action.label.toLowerCase()}`"
+        @click="action.run()"
+      >
+        {{ action.label }}
+      </ToastAction>
+      <ToastAction
         v-if="toast.undo"
         class="undo"
         alt-text="Undo the reset"
