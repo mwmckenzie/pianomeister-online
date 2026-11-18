@@ -25,7 +25,7 @@ import SelectField from './SelectField.vue'
 import TagEditor from './TagEditor.vue'
 
 const props = defineProps<{ readonly songId: string }>()
-const emit = defineEmits<{ close: []; play: [] }>()
+const emit = defineEmits<{ close: []; play: []; bookmarks: [] }>()
 
 const store = useLibraryStore()
 const entry = computed(() => store.entries.find((e) => e.songId === props.songId) ?? null)
@@ -40,6 +40,8 @@ const handsRevision = ref(0)
 const title = ref('')
 const composer = ref('')
 const confirmingDelete = ref(false)
+/** Deleting an upload keeps its bookmarks and stats unless ticked (decision 74). */
+const deletePracticeData = ref(false)
 const editingMeter = ref(false)
 
 /** Loads the song and its stored settings; also used to undo a change whose save failed. */
@@ -62,6 +64,7 @@ watch(
   (songId) => {
     opened.value = null
     confirmingDelete.value = false
+    deletePracticeData.value = false
     editingMeter.value = false
     void load(songId)
   },
@@ -81,6 +84,14 @@ watch(() => props.songId, syncFields, { immediate: true })
 
 async function resetMeta(): Promise<void> {
   if (await store.resetMeta(props.songId)) syncFields()
+}
+
+/** "Guess from file" (decision 79): the title and composer guessed afresh, saved as an edit. */
+async function guessMeta(): Promise<void> {
+  const guess = await store.guessMeta(props.songId)
+  if (guess === null) return
+  await queueMeta((stored) => ({ ...guess, tags: stored.tags }))
+  syncFields()
 }
 
 /**
@@ -202,7 +213,7 @@ function saveOverride(override: MeterOverride): void {
 }
 
 async function deleteUpload(): Promise<void> {
-  if (await store.deleteUpload(props.songId)) emit('close')
+  if (await store.deleteUpload(props.songId, deletePracticeData.value)) emit('close')
 }
 
 function play(): void {
@@ -266,6 +277,15 @@ function play(): void {
             @click="resetMeta"
           >
             Reset to original
+          </AppButton>
+          <AppButton
+            v-if="entry.source === 'uploaded'"
+            variant="text"
+            size="sm"
+            data-testid="meta-guess"
+            @click="guessMeta"
+          >
+            Guess from file
           </AppButton>
           <span v-if="entry.edited" class="muted">Original: {{ entry.original.title }}</span>
         </div>
@@ -349,12 +369,22 @@ function play(): void {
           >
             Delete upload…
           </AppButton>
-          <div v-else class="row confirm">
+          <div v-else class="confirm-block">
             <span>Delete “{{ entry.title }}” and its edits?</span>
-            <AppButton size="sm" danger data-testid="confirm-delete" @click="deleteUpload">
-              Delete
-            </AppButton>
-            <AppButton size="sm" @click="confirmingDelete = false">Cancel</AppButton>
+            <label class="check">
+              <input
+                v-model="deletePracticeData"
+                type="checkbox"
+                data-testid="delete-practice-data"
+              />
+              Also delete its bookmarks and practice stats
+            </label>
+            <div class="row confirm">
+              <AppButton size="sm" danger data-testid="confirm-delete" @click="deleteUpload">
+                Delete
+              </AppButton>
+              <AppButton size="sm" @click="confirmingDelete = false">Cancel</AppButton>
+            </div>
           </div>
         </template>
       </template>
@@ -364,6 +394,7 @@ function play(): void {
       <AppButton variant="primary" class="play" data-testid="details-play" @click="play">
         Play
       </AppButton>
+      <AppButton data-testid="details-bookmarks" @click="emit('bookmarks')">Bookmarks</AppButton>
     </footer>
   </aside>
 </template>
@@ -494,6 +525,24 @@ dd {
 
 .confirm {
   font-size: var(--text-sm);
+}
+
+.confirm-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-2);
+}
+
+.check input {
+  accent-color: var(--primary);
 }
 
 .foot {

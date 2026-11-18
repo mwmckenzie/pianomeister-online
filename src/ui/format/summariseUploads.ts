@@ -1,3 +1,4 @@
+import { formatImportSummary } from '@/core/library/formatImportSummary'
 import type { ImportReport } from '@/data/ImportReport'
 import type { UploadResult } from '@/data/UploadResult'
 
@@ -23,5 +24,7 @@ export function summariseImport(report: ImportReport): string {
   const kept = report.metaKept + report.overridesKept
   if (kept > 0) parts.push(`local edits kept for ${kept} (not overwritten)`)
   if (report.unknownSongs > 0) parts.push(`${report.unknownSongs} skipped (song not in library)`)
+  const profiles = formatImportSummary(report.profiles)
+  if (profiles !== '') parts.push(`Profiles: ${profiles}`)
   return parts.join('. ')
 }
