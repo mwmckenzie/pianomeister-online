@@ -6,6 +6,7 @@ export type SettingsTabId = 'practice' | 'audio' | 'appearance'
 
 /** Sections inside the settings window tabs. */
 export type WindowSectionId =
+  | 'tempo'
   | 'preRoll'
   | 'volume'
   | 'preRollMetronome'

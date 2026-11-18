@@ -11,8 +11,12 @@ import {
 } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import type { CommandId } from '@/core/commands/CommandId'
+import { commandForKey, shortcutLabel } from '@/core/commands/commandKeys'
 import type { HandAssignment } from '@/core/hands/HandAssignment'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
+import { sameRange } from '@/core/practice/diffFromBookmark'
+import type { MetronomeMode } from '@/core/practice/MetronomeMode'
 import { summariseMeter } from '@/core/timing/summariseMeter'
 import { preRollBeat } from '@/core/transport/preRollBeat'
 import type { LoopRange } from '@/core/transport/LoopRange'
@@ -24,25 +28,35 @@ import { formatTime } from '../format/formatTime'
 import { isTypingTarget } from '../input/isTypingTarget'
 import type { LoadedSong } from '../playback/LoadedSong'
 import type { PlaybackSession } from '../playback/PlaybackSession'
+import { attachPlayLog } from '../playback/playLog'
 import { sceneSnapshot } from '../playback/sceneSnapshot'
 import { sharedSession } from '../playback/sharedSession'
 import { toAudioSettings } from '../playback/toAudioSettings'
 import BarBeatCounter from '../player/BarBeatCounter.vue'
 import HudMenuButton from '../player/HudMenuButton.vue'
+import HudToggle from '../player/HudToggle.vue'
 import LoopPopover from '../player/LoopPopover.vue'
 import PlayerTimeline from '../player/PlayerTimeline.vue'
 import PlayfieldSidebar from '../player/PlayfieldSidebar.vue'
 import type { RenderStatus } from '../player/RenderStatus'
 import TempoPopover from '../player/TempoPopover.vue'
 import { useIdleHide } from '../player/useIdleHide'
+import ProfileMenu from '../player/ProfileMenu.vue'
+import { useSaveBookmark } from '../player/useSaveBookmark'
+import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
+import { usePracticeStore } from '../stores/practiceStore'
+import { useProfileStore } from '../stores/profileStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useToastStore } from '../stores/toastStore'
 import { useUiStateStore } from '../stores/uiStateStore'
 
-// Dialogs aren't needed to play: loaded on first open (keeps the main bundle small).
-const SongPicker = defineAsyncComponent(() => import('../picker/SongPicker.vue'))
-const SettingsWindow = defineAsyncComponent(() => import('../settings/SettingsWindow.vue'))
+// Dialogs aren't needed to play: separate chunks (keeps the main bundle small), fetched when the
+// player mounts (see onMounted) so the first open doesn't wait.
+const loadPicker = () => import('../picker/SongPicker.vue')
+const SongPicker = defineAsyncComponent(loadPicker)
+const loadSettingsWindow = () => import('../settings/SettingsWindow.vue')
+const SettingsWindow = defineAsyncComponent(loadSettingsWindow)
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +64,9 @@ const settingsStore = useSettingsStore()
 const library = useLibraryStore()
 const toasts = useToastStore()
 const ui = useUiStateStore()
+const practice = usePracticeStore()
+const bookmarks = useBookmarkStore()
+const profiles = useProfileStore()
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 
 // Engine and audio live outside Vue's reactivity; the HUD copies what it shows once per frame.
@@ -75,8 +92,12 @@ const settingsLoaded = ref(false)
 const tempoOpen = ref(false)
 const loopOpen = ref(false)
 
-const tempoPercent = ref(100)
-const loop = shallowRef<LoopRange | null>(null)
+/** Tempo and loop are the practice store's: a loaded bookmark's are temporary (decision 69). */
+const tempoPercent = computed({
+  get: () => practice.current.tempoPercent,
+  set: (value: number) => practice.setTempo(value),
+})
+const loop = computed(() => practice.current.loop)
 /** What the loop button turns on: the last loop set (bars 1–4 until then). */
 const loopDraft = shallowRef<LoopRange>({ startBar: 1, endBar: 4 })
 
@@ -104,8 +125,8 @@ const focusInSidebar = ref(false)
 // out after the chosen idle time. The timeline and all the info text stay.
 const controlsHidden = useIdleHide(
   () => {
-    const after = settingsStore.settings.appearance.hideControls
-    return after === 'off' ? null : Number(after) * 1000
+    const { hideControls, hideControlsAfter } = settingsStore.settings.appearance
+    return hideControls ? hideControlsAfter * 1000 : null
   },
   () =>
     hud.value.state === 'playing' &&
@@ -127,6 +148,9 @@ function trackSidebarFocus(event: FocusEvent): void {
 
 const title = computed(() => entry.value?.title ?? '')
 const composer = computed(() => entry.value?.composer ?? '')
+/** The loaded bookmark's name, under the composer (decision 69); none = Full song. */
+const bookmarkName = computed(() => practice.bookmark?.name ?? '')
+const temporaryChanges = computed(() => practice.changed.length > 0)
 const length = computed(() => formatTime(loaded.value?.song.durationSeconds ?? 0))
 const barCount = computed(() => loaded.value?.barMap.barCount ?? 0)
 const firstBar = computed(() => loaded.value?.barMap.firstBar ?? 1)
@@ -190,29 +214,38 @@ function barAt(fraction: number): number {
  * starts ~230 sample downloads, and the song's manifest and MIDI requests would otherwise
  * queue behind them, leaving the player empty for seconds on a slow connection.
  */
-async function openSong(songId?: string): Promise<void> {
+/**
+ * Opens a song with a bookmark (or Full song). An explicit choice (`songId` given, or a "Load"
+ * requested elsewhere) always loads fresh; arriving back at the player keeps what's loaded,
+ * temporary changes included.
+ */
+async function openSong(songId?: string, bookmarkId: string | null = null): Promise<void> {
+  const fresh = practice.takeFreshLoad() || songId !== undefined
   error.value = ''
   let opened: OpenedSong | null = null
+  let chosen: string | null = bookmarkId
   try {
-    opened = await library.openSong(songId ?? (await library.startSongId()))
+    await bookmarks.refresh()
+    const target = songId === undefined ? await library.startEntry() : { songId, bookmarkId }
+    chosen = target.bookmarkId
+    opened = await library.openSong(target.songId)
   } catch (e) {
     showError(e instanceof Error ? e.message : String(e))
     console.error("[player] Couldn't open the song:", e)
   }
   if (unmounted) return
   const playback = session ?? attachSession()
-  if (opened !== null) showSong(playback, opened)
+  if (opened !== null) showSong(playback, opened, chosen, fresh)
+  // The picker lists the whole library: load it now, so its keys work the moment it opens.
+  if (!library.loaded) void library.refresh().catch(() => undefined)
 }
 
 function attachSession(): PlaybackSession {
   const playback = sharedSession()
   session = playback
-  // The controls show what the shared transport already has (e.g. after visiting the library).
-  tempoPercent.value = playback.transport.tempoPercent
-  loop.value = playback.transport.loop
+  attachPlayLog(playback)
   if (loop.value !== null) loopDraft.value = loop.value
   applyPractice()
-  playback.setAudioSettings(toAudioSettings(settingsStore.settings.audio))
   stopProgress = playback.onSampleProgress(
     (done, total) => (sampleProgress.value = { loaded: done, total }),
   )
@@ -227,8 +260,19 @@ function attachSession(): PlaybackSession {
  * Sets the song up with its hand assignment and meter override. If the shared session already
  * has exactly that (back from the library without changes), it is kept, position and all.
  */
-function showSong(playback: PlaybackSession, opened: OpenedSong): void {
+function showSong(
+  playback: PlaybackSession,
+  opened: OpenedSong,
+  requestedBookmarkId: string | null,
+  fresh: boolean,
+): void {
   const songId = opened.entry.songId
+  // A bookmark that's gone (deleted, another profile's, another song's) loads Full song.
+  const bookmarkId =
+    requestedBookmarkId !== null && bookmarks.byId.get(requestedBookmarkId)?.songId === songId
+      ? requestedBookmarkId
+      : null
+  const sameEntry = !fresh && practice.songId === songId && practice.bookmarkId === bookmarkId
   const key = JSON.stringify([songId, opened.hands, opened.override])
   const current = playback.song
   const sameSong = playback.songKey === key && current !== null
@@ -238,14 +282,17 @@ function showSong(playback: PlaybackSession, opened: OpenedSong): void {
   entry.value = opened.entry
   hands.value = opened.hands
   loaded.value = prepared
-  if (!sameSong) {
-    loop.value = null
-    loopDraft.value = {
-      startBar: prepared.barMap.firstBar,
-      endBar: Math.min(prepared.barMap.barCount, 4),
-    }
+  const map = prepared.barMap
+  // Loading another song or bookmark drops temporary changes; coming back keeps them.
+  if (!sameEntry) {
+    practice.load(songId, bookmarkId, {
+      first: map.firstBar,
+      last: Math.max(map.firstBar, map.barCount),
+    })
   }
-  void library.setLastSongId(songId).then((saved) => {
+  loopDraft.value = loop.value ?? { startBar: map.firstBar, endBar: Math.min(map.barCount, 4) }
+  applyPractice()
+  void library.setLastOpened(songId, bookmarkId).then((saved) => {
     if (!saved) showError(library.error)
   })
   engine?.setSong({
@@ -268,14 +315,8 @@ function togglePlay(): void {
 }
 
 function setLoop(range: LoopRange | null): void {
-  try {
-    session?.transport.setLoop(range)
-    loop.value = session?.transport.loop ?? null
-    if (loop.value !== null) loopDraft.value = loop.value
-    error.value = ''
-  } catch (e) {
-    showError(e instanceof Error ? e.message : String(e))
-  }
+  practice.setLoop(range)
+  if (range !== null) loopDraft.value = range
 }
 
 function toggleLoop(): void {
@@ -291,10 +332,67 @@ function seekBar(bar: number): void {
   session?.transport.seekToBar(bar)
 }
 
+/** The loop jump (practice.loopJump) the transport has carried out. */
+let appliedJump = -1
+
+/**
+ * Applies the practice setup (decisions 68–69) to the transport and the audio. A committed loop
+ * change also moves the playhead to the loop start (decision 8): this is the one place that
+ * happens, after the new loop is set.
+ */
 function applyPractice(): void {
-  const { preRollBeats, preRollMode } = settingsStore.settings.practice
-  session?.transport.setPreRoll({ beats: preRollBeats, mode: preRollMode })
+  if (session === null) return
+  const { transport } = session
+  const current = practice.current
+  const preRoll = transport.preRoll
+  if (preRoll.beats !== current.preRollBeats || preRoll.mode !== current.preRollMode) {
+    transport.setPreRoll({ beats: current.preRollBeats, mode: current.preRollMode })
+  }
+  if (transport.tempoPercent !== current.tempoPercent) {
+    transport.setTempoPercent(current.tempoPercent)
+  }
+  if (session.song !== null && !sameRange(transport.loop, current.loop)) {
+    try {
+      transport.setLoop(current.loop)
+      error.value = ''
+    } catch (e) {
+      showError(e instanceof Error ? e.message : String(e))
+    }
+  }
+  if (session.song !== null && appliedJump !== practice.loopJump) {
+    appliedJump = practice.loopJump
+    transport.seekToLoopStart()
+  }
+  applyAudio()
 }
+
+/** Volumes and the metronome are global; hand modes come from the practice setup. */
+function applyAudio(): void {
+  const { handAudio, metronomeMode } = practice.current
+  session?.setAudioSettings(
+    toAudioSettings({
+      ...settingsStore.settings.audio,
+      rightAudio: handAudio.right,
+      leftAudio: handAudio.left,
+      metronomeMode,
+    }),
+  )
+}
+
+/** The mode M and the metronome icon turn on: the last one that wasn't off. */
+const lastMetronomeMode = ref<Exclude<MetronomeMode, 'off'>>('always')
+const metronomeMode = computed(() => practice.current.metronomeMode)
+watch(metronomeMode, (mode) => {
+  if (mode !== 'off') lastMetronomeMode.value = mode
+})
+
+/** Off ↔ the last mode; temporary with a bookmark loaded, the setting with Full song (decision 61). */
+function toggleMetronome(): void {
+  practice.setMetronomeMode(metronomeMode.value === 'off' ? lastMetronomeMode.value : 'off')
+}
+
+/** "Save as bookmark" (icon, B, loop popover): one click, no dialog (decision 69). */
+const saveAsBookmark = useSaveBookmark()
 
 function updateHud(): void {
   hudFrame = requestAnimationFrame(updateHud)
@@ -341,9 +439,23 @@ function openLibrary(): void {
   void router.push({ name: 'library' })
 }
 
-function onPicked(songId: string): void {
+function onPicked(songId: string, bookmarkId: string | null): void {
   pickerOpen.value = false
-  void openSong(songId)
+  void openSong(songId, bookmarkId)
+}
+
+/** What each player command does; its keys come from the command registry (decision 80). */
+const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
+  playPause: togglePlay,
+  previousBar: () => session?.transport.prevBar(),
+  nextBar: () => session?.transport.nextBar(),
+  stop: backToStart,
+  saveBookmark: () => void saveAsBookmark(),
+  toggleMetronome,
+  openPicker,
+  openLibrary,
+  togglePlayfield: toggleSidebar,
+  openSettings,
 }
 
 /** Shortcuts (decision 60); ignored while typing, and while a dialog has the keyboard. */
@@ -351,17 +463,8 @@ function onKeyDown(event: KeyboardEvent): void {
   if (session === null || event.defaultPrevented || isTypingTarget(event.target)) return
   if (event.ctrlKey || event.metaKey || event.altKey) return
   if (pickerOpen.value || settingsOpen.value) return
-  const actions: Record<string, () => void> = {
-    Space: togglePlay,
-    ArrowLeft: () => session?.transport.prevBar(),
-    ArrowRight: () => session?.transport.nextBar(),
-    Home: backToStart,
-    KeyO: openPicker,
-    KeyL: openLibrary,
-    KeyP: toggleSidebar,
-    Comma: openSettings,
-  }
-  const action = actions[event.code]
+  const command = commandForKey('player', event.code)
+  const action = command === null ? undefined : PLAYER_ACTIONS[command]
   if (action === undefined) return
   event.preventDefault()
   action()
@@ -375,14 +478,21 @@ function renderStatus(): RenderStatus | null {
   return info === null ? null : { info, frameMs: engine?.stats().averageFrameMs ?? 0 }
 }
 
-watch(tempoPercent, (p) => session?.transport.setTempoPercent(p))
+watch(() => [practice.current, practice.loopJump], applyPractice)
 watch(
   () => settingsStore.settings,
   (settings, previous) => {
     engine?.applySettings(settingsStore.snapshot())
-    if (settings.audio !== previous.audio)
-      session?.setAudioSettings(toAudioSettings(settings.audio))
-    if (settings.practice !== previous.practice) applyPractice()
+    if (settings.audio !== previous.audio) applyAudio()
+  },
+)
+// Switching profiles stops playback and opens that profile's last song or bookmark (decision 66).
+watch(
+  () => profiles.switches,
+  () => {
+    session?.transport.stop()
+    practice.unload()
+    void openSong().then(() => toasts.show(`Switched to ${profiles.active.name}`))
   },
 )
 
@@ -405,6 +515,12 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('pointerdown', onGesture)
   hudFrame = requestAnimationFrame(updateHud)
+  // Ask for the picker and settings chunks before the session starts ~230 sample downloads:
+  // requests queue per host, and behind the samples the first O or Settings click would wait
+  // for seconds on a slow connection (or a busy dev server). Imports are cached, so the click
+  // later finds them ready.
+  void loadPicker()
+  void loadSettingsWindow()
   void openSong()
 })
 
@@ -451,6 +567,25 @@ onBeforeUnmount(() => {
           <p v-if="composer" class="composer" :title="composer" data-testid="hud-composer">
             {{ composer }}
           </p>
+          <p
+            v-if="entry"
+            class="composer entry"
+            :class="{ full: !bookmarkName }"
+            :title="bookmarkName || 'Full song'"
+            data-testid="hud-entry"
+          >
+            <span v-if="bookmarkName" data-testid="hud-bookmark">{{ bookmarkName }}</span><span
+              v-else
+              data-testid="hud-full-song"
+              >Full song</span
+            ><span
+              v-if="temporaryChanges"
+              class="modified-dot"
+              role="img"
+              aria-label="temporary changes"
+              data-testid="hud-modified"
+            />
+          </p>
           <BarBeatCounter
             :bar="hud.bar"
             :beat="hud.beat"
@@ -480,21 +615,21 @@ onBeforeUnmount(() => {
           <HudMenuButton
             icon="song"
             label="Change song"
-            shortcut="O"
+            :shortcut="shortcutLabel('openPicker')"
             data-testid="open-picker"
             @click="openPicker"
           />
           <HudMenuButton
             icon="library"
             label="Library"
-            shortcut="L"
+            :shortcut="shortcutLabel('openLibrary')"
             data-testid="menu-library"
             @click="openLibrary"
           />
           <HudMenuButton
             icon="sliders"
             label="Playfield panel"
-            shortcut="P"
+            :shortcut="shortcutLabel('togglePlayfield')"
             :active="ui.sidebarOpen"
             data-testid="toggle-sidebar"
             @click="toggleSidebar"
@@ -502,10 +637,11 @@ onBeforeUnmount(() => {
           <HudMenuButton
             icon="settings"
             label="Settings"
-            shortcut=","
+            :shortcut="shortcutLabel('openSettings')"
             data-testid="menu-settings"
             @click="openSettings"
           />
+          <ProfileMenu v-if="profiles.profiles.length > 1" />
         </nav>
       </div>
 
@@ -537,6 +673,7 @@ onBeforeUnmount(() => {
           @pointerleave="overPlayback = false"
         >
           <div class="transport" role="toolbar" aria-label="Transport">
+            <IconButton icon="stop" label="Stop" data-testid="stop" @click="backToStart" />
             <IconButton icon="prevBar" label="Previous bar" @click="session?.transport.prevBar()" />
             <IconButton
               :icon="hud.state === 'playing' ? 'pause' : 'play'"
@@ -561,11 +698,38 @@ onBeforeUnmount(() => {
               @set="setLoop"
               @clear="setLoop(null)"
               @to-start="backToStart"
+              @save-bookmark="saveAsBookmark"
+              @revert="practice.revert()"
             />
             <TempoPopover
               v-model:open="tempoOpen"
               v-model:tempo-percent="tempoPercent"
               :current-bpm="hud.currentBpm"
+            />
+            <div class="hud-row">
+              <span v-if="metronomeMode === 'preRoll'" class="value" data-testid="metronome-value"
+                >pre-roll</span
+              >
+              <HudToggle
+                icon="metronome"
+                :on="metronomeMode !== 'off'"
+                hint="Metronome"
+                :shortcut="shortcutLabel('toggleMetronome')"
+                :aria-label="`Metronome (${shortcutLabel('toggleMetronome')})`"
+                :aria-pressed="metronomeMode !== 'off'"
+                data-testid="toggle-metronome"
+                @click="toggleMetronome"
+              />
+            </div>
+            <HudToggle
+              icon="bookmarkAdd"
+              :on="false"
+              hint="Save as bookmark"
+              :shortcut="shortcutLabel('saveBookmark')"
+              :aria-label="`Save as bookmark (${shortcutLabel('saveBookmark')})`"
+              :disabled="entry === null"
+              data-testid="save-bookmark-icon"
+              @click="saveAsBookmark"
             />
           </div>
         </section>
@@ -687,6 +851,40 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The loaded bookmark on its own line under the composer, in the secondary colour like the loop
+   region; "Full song" in the dim neutral text colour. */
+.composer.entry {
+  color: var(--secondary);
+}
+
+.composer.entry.full {
+  color: var(--text-4);
+}
+
+/* Temporary changes to the loaded bookmark (decision 69). */
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-row .value {
+  color: var(--primary);
+  font-size: var(--text-sm);
+  text-shadow: var(--text-shadow-hud);
+}
+
+.modified-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--secondary);
+  box-shadow: 0 0 6px rgb(var(--secondary-rgb) / 60%);
+  vertical-align: middle;
 }
 
 .title {

@@ -40,13 +40,13 @@ export const synthFixtures = {
       ppq: 120,
       tracks: [
         [ev.trackName(0, 'Conductor'), ev.tempo(0, 666_667), ev.timeSignature(0, 3, 4)],
+        [ev.noteOn(0, 0, 76), ev.noteOff(120, 0, 76), ev.noteOn(0, 1, 52), ev.noteOff(360, 1, 52)],
         [
-          ev.noteOn(0, 0, 76),
-          ev.noteOff(120, 0, 76),
-          ev.noteOn(0, 1, 52),
-          ev.noteOff(360, 1, 52),
+          ev.noteOn(120, 0, 77),
+          ev.noteOff(240, 0, 77),
+          ev.noteOn(360, 1, 50),
+          ev.noteOff(720, 1, 50),
         ],
-        [ev.noteOn(120, 0, 77), ev.noteOff(240, 0, 77), ev.noteOn(360, 1, 50), ev.noteOff(720, 1, 50)],
         [],
       ],
     })

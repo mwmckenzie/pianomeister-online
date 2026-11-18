@@ -78,6 +78,7 @@ describe('SETTINGS_REGISTRY', () => {
       'camera.pan',
     ])
     expect(settingGroupKeys({ kind: 'tab', id: 'practice' })).toEqual([
+      'practice.tempoStep',
       'practice.preRollBeats',
       'practice.preRollMode',
     ])
@@ -96,7 +97,8 @@ describe('SETTINGS_REGISTRY', () => {
       panelOpacity: 0.58,
       blur: 26,
       motion: 'system',
-      hideControls: '3',
+      hideControls: true,
+      hideControlsAfter: 3,
     })
     expect(DEFAULT_SETTINGS.audio).toMatchObject({
       master: 0.8,
@@ -104,6 +106,10 @@ describe('SETTINGS_REGISTRY', () => {
       metronomeMode: 'off',
       metronomeVolume: 0.6,
     })
-    expect(DEFAULT_SETTINGS.practice).toEqual({ preRollBeats: 0, preRollMode: 'muted' })
+    expect(DEFAULT_SETTINGS.practice).toEqual({
+      tempoStep: 5,
+      preRollBeats: 0,
+      preRollMode: 'muted',
+    })
   })
 })

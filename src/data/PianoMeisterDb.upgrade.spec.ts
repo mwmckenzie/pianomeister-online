@@ -8,6 +8,8 @@ import { readFixture } from '@/core/testing/readFixture'
 
 import { FACTS_VERSION } from '@/core/library/FACTS_VERSION'
 
+import { DEFAULT_PROFILE } from '@/core/profiles/DEFAULT_PROFILE'
+
 import { PianoMeisterDb } from './PianoMeisterDb'
 import { factsFailureKey, refreshStaleFacts } from './refreshStaleFacts'
 import type { StoredUpload } from './StoredUpload'
@@ -39,7 +41,10 @@ afterEach(async () => {
 })
 
 /** Creates a database exactly as version 1 of the schema did, with some uploads. */
-async function createV1(uploads: readonly StoredUpload[]): Promise<void> {
+async function createV1(
+  uploads: readonly StoredUpload[],
+  seed: (db: Dexie) => Promise<unknown> = async () => undefined,
+): Promise<void> {
   const v1 = new Dexie(name)
   v1.version(1).stores({
     uploads: 'songId, addedAt',
@@ -49,6 +54,7 @@ async function createV1(uploads: readonly StoredUpload[]): Promise<void> {
     appState: 'key',
   })
   await v1.table('uploads').bulkPut([...uploads])
+  await seed(v1)
   v1.close()
 }
 
@@ -58,7 +64,78 @@ describe('PianoMeisterDb upgrade to v2', () => {
     await createV1([upload('minuet', readFixture('minuet-in-g.mid'))])
     const db = new PianoMeisterDb(name)
     expect((await db.uploads.get('minuet'))?.facts).toEqual(v1Facts)
-    expect(db.verno).toBe(2)
+    expect(db.verno).toBe(4)
+    db.close()
+  })
+})
+
+describe('PianoMeisterDb upgrade to v3', () => {
+  it('creates "Me", keeps hand assignments with it and moves the last song to it', async () => {
+    name = 'upgrade-v3'
+    await createV1([], async (v1) => {
+      await v1.table('handAssignments').put({
+        profileId: 'default',
+        songId: 'minuet',
+        hands: { right: [1], left: [0] },
+      })
+      await v1.table('appState').put({ key: 'lastSongId', value: 'minuet' })
+    })
+    const db = new PianoMeisterDb(name)
+    expect(await db.profiles.toArray()).toEqual([DEFAULT_PROFILE])
+    expect(await db.handAssignments.get(['default', 'minuet'])).toMatchObject({
+      hands: { right: [1], left: [0] },
+    })
+    expect(await db.appState.get('lastSongId')).toBeUndefined()
+    expect(JSON.parse((await db.appState.get('lastOpened:default'))?.value ?? '')).toEqual({
+      songId: 'minuet',
+      bookmarkId: null,
+    })
+    db.close()
+  })
+
+  it('creates "Me" in a new database', async () => {
+    name = 'fresh-v3'
+    const db = new PianoMeisterDb(name)
+    expect(await db.profiles.toArray()).toEqual([DEFAULT_PROFILE])
+    db.close()
+  })
+})
+
+describe('PianoMeisterDb upgrade to v4', () => {
+  it('makes old range-label bookmark names automatic and keeps custom names', async () => {
+    name = 'upgrade-v4'
+    const v3 = new Dexie(name)
+    v3.version(3).stores({
+      uploads: 'songId, addedAt',
+      songMeta: 'songId',
+      meterOverrides: 'songId',
+      handAssignments: '[profileId+songId], songId',
+      appState: 'key',
+      profiles: 'id',
+      bookmarks: 'id, [profileId+songId], songId',
+      sessions: 'id, profileId, [profileId+endedAt]',
+      playRecords:
+        'id, [profileId+songId], [profileId+bookmarkId], [profileId+startedAt], profileId, songId',
+    })
+    const config = {
+      loop: { startBar: 17, endBar: 32 },
+      tempoPercent: 85,
+      handAudio: { right: 'on', left: 'muted' },
+      preRollBeats: 0,
+      preRollMode: 'muted',
+    }
+    const row = { profileId: 'default', songId: 's', config, createdAt: 1, updatedAt: 1 }
+    await v3.table('bookmarks').bulkPut([
+      { ...row, id: 'a', name: 'Bars 17–32' },
+      { ...row, id: 'b', name: 'B section' },
+    ])
+    v3.close()
+    const db = new PianoMeisterDb(name)
+    expect(await db.bookmarks.get('a')).toMatchObject({
+      autoName: true,
+      name: 'Bars 17–32 · 85% · left muted · no pre-roll',
+    })
+    expect(await db.bookmarks.get('b')).toMatchObject({ autoName: false, name: 'B section' })
     db.close()
   })
 })

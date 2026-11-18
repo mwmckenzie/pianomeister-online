@@ -1,14 +1,19 @@
-import type { HandAssignment } from '../hands/HandAssignment'
 import type { LoopRange } from '../transport/LoopRange'
 import type { PreRollMode } from '../transport/PreRollMode'
 import type { HandAudio } from './HandAudio'
+import type { MetronomeMode } from './MetronomeMode'
 
-/** A practice setup, as saved in a bookmark (docs/brief.md data model). Mute/solo applies in milestone 2. */
+/**
+ * A practice setup: what a bookmark saves and what the player applies (brief decision 67).
+ * Hand-channel assignments are per song per profile, and volumes (the metronome's too) are
+ * global, so neither is part of it; the metronome mode is (decision 61). A null loop means the
+ * whole song.
+ */
 export interface PracticeConfig {
   readonly loop: LoopRange | null
   readonly tempoPercent: number
-  readonly hands: HandAssignment
   readonly handAudio: { readonly right: HandAudio; readonly left: HandAudio }
   readonly preRollBeats: number
   readonly preRollMode: PreRollMode
+  readonly metronomeMode: MetronomeMode
 }

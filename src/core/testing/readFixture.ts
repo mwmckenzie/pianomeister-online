@@ -1,11 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 export type FixtureName =
-  | 'minuet-in-g.mid'
-  | 'canon-in-d.mid'
-  | 'invention-1.mid'
-  | 'pedal-demo.mid'
-  | 'meter-demo.mid'
+  'minuet-in-g.mid' | 'canon-in-d.mid' | 'invention-1.mid' | 'pedal-demo.mid' | 'meter-demo.mid'
 
 /** The real songs are bundled library songs; synthetic test files live in test-fixtures/. */
 const FOLDERS: Record<FixtureName, string> = {

@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 import type { HandAssignment } from '@/core/hands/HandAssignment'
 import { filterEntries } from '@/core/library/filterEntries'
 import { groupEntries } from '@/core/library/groupEntries'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import type { LibrarySortField } from '@/core/library/LibrarySortField'
+import type { ProfileChoice } from '@/core/library/ProfileChoice'
 import { matchesSearch } from '@/core/library/matchesSearch'
 import { normalizeTags } from '@/core/library/normalizeTags'
 import type { SongMetaFields } from '@/core/library/SongMetaFields'
@@ -15,12 +16,17 @@ import type { MeterOverride } from '@/core/timing/MeterOverride'
 import { browserStorage } from '@/data/browserStorage'
 import { fetchBundledSongs } from '@/data/fetchBundledSongs'
 import type { ImportReport } from '@/data/ImportReport'
-import { Library } from '@/data/Library'
+import type { LastOpened } from '@/data/LastOpened'
+import { Library, type PreparedImport } from '@/data/Library'
 import type { OpenedSong } from '@/data/OpenedSong'
-import { PianoMeisterDb } from '@/data/PianoMeisterDb'
 import type { StorageStatus } from '@/data/StorageStatus'
 import type { UploadFile } from '@/data/UploadFile'
 import type { UploadResult } from '@/data/UploadResult'
+
+import { appDatabase } from './appDatabase'
+import { useBookmarkStore } from './bookmarkStore'
+import { useProfileStore } from './profileStore'
+import { useStatsStore } from './statsStore'
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
@@ -31,10 +37,13 @@ const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 export const useLibraryStore = defineStore('library', () => {
   // The service and its Dexie database stay outside reactivity.
   const library = new Library(
-    new PianoMeisterDb(),
+    appDatabase(),
     fetchBundledSongs(import.meta.env.BASE_URL),
     browserStorage,
   )
+  const profiles = useProfileStore()
+  const stats = useStatsStore()
+  const bookmarks = useBookmarkStore()
 
   const entries = shallowRef<readonly LibraryEntry[]>([])
   const loaded = ref(false)
@@ -59,6 +68,7 @@ export const useLibraryStore = defineStore('library', () => {
       ),
       sortField.value,
       sortDirection.value,
+      stats.songRows,
     ),
   )
 
@@ -82,6 +92,8 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   async function refresh(): Promise<void> {
+    await profiles.load()
+    library.setProfile(profiles.activeId)
     entries.value = await library.entries()
     loaded.value = true
     refreshStaleFacts()
@@ -107,6 +119,21 @@ export const useLibraryStore = defineStore('library', () => {
     const result = await action()
     await refresh()
     return result
+  }
+
+  // Hand assignments and the last opened song are per profile.
+  watch(
+    () => profiles.activeId,
+    (id) => {
+      library.setProfile(id)
+      if (loaded.value) void refresh()
+    },
+  )
+
+  /** Bookmarks and stats can change with an import or a delete: reload them too. */
+  async function refreshPractice(): Promise<void> {
+    await profiles.refresh()
+    await Promise.all([bookmarks.refresh(), stats.refresh()])
   }
 
   /** The last failed write, shown by the library and player until dismissed or a write succeeds. */
@@ -155,10 +182,26 @@ export const useLibraryStore = defineStore('library', () => {
     clearError: (): void => {
       error.value = ''
     },
-    openSong: (songId: string): Promise<OpenedSong> => library.openSong(songId),
-    startSongId: (): Promise<string> => library.startSongId(),
-    setLastSongId: (songId: string): Promise<boolean> =>
-      persist('remember the last song', () => library.setLastSongId(songId)),
+    openSong: async (songId: string): Promise<OpenedSong> => {
+      await profiles.load()
+      library.setProfile(profiles.activeId)
+      return library.openSong(songId)
+    },
+    startEntry: async (): Promise<LastOpened> => {
+      await profiles.load()
+      library.setProfile(profiles.activeId)
+      return library.startEntry()
+    },
+    /** Remembers what the profile opened (startup reopens it); never throws. */
+    setLastOpened: async (songId: string, bookmarkId: string | null): Promise<boolean> => {
+      try {
+        await library.setLastOpened(songId, bookmarkId)
+        return true
+      } catch (e) {
+        reportError('remember the last song', e)
+        return false
+      }
+    },
     upload: async (files: readonly UploadFile[]): Promise<UploadResult[]> => {
       const results = await write(() => library.upload(files))
       await refreshStorage()
@@ -168,6 +211,15 @@ export const useLibraryStore = defineStore('library', () => {
       persist('save the song details', () => library.setMeta(songId, fields)),
     resetMeta: (songId: string) =>
       persist('reset the song details', () => library.resetMeta(songId)),
+    /** A fresh title and composer guess from an upload's file; null if it can't be read. */
+    guessMeta: async (songId: string) => {
+      try {
+        return await library.guessMeta(songId)
+      } catch (e) {
+        reportError('read the file', e)
+        return null
+      }
+    },
     setHands: (songId: string, hands: HandAssignment) =>
       persist('save the hand channels', () => library.setHands(songId, hands)),
     resetHands: (songId: string) =>
@@ -176,14 +228,23 @@ export const useLibraryStore = defineStore('library', () => {
       persist('save the meter override', () => library.setOverride(songId, override)),
     clearOverride: (songId: string) =>
       persist('clear the meter override', () => library.clearOverride(songId)),
-    deleteUpload: async (songId: string): Promise<boolean> => {
-      const ok = await persist('delete the upload', () => library.deleteUpload(songId))
+    deleteUpload: async (songId: string, withPracticeData = false): Promise<boolean> => {
+      const ok = await persist('delete the upload', () =>
+        library.deleteUpload(songId, { withPracticeData }),
+      )
+      if (withPracticeData) await refreshPractice()
       await refreshStorage()
       return ok
     },
     exportArchive: (): Promise<Uint8Array> => library.exportArchive(),
-    importArchive: async (bytes: Uint8Array): Promise<ImportReport> => {
-      const report = await write(() => library.importArchive(bytes))
+    /** Reads a backup and finds colliding profiles; writes nothing. */
+    prepareImport: (bytes: Uint8Array): Promise<PreparedImport> => library.prepareImport(bytes),
+    applyImport: async (
+      prepared: PreparedImport,
+      choices: ReadonlyMap<string, ProfileChoice>,
+    ): Promise<ImportReport> => {
+      const report = await write(() => library.applyImport(prepared, choices))
+      await refreshPractice()
       await refreshStorage()
       return report
     },

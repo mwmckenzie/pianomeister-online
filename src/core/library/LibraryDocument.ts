@@ -1,4 +1,5 @@
 import type { MeterOverride } from '../timing/MeterOverride'
+import type { PracticeData } from './PracticeData'
 import type { SongMetaEdit } from './SongMetaEdit'
 
 /** library.json inside a library export zip. */
@@ -18,4 +19,6 @@ export interface LibraryDocument {
   /** Metadata edits for any song, bundled or uploaded, by songId. */
   readonly meta: Readonly<Record<string, SongMetaEdit>>
   readonly meterOverrides: Readonly<Record<string, MeterOverride>>
+  /** From 1.1: profiles and everything that belongs to them (brief decision 75). */
+  readonly practice?: PracticeData
 }

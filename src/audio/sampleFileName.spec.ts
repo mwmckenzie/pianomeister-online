@@ -11,7 +11,9 @@ describe('sampleFileName', () => {
   })
 
   it('maps every piano sample to a distinct, URL-safe file name', () => {
-    const names = [...new Set(LAYERS.flatMap((layer) => layer.samples.map(([, name]) => String(name))))]
+    const names = [
+      ...new Set(LAYERS.flatMap((layer) => layer.samples.map(([, name]) => String(name)))),
+    ]
     const files = names.map(sampleFileName)
     expect(new Set(files).size).toBe(names.length)
     for (const file of files) expect(encodeURIComponent(file)).toBe(file)

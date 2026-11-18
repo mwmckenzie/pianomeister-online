@@ -59,7 +59,7 @@ export function buildEntries(
         u.songId,
         'uploaded',
         u.fileName,
-        { title: u.title, composer: '', tags: [] },
+        { title: u.title, composer: u.composer ?? '', tags: [] },
         u.facts,
         u.addedAt,
       ),

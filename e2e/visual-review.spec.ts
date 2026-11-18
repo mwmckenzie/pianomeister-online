@@ -2,6 +2,9 @@ import { fileURLToPath } from 'node:url'
 
 import { test, expect, type Page } from '@playwright/test'
 
+import { practiceHistory } from './practiceHistory'
+import { seedPractice } from './support'
+
 /**
  * Screenshots for a human to review (npm run test:visual), saved under test-results/visual/ and
  * never committed. Milestone 5 views are zoomed (distance offset −0.4) so notes and keys are
@@ -342,6 +345,99 @@ for (const viewport of M6_VIEWPORTS) {
         await page.getByRole('button', { name: 'Show all composers' }).click()
         await settle(page, 30)
         await shoot(page, `m6-library-${suffix}`)
+      })
+    })
+  }
+}
+
+// 7. Milestone 7 screens (profiles, bookmarks, stats), with a seeded two-week history at a
+// fixed time, so "Today" and the charts are the same on every run. Compare with
+// docs/design/m6/source/QGPicker, QGLibrary and QGBookmarks.
+const M7_NOW = new Date('2026-11-18T15:00:00')
+
+for (const viewport of M6_VIEWPORTS) {
+  for (const theme of M6_THEMES) {
+    const suffix = `${viewport.width}x${viewport.height}-${theme.name}`
+
+    test.describe(`m7 ${suffix}`, () => {
+      test.use({ viewport })
+
+      test.beforeEach(async ({ page }) => {
+        await page.clock.setFixedTime(M7_NOW)
+        await page.addInitScript(() => {
+          localStorage.setItem(
+            'pianomeister.ui',
+            JSON.stringify({ sidebarOpen: false, sidebarSections: ['keyboard'] }),
+          )
+        })
+        await seed(page, { appearance: theme.appearance })
+        await page.goto('./')
+        await expect(page.getByTestId('hud-bars')).toHaveText('64')
+        await seedPractice(page, practiceHistory(M7_NOW.getTime()))
+        await expect(page.getByTestId('hud-bookmark')).toHaveText('B section')
+      })
+
+      test(`@visual m7 player bookmark ${suffix}`, async ({ page }) => {
+        // A temporary tempo change: the dot after the bookmark name.
+        await page.getByTestId('open-tempo').click()
+        const slider = page.getByTestId('tempo-slider').getByRole('slider')
+        await slider.focus()
+        await slider.press('ArrowLeft')
+        await page.keyboard.press('Escape')
+        await expect(page.getByTestId('hud-modified')).toBeVisible()
+        for (let i = 1; i < 17; i++) await page.getByRole('button', { name: 'Next bar' }).click()
+        await page.getByTestId('menu-profile').hover()
+        await settle(page, 30)
+        await shoot(page, `m7-player-bookmark-${suffix}`)
+      })
+
+      test(`@visual m7 loop popover bookmark ${suffix}`, async ({ page }) => {
+        await page.getByTestId('open-loop').click()
+        await page.getByTestId('loop-to').fill('28')
+        await page.getByTestId('loop-to').press('Enter')
+        await expect(page.getByTestId('revert-bookmark')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m7-loop-popover-${suffix}`)
+      })
+
+      test(`@visual m7 picker ${suffix}`, async ({ page }) => {
+        await page.getByTestId('open-picker').click()
+        await page.getByTestId('picker-song').filter({ hasText: 'Minuet' }).click()
+        await page.getByTestId('picker-bookmark').filter({ hasText: 'B section' }).click()
+        await expect(page.getByTestId('picker-entry-name')).toHaveText('B section')
+        await settle(page, 30)
+        await shoot(page, `m7-picker-${suffix}`)
+      })
+
+      test(`@visual m7 library ${suffix}`, async ({ page }) => {
+        await page.getByTestId('menu-library').click()
+        await page.getByTestId('song-row').filter({ hasText: 'Minuet' }).click()
+        await expect(page.getByTestId('song-details')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m7-library-${suffix}`)
+      })
+
+      test(`@visual m7 bookmarks ${suffix}`, async ({ page }) => {
+        await page.getByTestId('menu-library').click()
+        await page.getByTestId('tab-bookmarks').click()
+        await page.getByTestId('bookmark-row').filter({ hasText: 'B section' }).click()
+        await expect(page.getByTestId('bookmark-name')).toHaveValue('B section')
+        await settle(page, 30)
+        await shoot(page, `m7-bookmarks-${suffix}`)
+        // A draft duplicate: its note at the top of the panel.
+        await page.getByTestId('bookmark-duplicate').click()
+        await expect(page.getByTestId('bookmark-duplicate-note')).toBeVisible()
+        await page.getByTestId('bookmark-name').blur()
+        await settle(page, 30)
+        await shoot(page, `m7-bookmarks-duplicate-${suffix}`)
+      })
+
+      test(`@visual m7 profiles ${suffix}`, async ({ page }) => {
+        await page.getByTestId('menu-settings').click()
+        await page.getByTestId('tab-profiles').click()
+        await expect(page.getByTestId('profile-row')).toHaveCount(2)
+        await settle(page, 30)
+        await shoot(page, `m7-profiles-${suffix}`)
       })
     })
   }

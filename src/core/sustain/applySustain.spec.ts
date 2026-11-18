@@ -37,8 +37,20 @@ describe('pedal import', () => {
     expect(song.pedalIntervals.every((p) => p.channel === 0)).toBe(true)
     expect(song.pedalIntervals[0]).toEqual({ channel: 0, startTick: 60, endTick: 1919 })
     expect(song.channels).toEqual([
-      { channel: 0, noteCount: 64, minPitch: expect.any(Number), maxPitch: expect.any(Number), averagePitch: expect.any(Number) },
-      { channel: 1, noteCount: 8, minPitch: expect.any(Number), maxPitch: expect.any(Number), averagePitch: expect.any(Number) },
+      {
+        channel: 0,
+        noteCount: 64,
+        minPitch: expect.any(Number),
+        maxPitch: expect.any(Number),
+        averagePitch: expect.any(Number),
+      },
+      {
+        channel: 1,
+        noteCount: 8,
+        minPitch: expect.any(Number),
+        maxPitch: expect.any(Number),
+        averagePitch: expect.any(Number),
+      },
     ])
   })
 

@@ -28,6 +28,13 @@ export const ICONS = {
   chevronUp: { d: 'M6.5 14l5.5-5.5 5.5 5.5' },
   search: { d: 'M10.5 5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zM15 15l4 4' },
   bookmark: { d: 'M7.5 4.5h9v15l-4.5-3.5-4.5 3.5z' },
+  bookmarkAdd: { d: 'M7.5 4.5h9v15l-4.5-3.5-4.5 3.5zM12 7.5v5.5M9.25 10.25h5.5' },
+  metronome: { d: 'M9.6 4h4.8l3.6 15.5H6zM12 14.5l4-7.5M7.3 15h9.4' },
+  stop: { fill: 'M8 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z' },
+  lock: {
+    d: 'M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 11V8a4 4 0 0 1 8 0v3',
+  },
+  plus: { d: 'M12 5v14M5 12h14' },
   arrowDown: { d: 'M12 5v14M7 14l5 5 5-5' },
   arrowUp: { d: 'M12 19V5M7 10l5-5 5 5' },
   check: { d: 'M5.5 12.5l4 4 9-9' },

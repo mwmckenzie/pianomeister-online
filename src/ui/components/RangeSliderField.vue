@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from 'reka-ui'
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 
 /**
  * A two-thumb slider for a range, drawn and announced by Reka's Slider. Pointer and keys are
@@ -18,13 +18,35 @@ const props = defineProps<{
   readonly labels: readonly [string, string]
   readonly valueTexts?: readonly [string, string]
 }>()
-const emit = defineEmits<{ change: [change: { start: number } | { end: number }] }>()
+/**
+ * `change` follows the thumb, every step of a drag or key; `commit` marks where the user
+ * settled: the pointer let go, or ~400 ms without another key step, or the thumb losing focus
+ * (the loop applies only then, brief decision 8).
+ */
+const emit = defineEmits<{ change: [change: { start: number } | { end: number }]; commit: [] }>()
 
 /** Thumb diameter: Reka keeps thumbs inside the track ("contain"), so values map inset by half. */
 const THUMB = 20
 const value = computed(() => [props.start, props.end])
 const field = useTemplateRef<HTMLElement>('field')
 const dragging = ref<'start' | 'end' | null>(null)
+
+/** Key steps settle after this pause, so holding or tapping an arrow applies once. */
+const KEY_SETTLE_MS = 400
+let keyTimer: ReturnType<typeof setTimeout> | undefined
+
+function settleKeys(): void {
+  clearTimeout(keyTimer)
+  keyTimer = undefined
+  emit('commit')
+}
+
+/** Focus leaving a thumb with key steps still pending applies them at once. */
+function onThumbBlur(): void {
+  if (keyTimer !== undefined) settleKeys()
+}
+
+onBeforeUnmount(onThumbBlur)
 
 function emitValue(which: 'start' | 'end', raw: number): void {
   const step = props.step ?? 1
@@ -68,6 +90,7 @@ function onPointerEnd(event: PointerEvent): void {
   if (dragging.value === null) return
   dragging.value = null
   field.value?.releasePointerCapture(event.pointerId)
+  emit('commit')
 }
 
 const STEPS: Record<string, number> = {
@@ -90,6 +113,8 @@ function onThumbKeyDown(event: KeyboardEvent, which: 'start' | 'end'): void {
   event.preventDefault()
   event.stopPropagation()
   emitValue(which, next)
+  clearTimeout(keyTimer)
+  keyTimer = setTimeout(settleKeys, KEY_SETTLE_MS)
 }
 </script>
 
@@ -119,6 +144,7 @@ function onThumbKeyDown(event: KeyboardEvent, which: 'start' | 'end'): void {
         :aria-valuetext="valueTexts?.[0]"
         data-testid="range-start"
         @keydown="onThumbKeyDown($event, 'start')"
+        @blur="onThumbBlur"
       />
       <SliderThumb
         class="thumb"
@@ -126,6 +152,7 @@ function onThumbKeyDown(event: KeyboardEvent, which: 'start' | 'end'): void {
         :aria-valuetext="valueTexts?.[1]"
         data-testid="range-end"
         @keydown="onThumbKeyDown($event, 'end')"
+        @blur="onThumbBlur"
       />
     </SliderRoot>
   </div>

@@ -90,7 +90,7 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
         (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
       ),
     )
-    .toMatchObject({ version: 3, settings: { camera: { tiltDeg: 48 } } })
+    .toMatchObject({ version: 4, settings: { camera: { tiltDeg: 48 } } })
 
   await page.reload()
   await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
@@ -224,7 +224,7 @@ test('settings saved by milestone 4 (v1) are migrated, not discarded', async ({ 
       ),
     )
     .toMatchObject({
-      version: 3,
+      version: 4,
       settings: { camera: { tiltDeg: 63 }, appearance: { primary: '#8AB4FF' } },
     })
 })
@@ -245,7 +245,10 @@ test('keyboard limits: lowering the black keys clamps their press depth, and it 
   await nudge(page, 'keyboard.pressDepthBlack', 'End')
   await expect(depth).toHaveAttribute('aria-valuenow', '0.52')
   // Lower the black keys to 0.25: a pressed key must stay 0.08 above the white tops.
-  await nudge(page, 'keyboard.blackHeight', 'ArrowLeft', 35)
+  // Page steps (0.1) then a few arrows: few key presses, so the CI preview stays well inside
+  // the 30 s budget. Going via Home would clamp the depth to 0 on the way.
+  await nudge(page, 'keyboard.blackHeight', 'PageDown', 3)
+  await nudge(page, 'keyboard.blackHeight', 'ArrowLeft', 5)
   await expect(height).toHaveAttribute('aria-valuenow', '0.25')
   await expect(depth).toHaveAttribute('aria-valuenow', '0.17')
   await expect(depth).toHaveAttribute('aria-valuemax', '0.17')
@@ -314,10 +317,18 @@ test('while playing, idle controls fade out and any activity brings them back', 
   await page.getByTestId('toggle-sidebar').click()
   await page.getByTestId('open-all-settings').click()
   await page.getByTestId('tab-appearance').click()
-  await segment(page, 'appearance.hideControls', '2 s')
-  await expect(resetButton(page, 'appearance.hideControls')).toHaveAttribute('data-changed', 'true')
+  // On by default, after 3 s; 2 s here.
+  await nudge(page, 'appearance.hideControlsAfter', 'ArrowLeft', 2)
+  await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('2 s')
+  await expect(resetButton(page, 'appearance.hideControlsAfter')).toHaveAttribute(
+    'data-changed',
+    'true',
+  )
   await page.keyboard.press('Escape')
   await page.getByTestId('toggle-sidebar').click()
+  // Wait for the panel to be gone: the right column then moves right, and it must not slide
+  // out from under the pointer later in the test.
+  await expect(page.getByTestId('playfield-sidebar')).toHaveCount(0)
 
   const controls = page.getByTestId('player-controls')
   // Paused: never hidden.
@@ -574,4 +585,86 @@ test('loop range: a pointer drag into the other thumb pushes it along', async ({
   await page.mouse.up()
   await expect(shown).toHaveText(/^\d+–64$/)
   await expect(slider.getByRole('slider').first()).toBeFocused()
+})
+
+test('settings saved with the v3 idle choices migrate to the switch and seconds', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    if (localStorage.getItem('pianomeister.settings') !== null) return
+    localStorage.setItem(
+      'pianomeister.settings',
+      JSON.stringify({ version: 3, settings: { appearance: { hideControls: 'off' } } }),
+    )
+  })
+  await page.goto('./')
+  await page.getByTestId('menu-settings').click()
+  await page.getByTestId('tab-appearance').click()
+  const toggle = setting(page, 'appearance.hideControls').getByRole('checkbox')
+  await expect(toggle).not.toBeChecked()
+  // Off: the delay is shown but can't be changed.
+  await expect(setting(page, 'appearance.hideControlsAfter')).toHaveAttribute(
+    'data-disabled',
+    'true',
+  )
+  await expect(thumb(page, 'appearance.hideControlsAfter')).toHaveAttribute('data-disabled', '')
+  await toggle.click()
+  await expect(setting(page, 'appearance.hideControlsAfter')).not.toHaveAttribute(
+    'data-disabled',
+    'true',
+  )
+  await nudge(page, 'appearance.hideControlsAfter', 'ArrowRight')
+  await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('3.5 s')
+  await resetButton(page, 'appearance.hideControlsAfter').click()
+  await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('3 s')
+})
+
+test('the tempo step (Practice tab) sets how far the tempo slider moves', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('./')
+  await expect(page.getByTestId('hud-bars')).toHaveText('64')
+  await page.getByTestId('menu-settings').click()
+  await page.getByTestId('tab-practice').click()
+  await expect(shownValue(page, 'practice.tempoStep')).toHaveText('5%')
+  await nudge(page, 'practice.tempoStep', 'ArrowLeft', 3)
+  await expect(shownValue(page, 'practice.tempoStep')).toHaveText('2%')
+  await expect(resetButton(page, 'practice.tempoStep')).toHaveAttribute('data-changed', 'true')
+  await page.keyboard.press('Escape')
+
+  await page.getByTestId('open-tempo').click()
+  const slider = page.getByTestId('tempo-slider').getByRole('slider')
+  await slider.focus()
+  await slider.press('ArrowRight')
+  await expect(page.getByTestId('hud-tempo-percent')).toHaveText('102%')
+  await slider.press('ArrowLeft')
+  await slider.press('ArrowLeft')
+  await expect(page.getByTestId('hud-tempo-percent')).toHaveText('98%')
+  expect(errors).toEqual([])
+})
+
+test('M toggles the metronome (Full song: the Audio setting), back to its last mode', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./')
+  await expect(page.getByTestId('hud-bars')).toHaveText('64')
+  const toggle = page.getByTestId('toggle-metronome')
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(toggle).toHaveAttribute('aria-label', 'Metronome (M)')
+  await page.keyboard.press('m')
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  await page.getByTestId('menu-settings').click()
+  await page.getByTestId('tab-audio').click()
+  const mode = page.getByTestId('setting-audio-metronomeMode-control')
+  await expect(mode.getByText('Always', { exact: true })).toHaveAttribute('data-state', 'on')
+  await mode.getByText('Pre-roll only', { exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('metronome-value')).toHaveText('pre-roll')
+  // Off, then back to the last mode that wasn't off.
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByTestId('metronome-value')).toBeHidden()
+  await page.keyboard.press('m')
+  await expect(page.getByTestId('metronome-value')).toHaveText('pre-roll')
+  expect(errors).toEqual([])
 })

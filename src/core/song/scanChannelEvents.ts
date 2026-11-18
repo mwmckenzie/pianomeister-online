@@ -11,13 +11,14 @@ export interface RawChannelEvent {
 }
 
 /**
- * Walks every channel message of a Standard MIDI File, skipping meta and sysex events.
- * We read raw events where @tonejs/midi loses information (channels of pedal-only tracks,
- * which chunk a note came from).
+ * Walks every channel message of a Standard MIDI File, skipping sysex events, and meta events
+ * unless `visitMeta` wants them. We read raw events where @tonejs/midi loses information
+ * (channels of pedal-only tracks, which chunk a note came from, copyright notices).
  */
 export function scanChannelEvents(
   bytes: Uint8Array,
   visit: (event: RawChannelEvent) => void,
+  visitMeta?: (track: number, type: number, data: Uint8Array) => void,
 ): void {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   let pos = 8 + view.getUint32(4) // skip MThd
@@ -54,9 +55,10 @@ export function scanChannelEvents(
       if (first >= 0x80) {
         p++
         if (first === 0xff) {
-          p++ // meta type
+          const metaType = byteAt(p++)
           // varLen() advances p, so read the length before adding it.
           const metaLength = varLen()
+          visitMeta?.(track, metaType, bytes.subarray(p, Math.min(end, p + metaLength)))
           p += metaLength
           continue
         }

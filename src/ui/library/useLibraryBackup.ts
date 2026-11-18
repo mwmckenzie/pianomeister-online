@@ -1,8 +1,11 @@
 import { ref } from 'vue'
 
+import { formatImportSummary } from '@/core/library/formatImportSummary'
 import type { ImportReport } from '@/data/ImportReport'
 
+import { useImportStore } from '../stores/importStore'
 import { useLibraryStore } from '../stores/libraryStore'
+import { useToastStore } from '../stores/toastStore'
 
 /**
  * Library export (download a .zip) and import (from a chosen file), shared by the Library page
@@ -10,6 +13,8 @@ import { useLibraryStore } from '../stores/libraryStore'
  */
 export function useLibraryBackup() {
   const store = useLibraryStore()
+  const imports = useImportStore()
+  const toasts = useToastStore()
   const busy = ref(false)
   const error = ref('')
 
@@ -39,8 +44,17 @@ export function useLibraryBackup() {
     })
   }
 
+  /**
+   * Imports a backup; colliding profiles are asked about first (brief decision 75). Null when
+   * the import failed or was cancelled (then nothing was written).
+   */
   function importFile(file: File): Promise<ImportReport | null> {
-    return run(async () => store.importArchive(new Uint8Array(await file.arrayBuffer())))
+    return run(async () => {
+      const report = await imports.run(new Uint8Array(await file.arrayBuffer()))
+      const profiles = report === null ? '' : formatImportSummary(report.profiles)
+      if (profiles !== '') toasts.show(`Imported: ${profiles}.`)
+      return report
+    })
   }
 
   return { busy, error, run, exportLibrary, importFile }

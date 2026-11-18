@@ -59,6 +59,7 @@ function applyPreset(preset: (typeof THEME_PRESETS)[number]): void {
   </SettingsSection>
   <SettingsSection section-id="playerControls" title="Player controls">
     <SettingRow setting-key="appearance.hideControls" />
+    <SettingRow setting-key="appearance.hideControlsAfter" />
   </SettingsSection>
 </template>
 

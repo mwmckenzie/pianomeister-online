@@ -4,13 +4,4 @@
  * 'preRoll', 'resync'), or nothing silenced at all ('play', 'end').
  */
 export type TimelineChangeReason =
-  | 'play'
-  | 'pause'
-  | 'stop'
-  | 'end'
-  | 'seek'
-  | 'tempo'
-  | 'loop'
-  | 'preRoll'
-  | 'song'
-  | 'resync'
+  'play' | 'pause' | 'stop' | 'end' | 'seek' | 'tempo' | 'loop' | 'preRoll' | 'song' | 'resync'

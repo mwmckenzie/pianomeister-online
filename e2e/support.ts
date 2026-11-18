@@ -54,3 +54,129 @@ export async function openSidebarSection(page: Page, section: string): Promise<v
   const trigger = page.getByTestId(`accordion-${section}`)
   if ((await trigger.getAttribute('data-state')) !== 'open') await trigger.click()
 }
+
+/** Bundled song ids (content hashes, from public/songs/manifest.json). */
+export const SONG_IDS = {
+  minuet: '23a649ebc53696bc6ce551246cc0ef74ee99f1e1fa964d55a2997999527485ca',
+  canon: 'a4988dba91c83291e4016da87d19c03bd4ecf0087a186605d8615dd2e241bbb7',
+  invention: '6fec24e88f82fd8c2aea348ac027c3baccf2cb18bc24b362176facc3d6410b9d',
+} as const
+
+/** Rows to write straight into IndexedDB (test-only: the app never seeds data). */
+export interface PracticeSeed {
+  readonly profiles?: readonly object[]
+  readonly bookmarks?: readonly object[]
+  readonly sessions?: readonly object[]
+  readonly playRecords?: readonly object[]
+  readonly appState?: readonly object[]
+}
+
+/**
+ * Writes practice data into the app's database, then reloads so the app reads it. The page
+ * must already have opened the app once (the database exists at the current version).
+ */
+export async function seedPractice(page: Page, seed: PracticeSeed): Promise<void> {
+  await page.evaluate(
+    (data) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('pianomeister')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const db = open.result
+          const stores = Object.keys(data).filter(
+            (name) => (data as Record<string, unknown[]>)[name]?.length,
+          )
+          if (stores.length === 0) {
+            db.close()
+            resolve()
+            return
+          }
+          const tx = db.transaction(stores, 'readwrite')
+          for (const name of stores) {
+            for (const row of (data as Record<string, unknown[]>)[name] ?? []) {
+              tx.objectStore(name).put(row)
+            }
+          }
+          tx.oncomplete = () => {
+            db.close()
+            resolve()
+          }
+          tx.onerror = () => reject(tx.error)
+        }
+      }),
+    seed,
+  )
+  await page.reload()
+}
+
+/** Reads a whole object store (e.g. 'playRecords'), for checks against what the UI shows. */
+export async function readStore<T>(page: Page, name: string): Promise<T[]> {
+  return page.evaluate(
+    (store) =>
+      new Promise<T[]>((resolve, reject) => {
+        const open = indexedDB.open('pianomeister')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const db = open.result
+          const request = db.transaction(store, 'readonly').objectStore(store).getAll()
+          request.onsuccess = () => {
+            db.close()
+            resolve(request.result as T[])
+          }
+          request.onerror = () => reject(request.error)
+        }
+      }),
+    name,
+  )
+}
+
+/** Sets the loop in the open player to bars `from`–`to` (and turns it on). */
+export async function setLoopBars(page: Page, from: number, to: number): Promise<void> {
+  await page.getByTestId('open-loop').click()
+  await page.getByTestId('loop-from').fill(String(from))
+  await page.getByTestId('loop-from').press('Enter')
+  await page.getByTestId('loop-to').fill(String(to))
+  await page.getByTestId('loop-to').press('Enter')
+  const set = page.getByTestId('loop-set')
+  if (await set.isEnabled()) await set.click()
+}
+
+/**
+ * "Save as bookmark": the loop popover's button when it's open, else the HUD icon. One click,
+ * auto-named (brief decision 69); resolves to the name the HUD then shows.
+ */
+export async function saveAsBookmark(page: Page): Promise<string> {
+  const inPopover = page.getByTestId('save-bookmark')
+  if (await inPopover.isVisible()) await inPopover.click()
+  else await page.getByTestId('save-bookmark-icon').click()
+  await expect(page.getByTestId('toast').filter({ hasText: /^Saved “/ })).toBeVisible()
+  const name = page.getByTestId('hud-bookmark')
+  await expect(name).toBeVisible()
+  return (await name.textContent()) ?? ''
+}
+
+/** A stored bookmark for seedPractice: the Minuet, both hands, no pre-roll. */
+export function seedBookmark(
+  id: string,
+  name: string,
+  loop: { readonly startBar: number; readonly endBar: number },
+  extra: { readonly autoName?: boolean; readonly tempoPercent?: number } = {},
+): object {
+  return {
+    id,
+    profileId: 'default',
+    songId: SONG_IDS.minuet,
+    name,
+    autoName: extra.autoName ?? false,
+    config: {
+      loop,
+      tempoPercent: extra.tempoPercent ?? 100,
+      handAudio: { right: 'on', left: 'on' },
+      preRollBeats: 0,
+      preRollMode: 'muted',
+      metronomeMode: 'off',
+    },
+    createdAt: 1,
+    updatedAt: 1,
+  }
+}

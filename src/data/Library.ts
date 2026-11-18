@@ -2,24 +2,38 @@ import { defaultHands } from '@/core/hands/defaultHands'
 import type { HandAssignment } from '@/core/hands/HandAssignment'
 import { buildEntries } from '@/core/library/buildEntries'
 import { computeSongFacts } from '@/core/library/computeSongFacts'
+import { guessSongMetadata } from '@/core/library/guessSongMetadata'
+import type { BackupMergePlan } from '@/core/library/BackupMergePlan'
+import type { ArchiveContents } from '@/core/library/ArchiveContents'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
+import type { PracticeData } from '@/core/library/PracticeData'
+import type { ProfileChoice } from '@/core/library/ProfileChoice'
+import type { ProfileCollision } from '@/core/library/ProfileCollision'
 import { normalizeTags } from '@/core/library/normalizeTags'
 import type { SongManifest } from '@/core/library/SongManifest'
 import type { SongMetaFields } from '@/core/library/SongMetaFields'
 import { validateUpload } from '@/core/library/validateUpload'
 import { importMidi } from '@/core/song/importMidi'
+import { readMidiText } from '@/core/song/readMidiText'
 import { sha256Hex } from '@/core/song/sha256Hex'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
 
 import type { BundledSongs } from './BundledSongs'
 import type { ImportReport } from './ImportReport'
+import type { LastOpened } from './LastOpened'
 import type { OpenedSong } from './OpenedSong'
-import { DEFAULT_PROFILE_ID, type PianoMeisterDb } from './PianoMeisterDb'
+import { DEFAULT_PROFILE_ID, lastOpenedKey, type PianoMeisterDb } from './PianoMeisterDb'
+import { clearProfileData } from './Profiles'
 import type { UploadFile } from './UploadFile'
 import type { UploadResult } from './UploadResult'
 import { factsFailureKey, refreshStaleFacts } from './refreshStaleFacts'
 
-const LAST_SONG_ID = 'lastSongId'
+/** A backup read and checked against this device, before anything is written. */
+export interface PreparedImport {
+  readonly archive: ArchiveContents
+  /** Backup profiles whose id exists here: the import asks what to do with each. */
+  readonly collisions: readonly ProfileCollision[]
+}
 
 /**
  * The song library: bundled songs plus uploads, with metadata edits, meter overrides and hand
@@ -33,8 +47,13 @@ export class Library {
     private readonly db: PianoMeisterDb,
     private readonly bundled: BundledSongs,
     private readonly storage: { requestPersistence(): Promise<boolean | null> },
-    private readonly profileId = DEFAULT_PROFILE_ID,
+    private profileId = DEFAULT_PROFILE_ID,
   ) {}
+
+  /** Per-profile data (hand assignments, last opened song) follows the active profile. */
+  setProfile(profileId: string): void {
+    this.profileId = profileId
+  }
 
   manifest(): Promise<SongManifest> {
     this.manifestPromise ??= this.bundled.manifest().catch((e: unknown) => {
@@ -95,9 +114,10 @@ export class Library {
   async upload(files: readonly UploadFile[]): Promise<UploadResult[]> {
     const entries = await this.entries()
     const titles = new Map(entries.map((e) => [e.songId, e.title]))
+    const composers = libraryComposers(entries)
     const results: UploadResult[] = []
     for (const file of files) {
-      const result = await this.addFile(file, titles, Date.now())
+      const result = await this.addFile(file, titles, composers, Date.now())
       results.push(result)
       if (result.outcome === 'added') titles.set(result.songId, result.title)
     }
@@ -106,6 +126,18 @@ export class Library {
       await this.storage.requestPersistence()
     }
     return results
+  }
+
+  /**
+   * A fresh guess at an upload's title and composer from its file (brief decision 79), for
+   * "Guess from file"; null for a bundled song or a missing upload. Nothing is saved.
+   */
+  async guessMeta(songId: string): Promise<Pick<SongMetaFields, 'title' | 'composer'> | null> {
+    const upload = await this.db.uploads.get(songId)
+    if (upload === undefined) return null
+    const others = (await this.entries()).filter((e) => e.songId !== songId)
+    const text = readMidiText(new Uint8Array(upload.bytes))
+    return guessSongMetadata({ fileName: upload.fileName, text }, libraryComposers(others))
   }
 
   /** Saves the fields that differ from the original; none differing removes the edit. */
@@ -143,60 +175,123 @@ export class Library {
     await this.db.meterOverrides.delete(songId)
   }
 
-  /** Removes an upload with its metadata, meter override and hand assignments (decision 35). */
-  async deleteUpload(songId: string): Promise<void> {
+  /**
+   * Removes an upload with its metadata, meter override and hand assignments (all profiles,
+   * decision 35). Its bookmarks and play log are kept unless `withPracticeData` (decision 74):
+   * they are keyed by the content hash and come back with a re-upload.
+   */
+  async deleteUpload(songId: string, options: { withPracticeData?: boolean } = {}): Promise<void> {
     const { db } = this
     await db.transaction(
       'rw',
-      [db.uploads, db.songMeta, db.meterOverrides, db.handAssignments, db.appState],
+      [
+        db.uploads,
+        db.songMeta,
+        db.meterOverrides,
+        db.handAssignments,
+        db.appState,
+        db.bookmarks,
+        db.playRecords,
+      ],
       async () => {
         await db.uploads.delete(songId)
         await db.songMeta.delete(songId)
         await db.meterOverrides.delete(songId)
         await db.handAssignments.where('songId').equals(songId).delete()
-        const last = await db.appState.get(LAST_SONG_ID)
-        if (last?.value === songId) await db.appState.delete(LAST_SONG_ID)
+        if (options.withPracticeData === true) {
+          await db.bookmarks.where('songId').equals(songId).delete()
+          await db.playRecords.where('songId').equals(songId).delete()
+        }
+        // Any profile whose last opened song this was starts elsewhere next time.
+        const lastOpened = await db.appState.where('key').startsWith(lastOpenedKey('')).toArray()
+        for (const row of lastOpened) {
+          if (parseLastOpened(row.value)?.songId === songId) await db.appState.delete(row.key)
+        }
         await db.appState.delete(factsFailureKey(songId))
       },
     )
   }
 
-  async setLastSongId(songId: string): Promise<void> {
-    await this.db.appState.put({ key: LAST_SONG_ID, value: songId })
+  async setLastOpened(songId: string, bookmarkId: string | null): Promise<void> {
+    const value: LastOpened = { songId, bookmarkId }
+    await this.db.appState.put({ key: lastOpenedKey(this.profileId), value: JSON.stringify(value) })
   }
 
-  /** The last opened song if it is still in the library, else the first bundled song. */
-  async startSongId(): Promise<string> {
-    const [last, entries] = await Promise.all([this.db.appState.get(LAST_SONG_ID), this.entries()])
-    const found = entries.find((e) => e.songId === last?.value)
-    const first = found ?? entries.find((e) => e.source === 'bundled') ?? entries[0]
+  /**
+   * What the player opens on start (brief decision 27): the profile's last opened song (and
+   * bookmark) if the song is still in the library, else the first bundled song.
+   */
+  async startEntry(): Promise<LastOpened> {
+    const [row, entries] = await Promise.all([
+      this.db.appState.get(lastOpenedKey(this.profileId)),
+      this.entries(),
+    ])
+    const last = row === undefined ? null : parseLastOpened(row.value)
+    if (last !== null && entries.some((e) => e.songId === last.songId)) return last
+    const first = entries.find((e) => e.source === 'bundled') ?? entries[0]
     if (first === undefined) throw new Error('The library is empty')
-    return first.songId
+    return { songId: first.songId, bookmarkId: null }
+  }
+
+  /** Every profile with all its rows, as a backup holds them. */
+  async practiceData(): Promise<PracticeData> {
+    const { db } = this
+    const [profiles, bookmarks, handAssignments, sessions, playRecords] = await Promise.all([
+      db.profiles.toArray(),
+      db.bookmarks.toArray(),
+      db.handAssignments.toArray(),
+      db.sessions.toArray(),
+      db.playRecords.toArray(),
+    ])
+    return { profiles, bookmarks, handAssignments, sessions, playRecords }
   }
 
   async exportArchive(now = new Date()): Promise<Uint8Array> {
     // Loaded on demand: the zip code is only needed for backups, not for playing.
     const { buildArchive } = await import('@/core/library/buildArchive')
-    const [uploads, meta, overrides] = await Promise.all([
+    const [uploads, meta, overrides, practice] = await Promise.all([
       this.db.uploads.orderBy('addedAt').toArray(),
       this.db.songMeta.toArray(),
       this.db.meterOverrides.toArray(),
+      this.practiceData(),
     ])
     return buildArchive({
       uploads: uploads.map((u) => ({ ...u, bytes: new Uint8Array(u.bytes) })),
       meta: new Map(meta.map((m) => [m.songId, m.edit])),
       overrides: new Map(overrides.map((o) => [o.songId, o.override])),
+      practice,
       exportedAt: now,
     })
   }
 
-  /** Throws (with a user-facing reason) when the file isn't a compatible library export. */
-  async importArchive(bytes: Uint8Array): Promise<ImportReport> {
-    const [{ readArchive }, { planImport }] = await Promise.all([
+  /**
+   * Reads a backup and finds the profiles that collide with local ones, writing nothing (the
+   * user may still cancel). Throws (with a user-facing reason) when the file isn't a
+   * compatible library export.
+   */
+  async prepareImport(bytes: Uint8Array): Promise<PreparedImport> {
+    const [{ readArchive }, { profileCollisions }] = await Promise.all([
       import('@/core/library/readArchive'),
-      import('@/core/library/planImport'),
+      import('@/core/library/profileCollisions'),
     ])
     const archive = readArchive(bytes)
+    const incoming = archive.document.practice
+    const collisions =
+      incoming === undefined ? [] : profileCollisions(incoming, await this.practiceData())
+    return { archive, collisions }
+  }
+
+  /** Writes a prepared backup with the user's choice for each colliding profile. */
+  async applyImport(
+    prepared: PreparedImport,
+    choices: ReadonlyMap<string, ProfileChoice>,
+    newId: () => string = () => crypto.randomUUID(),
+  ): Promise<ImportReport> {
+    const [{ planImport }, { planBackupMerge }] = await Promise.all([
+      import('@/core/library/planImport'),
+      import('@/core/library/planBackupMerge'),
+    ])
+    const { archive } = prepared
     const uploads = await this.upload(
       archive.uploads.map((u) => ({
         name: u.fileName,
@@ -225,8 +320,16 @@ export class Library {
     await this.db.meterOverrides.bulkPut(
       plan.setOverrides.map(([songId, override]) => ({ songId, override })),
     )
+    const incoming = archive.document.practice
+    const profiles =
+      incoming === undefined
+        ? { merged: [], replaced: [], addedProfiles: 0 }
+        : await this.mergePractice(
+            planBackupMerge(incoming, await this.practiceData(), choices, newId),
+          )
     return {
       uploads,
+      profiles,
       metaApplied: plan.metaApplied,
       metaKept: plan.metaKept,
       overridesApplied: plan.overridesApplied,
@@ -235,9 +338,28 @@ export class Library {
     }
   }
 
+  /** Applies a backup merge plan in one transaction: all of it or nothing. */
+  private async mergePractice(plan: BackupMergePlan): Promise<BackupMergePlan['summary']> {
+    const { db } = this
+    await db.transaction(
+      'rw',
+      [db.profiles, db.bookmarks, db.sessions, db.playRecords, db.handAssignments, db.appState],
+      async () => {
+        for (const id of plan.clearProfileIds) await clearProfileData(db, id)
+        await db.profiles.bulkPut([...plan.add.profiles])
+        await db.bookmarks.bulkPut([...plan.add.bookmarks])
+        await db.sessions.bulkPut([...plan.add.sessions])
+        await db.playRecords.bulkPut([...plan.add.playRecords])
+        await db.handAssignments.bulkPut([...plan.add.handAssignments])
+      },
+    )
+    return plan.summary
+  }
+
   private async addFile(
     file: UploadFile,
     titles: ReadonlyMap<string, string>,
+    composers: readonly string[],
     addedAt: number,
   ): Promise<UploadResult> {
     const fileName = file.name
@@ -253,14 +375,34 @@ export class Library {
     } catch {
       return { fileName, outcome: 'rejected', reason: 'not a readable MIDI file' }
     }
+    // The guess is the upload's original title and composer: "Reset to original" returns to it.
+    const guess = guessSongMetadata({ fileName, text: readMidiText(bytes) }, composers)
     await this.db.uploads.put({
       songId,
       fileName,
-      title: song.title,
+      title: guess.title,
+      composer: guess.composer,
       addedAt,
       facts: computeSongFacts(song),
       bytes: bytes.slice().buffer,
     })
-    return { fileName, outcome: 'added', songId, title: song.title }
+    return { fileName, outcome: 'added', songId, title: guess.title }
+  }
+}
+
+/** The composers already in the library, each once, for matching an upload's composer. */
+function libraryComposers(entries: readonly LibraryEntry[]): string[] {
+  return [...new Set(entries.map((e) => e.composer.trim()).filter((c) => c !== ''))]
+}
+
+function parseLastOpened(value: string): LastOpened | null {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const { songId, bookmarkId } = parsed as Record<string, unknown>
+    if (typeof songId !== 'string') return null
+    return { songId, bookmarkId: typeof bookmarkId === 'string' ? bookmarkId : null }
+  } catch {
+    return null
   }
 }

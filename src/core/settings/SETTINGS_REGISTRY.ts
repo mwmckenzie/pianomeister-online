@@ -274,6 +274,14 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
 
     // Practice (decisions 2, 10, 61)
+    'practice.tempoStep': num(
+      'Tempo step',
+      5,
+      tab('practice', 'tempo'),
+      [1, 10, 1],
+      'wholePercent',
+      0,
+    ),
     'practice.preRollBeats': num('Pre-roll', 0, tab('practice', 'preRoll'), [0, 16, 1], 'beats', 0),
     'practice.preRollMode': {
       kind: 'choice',
@@ -305,17 +313,13 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
         { value: 'reduced', label: 'Reduced' },
       ],
     },
-    'appearance.hideControls': {
-      kind: 'choice',
-      label: 'Hide controls when idle',
-      default: '3',
-      home: tab('appearance', 'playerControls'),
-      options: [
-        { value: 'off', label: 'Off' },
-        { value: '2', label: '2 s' },
-        { value: '3', label: '3 s' },
-        { value: '5', label: '5 s' },
-        { value: '10', label: '10 s' },
-      ],
+    'appearance.hideControls': bool(
+      'Hide controls when idle',
+      true,
+      tab('appearance', 'playerControls'),
+    ),
+    'appearance.hideControlsAfter': {
+      ...num('After', 3, tab('appearance', 'playerControls'), [0.5, 10, 0.5], 'seconds', 1),
+      enabled: (settings) => settings.appearance.hideControls,
     },
   }

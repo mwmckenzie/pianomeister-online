@@ -2,6 +2,7 @@
 import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 
+import { makePracticeData } from '../testing/makePracticeData'
 import { buildArchive } from './buildArchive'
 import { planImport } from './planImport'
 import { readArchive } from './readArchive'
@@ -19,6 +20,7 @@ const archive = () =>
       ['bundled', { composer: 'Bach' }],
     ]),
     overrides: new Map([['u1', override]]),
+    practice: makePracticeData({ bookmarks: 2 }),
     exportedAt: new Date('2026-11-16T10:00:00Z'),
   })
 
@@ -27,7 +29,7 @@ const zipWith = (json: unknown) => zipSync({ 'library.json': strToU8(JSON.string
 describe('library archive', () => {
   it('round-trips uploads, metadata and meter overrides', () => {
     const { document, uploads } = readArchive(archive())
-    expect(document.version).toBe('1.0')
+    expect(document.version).toBe('1.1')
     expect(document.exportedAt).toBe('2026-11-16T10:00:00.000Z')
     // Same file name twice (case-insensitively): the second gets a suffix.
     expect(document.uploads.map((u) => u.path)).toEqual(['uploads/song.mid', 'uploads/Song-2.mid'])
@@ -40,6 +42,47 @@ describe('library archive', () => {
       bundled: { composer: 'Bach' },
     })
     expect(document.meterOverrides).toEqual({ u1: override })
+  })
+
+  it('round-trips profiles, bookmarks, hand assignments, sessions and play records', () => {
+    expect(readArchive(archive()).document.practice).toEqual(makePracticeData({ bookmarks: 2 }))
+  })
+
+  it('reads a 1.0 backup (no practice data) as having no profiles', () => {
+    const practice = readArchive(
+      zipWith({ format: 'pianomeister-library', version: '1.0', uploads: [], meta: {} }),
+    ).document.practice
+    expect(practice).toEqual({
+      profiles: [],
+      bookmarks: [],
+      handAssignments: [],
+      sessions: [],
+      playRecords: [],
+    })
+  })
+
+  it('drops malformed practice rows', () => {
+    const good = makePracticeData({ bookmarks: 1 })
+    const practice = readArchive(
+      zipWith({
+        format: 'pianomeister-library',
+        version: '1.1',
+        practice: {
+          profiles: [...good.profiles, { id: 7 }],
+          bookmarks: [
+            ...good.bookmarks,
+            { ...good.bookmarks[0], id: 'bad', config: { loop: { startBar: 9, endBar: 2 } } },
+          ],
+          handAssignments: [
+            ...good.handAssignments,
+            { profileId: 'default', songId: 'x', hands: { right: [99], left: [] } },
+          ],
+          sessions: [...good.sessions, { id: 's' }],
+          playRecords: [...good.playRecords, { ...good.playRecords[0], playedMs: -5 }],
+        },
+      }),
+    ).document.practice
+    expect(practice).toEqual(good)
   })
 
   it('rejects files that are not library exports', () => {

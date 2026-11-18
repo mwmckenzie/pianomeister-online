@@ -11,15 +11,22 @@ withDefaults(
     readonly subtitle?: string
     readonly selected: boolean
     readonly as?: string
+    /** A small tag after the title, e.g. "New" for a song just uploaded. */
+    readonly tag?: string
+    /** A short highlight pulse (a song just uploaded or pointed at). */
+    readonly pulse?: boolean
   }>(),
-  { subtitle: '', as: 'div' },
+  { subtitle: '', as: 'div', tag: '', pulse: false },
 )
 </script>
 
 <template>
-  <component :is="as" class="song-row" :class="{ selected }">
+  <component :is="as" class="song-row" :class="{ selected, pulse }">
     <span class="names">
-      <span class="title" :title="title">{{ title }}</span>
+      <span class="title-line">
+        <span class="title" :title="title">{{ title }}</span>
+        <span v-if="tag" class="tag" data-testid="song-row-tag">{{ tag }}</span>
+      </span>
       <span v-if="subtitle" class="subtitle" :title="subtitle">{{ subtitle }}</span>
     </span>
     <slot />
@@ -69,6 +76,57 @@ withDefaults(
 
 .title {
   font-weight: var(--weight-medium);
+}
+
+.title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgb(var(--secondary-rgb) / 16%);
+  color: var(--secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+/* A song just uploaded or pointed at (decision 82): a short secondary glow, about 1.2 s. */
+.song-row.pulse {
+  animation: row-pulse 1.2s var(--ease-out);
+}
+
+@keyframes row-pulse {
+  0% {
+    box-shadow: inset 0 0 0 2px rgb(var(--secondary-rgb) / 0%);
+    background: rgb(var(--secondary-rgb) / 0%);
+  }
+  25% {
+    box-shadow: inset 0 0 0 2px rgb(var(--secondary-rgb) / 85%);
+    background: rgb(var(--secondary-rgb) / 22%);
+  }
+  100% {
+    box-shadow: inset 0 0 0 2px rgb(var(--secondary-rgb) / 0%);
+  }
+}
+
+/* Reduced motion: the colour fades in and out, nothing else changes. */
+:root[data-motion='reduced'] .song-row.pulse {
+  animation-name: row-pulse-fade;
+}
+
+@keyframes row-pulse-fade {
+  0%,
+  100% {
+    background: rgb(var(--secondary-rgb) / 0%);
+  }
+  30% {
+    background: rgb(var(--secondary-rgb) / 22%);
+  }
 }
 
 .subtitle {

@@ -12,6 +12,10 @@ export function formatSettingValue(def: NumberSetting, value: number): string {
     }
     case 'percent':
       return `${Math.round(value * 100)}%`
+    case 'wholePercent':
+      return `${trimZeros(value.toFixed(def.digits))}%`
+    case 'seconds':
+      return `${trimZeros(value.toFixed(def.digits))} s`
     case 'deg':
       return `${value.toFixed(def.digits)}°`
     case 'beats':

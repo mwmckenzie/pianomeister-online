@@ -15,6 +15,19 @@ export default defineConfig({
   // Served from https://<user>.github.io/pianomeister-online/ on GitHub Pages.
   base: '/pianomeister-online/',
   plugins: [vue(), vueDevTools()],
+  server: {
+    // Transform the lazily loaded screens and dialogs as soon as the dev server starts, so the
+    // first click on them (and parallel e2e workers) never waits for on-demand compiling.
+    warmup: {
+      clientFiles: [
+        './src/ui/picker/SongPicker.vue',
+        './src/ui/settings/SettingsWindow.vue',
+        './src/ui/views/LibraryView.vue',
+        './src/ui/views/BookmarkManagerView.vue',
+        './src/ui/library/ProfileCollisionDialog.vue',
+      ],
+    },
+  },
   // Dev server: pre-bundle dependencies that are only imported lazily, so their first use
   // doesn't trigger a re-optimization and page reload mid-session.
   optimizeDeps: {

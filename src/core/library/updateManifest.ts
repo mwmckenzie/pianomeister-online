@@ -1,15 +1,22 @@
 import type { ManifestSong } from './ManifestSong'
 import type { SongFacts } from './SongFacts'
 import type { SongManifest } from './SongManifest'
+import type { SongMetaFields } from './SongMetaFields'
 
 /**
  * Brings the manifest in line with the files on disk. Hand-edited title, composer and tags are
  * kept (matched by file name); ids and facts are refreshed; removed files drop out; new files
- * are appended in file-name order with the file name as title.
+ * are appended in file-name order with their guessed title and composer (guessSongMetadata),
+ * or the file name as title.
  */
 export function updateManifest(
   existing: SongManifest | null,
-  scanned: readonly { readonly fileName: string; readonly id: string; readonly facts: SongFacts }[],
+  scanned: readonly {
+    readonly fileName: string
+    readonly id: string
+    readonly facts: SongFacts
+    readonly guess?: Pick<SongMetaFields, 'title' | 'composer'>
+  }[],
 ): SongManifest {
   const byName = new Map(scanned.map((s) => [s.fileName, s]))
   const kept: ManifestSong[] = []
@@ -24,8 +31,8 @@ export function updateManifest(
     .map((file) => ({
       id: file.id,
       fileName: file.fileName,
-      title: file.fileName.replace(/\.[^.]+$/, ''),
-      composer: '',
+      title: file.guess?.title ?? file.fileName.replace(/\.[^.]+$/, ''),
+      composer: file.guess?.composer ?? '',
       tags: [],
       facts: file.facts,
     }))

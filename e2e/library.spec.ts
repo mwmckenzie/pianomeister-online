@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { test, expect, type Page } from '@playwright/test'
 import { strFromU8, unzipSync } from 'fflate'
 
-import { choose, watchErrors } from './support'
+import { buildSmf, ev } from '../src/core/testing/buildSmf'
+
+import { sortingHistory } from './practiceSeeds'
+import { choose, seedPractice, watchErrors } from './support'
 
 const PEDAL_DEMO = fileURLToPath(new URL('../test-fixtures/midi/pedal-demo.mid', import.meta.url))
 const MINUET = fileURLToPath(new URL('../public/songs/minuet-in-g.mid', import.meta.url))
@@ -61,6 +64,47 @@ test('uploads files dropped anywhere on the page, with a drop overlay', async ({
   expect(errors).toEqual([])
 })
 
+test('an upload gets a guessed title and composer; Guess from file guesses again', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  // A generic track name ("Piano"): the title comes from the file name.
+  const bytes = buildSmf({
+    format: 1,
+    ppq: 480,
+    tracks: [[ev.trackName(0, 'Piano'), ev.noteOn(0, 0, 60), ev.noteOff(480, 0, 60)]],
+  })
+  await page.getByTestId('upload-input').setInputFiles({
+    name: 'Clair_de_Lune__Debussy_TwoHands.mid',
+    mimeType: 'audio/midi',
+    buffer: Buffer.from(bytes),
+  })
+  await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
+  await expect(row(page, 'Clair de Lune')).toContainText('Claude Debussy')
+  await row(page, 'Clair de Lune').click()
+  await expect(page.getByTestId('meta-title')).toHaveValue('Clair de Lune')
+  await expect(page.getByTestId('meta-composer')).toHaveValue('Claude Debussy')
+  // The guess is the original: nothing to reset.
+  await expect(page.getByTestId('meta-reset')).toBeDisabled()
+
+  await page.getByTestId('meta-title').fill('Moonlight')
+  await page.getByTestId('meta-title').press('Enter')
+  await page.getByTestId('meta-composer').fill('')
+  await page.getByTestId('meta-composer').press('Enter')
+  await expect(row(page, 'Moonlight')).toBeVisible()
+  await page.getByTestId('meta-guess').click()
+  await expect(page.getByTestId('meta-title')).toHaveValue('Clair de Lune')
+  await expect(page.getByTestId('meta-composer')).toHaveValue('Claude Debussy')
+  await expect(row(page, 'Clair de Lune')).toContainText('Claude Debussy')
+
+  // Bundled songs keep their curated details: no guessing.
+  await row(page, 'Canon in D').click()
+  await expect(page.getByTestId('meta-reset')).toBeVisible()
+  await expect(page.getByTestId('meta-guess')).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
 test('edits title, composer and tags; they persist and are searchable', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
@@ -103,7 +147,8 @@ test('hand channels and a meter override carry over to the player', async ({ pag
   await expect(page.getByTestId('override-preview')).toContainText('11 bars')
   await page.getByRole('button', { name: 'Save meter' }).click()
   await expect(page.getByTestId('meter-line')).toContainText('3/4 override')
-  await expect(row(page, 'Pedal demo')).toContainText('11')
+  // Bars aren't a table column any more (decision 73); the details panel shows them.
+  await expect(page.getByTestId('song-details')).toContainText('11 with the override')
 
   await page.getByTestId('details-play').click()
   await expect(page.getByTestId('hud-title')).toHaveText('Pedal demo')
@@ -251,6 +296,10 @@ test('exports, deletes and re-imports an upload with its metadata', async ({ pag
   await expect(page.getByTestId('song-row')).toHaveCount(3)
 
   await page.getByTestId('import-input').setInputFiles(await download.path())
+  // The backup's "Me" is this device's "Me": the import asks, Merge by default (decision 75).
+  await expect(page.getByTestId('profile-collision')).toBeVisible()
+  await expect(page.getByTestId('collision-merge')).toHaveClass(/selected/)
+  await page.getByTestId('collision-confirm').click()
   await expect(page.getByTestId('import-summary')).toContainText('Imported: 1 added')
   await expect(row(page, 'Pedal study')).toBeVisible()
   expect(errors).toEqual([])
@@ -279,13 +328,149 @@ test('the details panel always shows a song; headers sort, including by date add
   await page.getByTestId('sort-dateAdded').click()
   await expect(page.locator('[aria-sort="descending"]')).toContainText('Added')
   await expect(page.getByTestId('song-row').first()).toContainText('Pedal demo')
-  await page.getByTestId('sort-bars').click()
-  await expect(page.locator('[aria-sort="ascending"]')).toContainText('Bars')
+  await page.getByTestId('sort-plays').click()
+  await expect(page.locator('[aria-sort="descending"]')).toContainText('Plays')
+  await page.getByTestId('sort-title').click()
+  await expect(page.locator('[aria-sort="ascending"]')).toContainText('Title')
 
   // Filtering out the selected song moves the selection to a visible one.
   await page.getByTestId('source-bundled').click()
   await expect(page.getByTestId('song-details')).toBeVisible()
   await expect(row(page, 'Pedal demo')).toBeHidden()
   await expect(page.locator('[data-testid="song-row"][aria-selected="true"]')).toHaveCount(1)
+  expect(errors).toEqual([])
+})
+
+test('practice columns sort by header; rows show bookmark counts; Added hides at 1024 px', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  await expect(page.getByTestId('song-row').first()).toBeVisible()
+  await seedPractice(page, sortingHistory(Date.now()))
+  const titles = page.getByTestId('song-row').locator('.title')
+  await expect(row(page, 'Invention')).toContainText('2 bookmarks')
+  await expect(row(page, 'Canon in D').getByTestId('row-plays')).toHaveText('5')
+  await expect(row(page, 'Canon in D').getByTestId('row-last')).toHaveText('3 days')
+  await expect(row(page, 'Minuet in G').getByTestId('row-plays')).toHaveText('—')
+
+  await page.getByTestId('sort-plays').click()
+  await expect(titles).toHaveText([/^Canon/, /^Invention/, /^Minuet/])
+  // Ascending keeps songs never played last.
+  await page.getByTestId('sort-plays').click()
+  await expect(titles).toHaveText([/^Invention/, /^Canon/, /^Minuet/])
+  await page.getByTestId('sort-last').click()
+  await expect(page.locator('[aria-sort="descending"]')).toContainText('Last')
+  await expect(titles).toHaveText([/^Invention/, /^Canon/, /^Minuet/])
+
+  await expect(row(page, 'Minuet in G').getByTestId('row-added')).toBeVisible()
+  await page.setViewportSize({ width: 1024, height: 768 })
+  await expect(row(page, 'Minuet in G').getByTestId('row-added')).toBeHidden()
+  await expect(page.getByTestId('sort-dateAdded')).toBeHidden()
+  await expect(row(page, 'Minuet in G').getByTestId('row-plays')).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+/** A tiny distinct MIDI file (its note sets it apart), with a generic track name. */
+const midiFile = (name: string, note: number) => ({
+  name,
+  mimeType: 'audio/midi',
+  buffer: Buffer.from(
+    buildSmf({
+      format: 1,
+      ppq: 480,
+      tracks: [[ev.trackName(0, 'Piano'), ev.noteOn(0, 0, note), ev.noteOff(480, 0, note)]],
+    }),
+  ),
+})
+
+test('an upload is selected, scrolled into view, pulsed and tagged New', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  await expect(page.getByTestId('song-row')).toHaveCount(3)
+  await page.getByTestId('upload-input').setInputFiles(PEDAL_DEMO)
+  await expect(page.getByTestId('toast').filter({ hasText: 'Added “Pedal demo”' })).toBeVisible()
+  const added = row(page, 'Pedal demo')
+  await expect(added).toHaveAttribute('aria-selected', 'true')
+  await expect(added).toBeInViewport()
+  await expect(added).toHaveAttribute('data-pulse', 'true')
+  await expect(added.getByTestId('song-row-tag')).toHaveText('New')
+  await expect(page.getByTestId('meta-title')).toHaveValue('Pedal demo')
+  // The pulse is short.
+  await expect(added).not.toHaveAttribute('data-pulse', 'true', { timeout: 3000 })
+  expect(errors).toEqual([])
+})
+
+test('several uploads: all tagged New until the library is left, the first selected', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  await page
+    .getByTestId('upload-input')
+    .setInputFiles([
+      midiFile('Alpha_Study.mid', 60),
+      midiFile('Beta_Study.mid', 62),
+      midiFile('Gamma_Study.mid', 64),
+    ])
+  await expect(page.getByTestId('toast').filter({ hasText: '3 songs added' })).toBeVisible()
+  await expect(page.getByTestId('song-row-tag')).toHaveCount(3)
+  await expect(row(page, 'Alpha Study')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByTestId('meta-title')).toHaveValue('Alpha Study')
+  // Leaving the library drops the tags.
+  await page.getByTestId('tab-bookmarks').click()
+  await expect(page.getByTestId('bookmark-manager')).toBeVisible()
+  await page.getByTestId('tab-library').click()
+  await expect(page.getByTestId('song-row')).toHaveCount(6)
+  await expect(page.getByTestId('song-row-tag')).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
+test('an upload hidden by the search or a filter clears it and says so', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  await page.getByTestId('source-bundled').click()
+  await page.getByTestId('search').fill('canon')
+  await expect(page.getByTestId('song-row')).toHaveCount(1)
+  await page.getByTestId('upload-input').setInputFiles(PEDAL_DEMO)
+  await expect(
+    page
+      .getByTestId('toast')
+      .filter({ hasText: 'Added “Pedal demo” · filters cleared to show it' }),
+  ).toBeVisible()
+  await expect(page.getByTestId('search')).toHaveValue('')
+  await expect(page.getByTestId('source-all')).toHaveAttribute('aria-pressed', 'true')
+  await expect(row(page, 'Pedal demo')).toHaveAttribute('aria-selected', 'true')
+  await expect(row(page, 'Pedal demo')).toBeInViewport()
+  expect(errors).toEqual([])
+})
+
+test('a file already in the library selects that song; mixed drops report both', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/library')
+  await row(page, 'Canon in D').click()
+  await page
+    .getByTestId('upload-input')
+    .setInputFiles({ name: 'my minuet.mid', mimeType: 'audio/midi', buffer: readFileSync(MINUET) })
+  await expect(
+    page.getByTestId('toast').filter({ hasText: 'Already in your library: Minuet in G' }),
+  ).toBeVisible()
+  await expect(row(page, 'Minuet in G')).toHaveAttribute('aria-selected', 'true')
+  await expect(row(page, 'Minuet in G')).toHaveAttribute('data-pulse', 'true')
+  await expect(page.getByTestId('song-row-tag')).toHaveCount(0)
+
+  await page
+    .getByTestId('upload-input')
+    .setInputFiles([
+      midiFile('Delta_Study.mid', 65),
+      midiFile('Epsilon_Study.mid', 67),
+      { name: 'minuet again.mid', mimeType: 'audio/midi', buffer: readFileSync(MINUET) },
+    ])
+  await expect(
+    page.getByTestId('toast').filter({ hasText: '2 added · 1 already in your library' }),
+  ).toBeVisible()
+  await expect(row(page, 'Delta Study')).toHaveAttribute('aria-selected', 'true')
   expect(errors).toEqual([])
 })

@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
+import { tempoSliderRange } from '@/core/practice/tempoSliderRange'
+
 import AppButton from '../components/AppButton.vue'
 import AppPopover from '../components/AppPopover.vue'
 import SliderField from '../components/SliderField.vue'
+import { usePracticeStore } from '../stores/practiceStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import HudToggle from './HudToggle.vue'
+import TemporaryNote from './TemporaryNote.vue'
 
 /**
  * The HUD's tempo row: "85%" in the primary colour while the tempo isn't 100%, then the tempo
@@ -15,6 +22,12 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:tempoPercent': [value: number] }>()
 const open = defineModel<boolean>('open', { default: false })
+const practice = usePracticeStore()
+const settings = useSettingsStore()
+/** The Practice tab's tempo step (decision 81), with 100% always on the slider's grid. */
+const slider = computed(() => tempoSliderRange(settings.settings.practice.tempoStep))
+/** Reset goes back to the loaded bookmark's tempo, or 100% for Full song (decision 69). */
+const resetTo = computed(() => practice.saved.tempoPercent)
 </script>
 
 <template>
@@ -44,9 +57,9 @@ const open = defineModel<boolean>('open', { default: false })
       </div>
       <SliderField
         :model-value="tempoPercent"
-        :min="25"
-        :max="200"
-        :step="5"
+        :min="slider.min"
+        :max="slider.max"
+        :step="slider.step"
         label="Tempo percent"
         :value-text="`${tempoPercent}%`"
         data-testid="tempo-slider"
@@ -58,12 +71,14 @@ const open = defineModel<boolean>('open', { default: false })
           variant="text"
           size="sm"
           icon="reset"
-          :disabled="tempoPercent === 100"
-          @click="emit('update:tempoPercent', 100)"
+          :disabled="tempoPercent === resetTo"
+          data-testid="tempo-reset"
+          @click="emit('update:tempoPercent', resetTo)"
         >
-          Reset to 100%
+          Reset to {{ resetTo }}%
         </AppButton>
       </div>
+      <TemporaryNote class="note" @navigate="open = false" />
     </AppPopover>
   </div>
 </template>
@@ -101,5 +116,9 @@ const open = defineModel<boolean>('open', { default: false })
 .hint {
   color: var(--text-3);
   font-size: var(--text-sm);
+}
+
+.note {
+  margin-top: var(--space-3);
 }
 </style>

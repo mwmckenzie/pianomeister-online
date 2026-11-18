@@ -12,6 +12,8 @@ export interface ToastItem {
   readonly duration: number
   /** Runs Undo; present on undo toasts only. */
   readonly undo?: () => void
+  /** Buttons before Undo (e.g. "Rename", "Show"); each closes the toast. */
+  readonly actions?: readonly { readonly label: string; readonly run: () => void }[]
 }
 
 /**
@@ -28,7 +30,11 @@ export const useToastStore = defineStore('toasts', () => {
     return id
   }
 
-  function showUndo(message: string, undo: () => void): number {
+  function showUndo(
+    message: string,
+    undo: () => void,
+    actions: readonly { readonly label: string; readonly run: () => void }[] = [],
+  ): number {
     const id = nextId++
     let done = false
     const once = () => {
@@ -39,14 +45,40 @@ export const useToastStore = defineStore('toasts', () => {
     }
     toasts.value = [
       ...toasts.value.filter((t) => t.kind !== 'undo'),
-      { id, message, kind: 'undo', duration: UNDO_MS, undo: once },
+      { id, message, kind: 'undo', duration: UNDO_MS, undo: once, actions: closing(id, actions) },
     ]
     return id
+  }
+
+  /** A message with buttons (no Undo); it stays as long as an Undo toast. */
+  function showActions(
+    message: string,
+    actions: readonly { readonly label: string; readonly run: () => void }[],
+  ): number {
+    const id = nextId++
+    toasts.value = [
+      ...toasts.value,
+      { id, message, kind: 'info', duration: UNDO_MS, actions: closing(id, actions) },
+    ]
+    return id
+  }
+
+  function closing(
+    id: number,
+    actions: readonly { readonly label: string; readonly run: () => void }[],
+  ) {
+    return actions.map((a) => ({
+      label: a.label,
+      run: () => {
+        dismiss(id)
+        a.run()
+      },
+    }))
   }
 
   function dismiss(id: number): void {
     toasts.value = toasts.value.filter((t) => t.id !== id)
   }
 
-  return { toasts, show, showUndo, dismiss }
+  return { toasts, show, showUndo, showActions, dismiss }
 })

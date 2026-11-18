@@ -115,6 +115,8 @@ export interface PlayerSettings {
     readonly output: 'piano'
   }
   readonly practice: {
+    /** Whole percent per tempo step (slider and keys), 1–10. */
+    readonly tempoStep: number
     readonly preRollBeats: number
     readonly preRollMode: PreRollMode
   }
@@ -127,7 +129,9 @@ export interface PlayerSettings {
     /** Background blur behind glass panels, px. */
     readonly blur: number
     readonly motion: 'system' | 'full' | 'reduced'
-    /** Seconds without input before the player's controls fade out while playing. */
-    readonly hideControls: 'off' | '2' | '3' | '5' | '10'
+    /** The player's controls fade out while playing after `hideControlsAfter` idle seconds. */
+    readonly hideControls: boolean
+    /** 0.5–10 s, in 0.5 s steps. */
+    readonly hideControlsAfter: number
   }
 }

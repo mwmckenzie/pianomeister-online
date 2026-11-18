@@ -14,12 +14,12 @@ import AppearanceTab from './AppearanceTab.vue'
 import AudioTab from './AudioTab.vue'
 import LibraryDataTab from './LibraryDataTab.vue'
 import PracticeTab from './PracticeTab.vue'
+import ProfilesTab from './ProfilesTab.vue'
 import { useResetWithUndo } from './useResetWithUndo'
 
 /**
  * The settings window (decision 50): everything that isn't on the playfield. Tabs with
- * nothing to show yet (General, MIDI, Profiles, Shortcuts) are left out until they have
- * content.
+ * nothing to show yet (General, MIDI, Shortcuts) are left out until they have content.
  */
 const emit = defineEmits<{ openPlayfield: [] }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -27,7 +27,7 @@ const open = defineModel<boolean>('open', { required: true })
 const settings = useSettingsStore()
 const resetWithUndo = useResetWithUndo()
 
-type TabId = SettingsTabId | 'library' | 'about'
+type TabId = SettingsTabId | 'profiles' | 'library' | 'about'
 const active = ref<TabId>('practice')
 
 const settingTabs = new Set<string>(SETTINGS_LAYOUT.tabs.map((t) => t.id))
@@ -39,6 +39,7 @@ const tabs = computed(() => [
     title: t.title,
     changed: settings.changedCount({ kind: 'tab', id: t.id }) > 0,
   })),
+  { value: 'profiles', title: 'Profiles' },
   { value: 'library', title: 'Library & data' },
   { value: 'about', title: 'About' },
 ])
@@ -69,9 +70,10 @@ const changed = computed(() =>
           />
         </header>
       </template>
-      <template #practice><PracticeTab /></template>
-      <template #audio><AudioTab /></template>
+      <template #practice><PracticeTab @navigate="open = false" /></template>
+      <template #audio><AudioTab @navigate="open = false" /></template>
       <template #appearance><AppearanceTab /></template>
+      <template #profiles><ProfilesTab /></template>
       <template #library><LibraryDataTab /></template>
       <template #about><AboutTab /></template>
       <template #nav-footer>

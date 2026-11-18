@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { commandForKey } from '@/core/commands/commandKeys'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { filterEntries } from '@/core/library/filterEntries'
 import { formatAddedAt } from '@/core/library/formatAddedAt'
+import { formatUploadToast } from '@/core/library/formatUploadToast'
 import type { LibrarySortField } from '@/core/library/LibrarySortField'
+import { matchesSearch } from '@/core/library/matchesSearch'
+import { formatLastPracticed } from '@/core/stats/formatLastPracticed'
+import { formatPlays } from '@/core/stats/formatPlays'
 import type { ImportReport } from '@/data/ImportReport'
 import type { UploadResult } from '@/data/UploadResult'
 
@@ -18,17 +24,27 @@ import SortableHeader from '../components/SortableHeader.vue'
 import { formatStorage } from '../format/formatStorage'
 import { formatTime } from '../format/formatTime'
 import { summariseImport, summariseUploads } from '../format/summariseUploads'
+import ManageTabs from '../library/ManageTabs.vue'
 import { useLibraryBackup } from '../library/useLibraryBackup'
 import { sceneSnapshot } from '../playback/sceneSnapshot'
+import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
+import { usePracticeStore } from '../stores/practiceStore'
+import { useStatsStore } from '../stores/statsStore'
+import { useToastStore } from '../stores/toastStore'
 
 /**
  * The library page (docs/design/m6/source/QGLibrary.dc.html): filters on the left, the song
- * table in the middle (its headers are the sort controls), and the details of the selected song
- * on the right, always shown (the first song until another is chosen).
+ * table in the middle (its headers are the sort controls, practice columns included, brief
+ * decision 73), and the details of the selected song on the right, always shown (the first song
+ * until another is chosen).
  */
 const router = useRouter()
 const store = useLibraryStore()
+const bookmarks = useBookmarkStore()
+const stats = useStatsStore()
+const practice = usePracticeStore()
+const toasts = useToastStore()
 const { search, sortField, sortDirection, groupBy, tagFilter, sourceFilter } = storeToRefs(store)
 const backup = useLibraryBackup()
 const uploadInput = useTemplateRef<HTMLInputElement>('uploadInput')
@@ -58,9 +74,17 @@ const COLUMNS: readonly {
   { field: 'title', label: 'Title' },
   { field: 'composer', label: 'Composer' },
   { field: 'duration', label: 'Length', num: true },
-  { field: 'bars', label: 'Bars', num: true },
+  { field: 'plays', label: 'Plays', num: true },
+  { field: 'last', label: 'Last', num: true },
   { field: 'dateAdded', label: 'Added', num: true },
 ]
+
+/** A song row's subtitle: its bookmark count ("2 bookmarks"), nothing without any. */
+function bookmarkCount(songId: string): string {
+  const n = bookmarks.forSong(songId).length
+  if (n === 0) return ''
+  return n === 1 ? '1 bookmark' : `${n} bookmarks`
+}
 
 const sources = computed(() => {
   const count = (source: 'bundled' | 'uploaded') =>
@@ -94,10 +118,72 @@ watch(
   { immediate: true },
 )
 
+/** Songs added while on this page: tagged "New" until the library is left (decision 82). */
+const newSongIds = ref<ReadonlySet<string>>(new Set())
+/** The row pulsing now; `pulseKey` restarts the pulse when the same row is pointed at again. */
+const pulseId = ref<string | null>(null)
+const pulseKey = ref(0)
+let pulseTimer: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * After an upload or drop: select the first new song (else the first one already in the
+ * library), clear a search or filter that would hide it, scroll it to the middle of the list,
+ * pulse it, and say what happened in a toast.
+ */
+async function showUploaded(results: readonly UploadResult[]): Promise<void> {
+  const added = results.filter((r) => r.outcome === 'added')
+  const duplicates = results.filter((r) => r.outcome === 'duplicate')
+  const target = added[0] ?? duplicates[0]
+  newSongIds.value = new Set([...newSongIds.value, ...added.map((r) => r.songId)])
+  let filtersCleared = false
+  if (target !== undefined) {
+    filtersCleared = clearFiltersHiding(target.songId)
+    selectedId.value = target.songId
+    await nextTick()
+    songList.value
+      ?.querySelector(`#song-${CSS.escape(target.songId)}`)
+      ?.scrollIntoView({ block: 'center' })
+    pulseId.value = target.songId
+    pulseKey.value++
+    clearTimeout(pulseTimer)
+    pulseTimer = setTimeout(() => (pulseId.value = null), 1300)
+  }
+  const message = formatUploadToast({
+    added: added.map((r) => r.title),
+    duplicates: duplicates.map((r) => r.title),
+    rejected: results.length - added.length - duplicates.length,
+    filtersCleared,
+  })
+  if (message !== '') toasts.show(message)
+}
+
+/** Clears whichever of search, source and tag filter hides the song; true if any did. */
+function clearFiltersHiding(songId: string): boolean {
+  const entry = store.entries.find((e) => e.songId === songId)
+  if (entry === undefined) return false
+  let cleared = false
+  if (!matchesSearch(entry, search.value)) {
+    search.value = ''
+    cleared = true
+  }
+  if (filterEntries([entry], { tags: [], source: sourceFilter.value }).length === 0) {
+    sourceFilter.value = 'all'
+    cleared = true
+  }
+  if (filterEntries([entry], { tags: tagFilter.value, source: 'all' }).length === 0) {
+    tagFilter.value = []
+    cleared = true
+  }
+  return cleared
+}
+
+onBeforeUnmount(() => clearTimeout(pulseTimer))
+
 function uploadFiles(files: readonly File[]): Promise<unknown> {
   return backup.run(async () => {
     importReport.value = null
     uploadResults.value = await store.upload(files)
+    await showUploaded(uploadResults.value)
   })
 }
 
@@ -122,8 +208,8 @@ function sortBy(field: LibrarySortField): void {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   } else {
     sortField.value = field
-    // Newest first is the useful default for dates.
-    sortDirection.value = field === 'dateAdded' ? 'desc' : 'asc'
+    // Text sorts A–Z first; dates and practice columns newest or most first.
+    sortDirection.value = field === 'title' || field === 'composer' ? 'asc' : 'desc'
   }
 }
 
@@ -144,8 +230,8 @@ function move(step: number): void {
 }
 
 function onListKeyDown(event: KeyboardEvent): void {
-  const step: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 }
-  const by = step[event.key]
+  const command = commandForKey('lists', event.code)
+  const by = command === 'listNext' ? 1 : command === 'listPrevious' ? -1 : undefined
   if (by === undefined) return
   event.preventDefault()
   move(by)
@@ -153,7 +239,14 @@ function onListKeyDown(event: KeyboardEvent): void {
 
 async function play(songId: string): Promise<void> {
   // The player opens the last song, so stay here (error shown) if it couldn't be saved.
-  if (await store.setLastSongId(songId)) await router.push({ name: 'player' })
+  if (await store.setLastOpened(songId, null)) {
+    practice.requestFreshLoad()
+    await router.push({ name: 'player' })
+  }
+}
+
+function openBookmarks(songId: string): void {
+  void router.push({ name: 'bookmarks', query: { song: songId } })
 }
 
 const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
@@ -190,7 +283,7 @@ onMounted(() => {
   window.addEventListener('drop', onDrop)
   void backup.run(async () => {
     await store.refresh()
-    await store.refreshStorage()
+    await Promise.all([store.refreshStorage(), bookmarks.refresh(), stats.refresh()])
   })
 })
 
@@ -215,10 +308,7 @@ onBeforeUnmount(() => {
         <RouterLink :to="{ name: 'player' }" class="back" data-testid="back-to-player">
           <AppIcon name="chevronLeft" :size="18" /> Player
         </RouterLink>
-        <!-- The Bookmarks tab joins in milestone 7. -->
-        <nav class="tabs" role="tablist" aria-label="Library sections">
-          <span role="tab" aria-selected="true" class="tab active">Library</span>
-        </nav>
+        <ManageTabs active="library" />
         <SearchField v-model="search" label="Search library" data-testid="search" />
         <AppButton
           variant="primary"
@@ -363,19 +453,30 @@ onBeforeUnmount(() => {
               <SongRow
                 v-for="e in group.entries"
                 :id="`song-${e.songId}`"
-                :key="`${group.label}/${e.songId}`"
+                :key="`${group.label}/${e.songId}/${e.songId === pulseId ? pulseKey : 0}`"
                 role="option"
                 :title="e.title"
+                :subtitle="bookmarkCount(e.songId)"
                 :selected="e.songId === selectedId"
                 :aria-selected="e.songId === selectedId"
+                :tag="newSongIds.has(e.songId) ? 'New' : ''"
+                :pulse="e.songId === pulseId"
+                :data-pulse="e.songId === pulseId ? 'true' : undefined"
                 data-testid="song-row"
                 @click="selectedId = e.songId"
                 @dblclick="play(e.songId)"
               >
                 <span class="cell-text composer" :title="e.composer">{{ e.composer }}</span>
                 <span class="num">{{ formatTime(e.facts.durationSeconds) }}</span>
-                <span class="num">{{ e.bars }}</span>
-                <span class="num muted">{{ formatAddedAt(e.addedAt, now) }}</span>
+                <span class="num" data-testid="row-plays">{{
+                  formatPlays(stats.song(e.songId).plays)
+                }}</span>
+                <span class="num muted" data-testid="row-last">{{
+                  formatLastPracticed(stats.song(e.songId).lastPlayedAt, stats.now)
+                }}</span>
+                <span class="num muted added" data-testid="row-added">{{
+                  formatAddedAt(e.addedAt, now)
+                }}</span>
               </SongRow>
             </div>
           </div>
@@ -390,6 +491,7 @@ onBeforeUnmount(() => {
           :song-id="selectedId"
           @close="selectedId = rows[0]?.songId ?? null"
           @play="selectedId !== null && play(selectedId)"
+          @bookmarks="selectedId !== null && openBookmarks(selectedId)"
         />
         <aside v-else class="no-details" aria-label="Song details">
           {{ store.loaded ? 'No song selected.' : '' }}
@@ -477,26 +579,6 @@ onBeforeUnmount(() => {
   color: var(--text-1);
   font-size: var(--text-md);
   text-decoration: none;
-}
-
-.tabs {
-  display: flex;
-  padding: 3px;
-  border-radius: var(--radius-md);
-  background: var(--field);
-}
-
-.tab {
-  padding: 8px 16px;
-  border-radius: 9px;
-  color: var(--text-2);
-  font-size: var(--text-md);
-}
-
-.tab.active {
-  background: rgb(var(--primary-rgb) / 22%);
-  color: var(--text-strong);
-  font-weight: var(--weight-medium);
 }
 
 .body {
@@ -593,7 +675,7 @@ onBeforeUnmount(() => {
 }
 
 .list {
-  --song-columns: minmax(0, 2.2fr) minmax(0, 1.6fr) 64px 56px 80px;
+  --song-columns: minmax(0, 2.2fr) minmax(0, 1.6fr) 64px 56px 64px 72px;
   --song-row-padding: 12px 18px;
   display: flex;
   flex: 1;
@@ -711,8 +793,14 @@ onBeforeUnmount(() => {
 /* 1024 px: the filter and details columns keep their widths; the table narrows. */
 @media (width < 1100px) {
   .list {
-    --song-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) 52px 40px 72px;
+    /* Added is hidden below 1100 px (decision 73). */
+    --song-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) 52px 44px 60px;
     --song-row-padding: 12px 14px;
+  }
+
+  .added,
+  .table-head > :last-child {
+    display: none;
   }
 
   .table-head {

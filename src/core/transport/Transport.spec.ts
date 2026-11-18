@@ -312,6 +312,32 @@ describe('Transport', () => {
     expect(transport.position).toBe(paused)
   })
 
+  it('seekToLoopStart plays on from the loop start, pre-roll first, while playing', () => {
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
+    transport.play()
+    run(0.5)
+    transport.setLoop({ startBar: 3, endBar: 4 })
+    transport.seekToLoopStart()
+    expect(transport.state).toBe('playing')
+    // Two beats (1 s) of count-in before bar 3 (4 s).
+    expect(transport.position).toBeCloseTo(3, 9)
+    expect(transport.activePreRoll?.targetTick).toBe(2 * BAR)
+    run(1.1)
+    expect(types('noteOn').slice(-1)).toEqual(['76'])
+  })
+
+  it('seekToLoopStart parks a paused transport at the loop start, and needs a loop', () => {
+    transport.play()
+    run(0.5)
+    transport.pause()
+    transport.seekToLoopStart()
+    expect(transport.position).toBeCloseTo(0.5, 9)
+    transport.setLoop({ startBar: 2, endBar: 3 })
+    transport.seekToLoopStart()
+    expect(transport.state).toBe('paused')
+    expect(transport.position).toBeCloseTo(2, 9)
+  })
+
   it('validates and clamps loops', () => {
     expect(() => transport.setLoop({ startBar: 3, endBar: 2 })).toThrow(RangeError)
     expect(() => transport.setLoop({ startBar: 1.5, endBar: 2 })).toThrow(RangeError)

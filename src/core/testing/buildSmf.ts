@@ -46,6 +46,11 @@ export const ev = {
     tick,
     bytes: [0xff, 0x03, name.length, ...Array.from(name, (c) => c.charCodeAt(0))],
   }),
+  /** A text (1) or copyright (2) meta event; Latin-1 bytes unless `bytes` are given. */
+  meta: (tick: number, type: 1 | 2, text: string, bytes?: readonly number[]): RawEvent => {
+    const data = bytes ?? Array.from(text, (c) => c.charCodeAt(0))
+    return { tick, bytes: [0xff, type, data.length, ...data] }
+  },
 }
 
 function varLen(value: number): number[] {
