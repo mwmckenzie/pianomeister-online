@@ -5,11 +5,17 @@ import { computed } from 'vue'
  * A bar range inside a song (bars `start`–`end` of `total`), drawn in the secondary colour
  * (decision 52). Used for "Full song" now and bookmarks in milestone 7.
  */
-const props = defineProps<{
-  readonly start: number
-  readonly end: number
-  readonly total: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    readonly start: number
+    readonly end: number
+    readonly total: number
+    /** Full song's bar is softer, so the bookmarks below stand out (QGBookmarks source). */
+    readonly soft?: boolean
+    readonly height?: number
+  }>(),
+  { soft: false, height: 5 },
+)
 
 const style = computed(() => {
   const total = Math.max(1, props.total)
@@ -20,7 +26,13 @@ const style = computed(() => {
 </script>
 
 <template>
-  <span class="range-bar" role="img" :aria-label="`Bars ${start}–${end} of ${total}`">
+  <span
+    class="range-bar"
+    :class="{ soft }"
+    :style="{ height: `${height}px` }"
+    role="img"
+    :aria-label="`Bars ${start}–${end} of ${total}`"
+  >
     <span class="fill" :style="style" />
   </span>
 </template>
@@ -29,7 +41,6 @@ const style = computed(() => {
 .range-bar {
   position: relative;
   display: block;
-  height: 5px;
   border-radius: 3px;
   background: rgb(255 255 255 / 10%);
 }
@@ -41,5 +52,9 @@ const style = computed(() => {
   min-width: 6px;
   border-radius: inherit;
   background: var(--secondary);
+}
+
+.soft .fill {
+  background: rgb(var(--secondary-rgb) / 45%);
 }
 </style>

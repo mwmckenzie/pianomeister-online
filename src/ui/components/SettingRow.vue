@@ -3,6 +3,8 @@ import { computed, useId } from 'vue'
 
 import { formatSettingValue } from '@/core/settings/formatSettingValue'
 import type { SettingKey } from '@/core/settings/SettingKey'
+
+import type { SettingOverride } from './SettingOverride'
 import { settingMax } from '@/core/settings/settingMax'
 import { settingDefinition } from '@/core/settings/settingValues'
 
@@ -27,13 +29,23 @@ const props = defineProps<{
   readonly valueText?: string
   /** Number settings: a marker label at the slider's low end (its right end when inverted). */
   readonly endLabel?: string
+  /**
+   * Shows and edits a value other than the stored setting, e.g. a loaded bookmark's temporary
+   * value (brief decision 69): `changed` drives the reset icon, `reset` its action.
+   */
+  readonly override?: SettingOverride
 }>()
 
 const store = useSettingsStore()
 const def = computed(() => settingDefinition(props.settingKey))
 const visible = computed(() => def.value.visible?.(store.settings) ?? true)
-const value = computed(() => store.get(props.settingKey))
-const changed = computed(() => !store.isDefault(props.settingKey))
+const enabled = computed(() => def.value.enabled?.(store.settings) ?? true)
+const value = computed(() =>
+  props.override === undefined ? store.get(props.settingKey) : props.override.value,
+)
+const changed = computed(() =>
+  props.override === undefined ? !store.isDefault(props.settingKey) : props.override.changed,
+)
 const testid = computed(() => `setting-${props.settingKey.replace('.', '-')}`)
 const id = useId()
 
@@ -51,7 +63,13 @@ const number = computed(() => {
 
 // The registry guarantees each key's value type matches its kind; the store checks nothing.
 function set(next: unknown): void {
-  store.set(props.settingKey, next as never)
+  if (props.override !== undefined) props.override.set(next)
+  else store.set(props.settingKey, next as never)
+}
+
+function reset(): void {
+  if (props.override !== undefined) props.override.reset()
+  else store.reset(props.settingKey)
 }
 </script>
 
@@ -62,6 +80,7 @@ function set(next: unknown): void {
     :class="`kind-${def.kind}`"
     :data-testid="testid"
     :data-changed="changed"
+    :data-disabled="enabled ? undefined : 'true'"
   >
     <template v-if="number">
       <div class="head">
@@ -71,7 +90,7 @@ function set(next: unknown): void {
           :changed="changed"
           :setting-label="def.label"
           :data-testid="`${testid}-reset`"
-          @reset="store.reset(settingKey)"
+          @reset="reset"
         />
       </div>
       <SliderField
@@ -84,6 +103,7 @@ function set(next: unknown): void {
         :value-text="number.text"
         :inverted="inverted"
         :end-label="endLabel"
+        :disabled="!enabled"
         :data-testid="`${testid}-control`"
         @update:model-value="set"
       />
@@ -134,7 +154,7 @@ function set(next: unknown): void {
           :changed="changed"
           :setting-label="def.label"
           :data-testid="`${testid}-reset`"
-          @reset="store.reset(settingKey)"
+          @reset="reset"
         />
       </span>
     </div>
@@ -144,6 +164,11 @@ function set(next: unknown): void {
 <style scoped>
 .setting-row {
   padding: var(--space-2) 0;
+}
+
+[data-disabled] .label,
+[data-disabled] .value {
+  color: var(--text-4);
 }
 
 .head,

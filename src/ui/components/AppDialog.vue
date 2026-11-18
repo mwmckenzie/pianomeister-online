@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { commandForKey } from '@/core/commands/commandKeys'
 import {
   DialogContent,
   DialogDescription,
@@ -33,7 +34,7 @@ const open = defineModel<boolean>('open', { required: true })
  * Esc belongs to that popup: Reka closes it at the document, after this handler has run.
  */
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.key !== 'Escape' || event.defaultPrevented) return
+  if (commandForKey('dialogs', event.code) !== 'closeDialog' || event.defaultPrevented) return
   const popupOpen = document.querySelector(
     '[data-reka-popper-content-wrapper] > [data-state="open"]',
   )

@@ -10,6 +10,8 @@ defineProps<{
   readonly active: boolean
   readonly direction: 'asc' | 'desc'
   readonly align?: 'start' | 'end'
+  /** Mixed case, as the picker's practice columns are in the QGPicker source. */
+  readonly plain?: boolean
 }>()
 defineEmits<{ sort: [] }>()
 </script>
@@ -18,7 +20,7 @@ defineEmits<{ sort: [] }>()
   <button
     type="button"
     class="sortable-header"
-    :class="[{ active }, align === 'end' ? 'end' : 'start']"
+    :class="[{ active, plain }, align === 'end' ? 'end' : 'start']"
     @click="$emit('sort')"
   >
     <slot>{{ label }}</slot>
@@ -57,6 +59,16 @@ defineEmits<{ sort: [] }>()
 .end {
   flex-direction: row-reverse;
   justify-self: end;
+}
+
+.plain {
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.plain.active {
+  font-weight: var(--weight-semibold);
 }
 
 .sortable-header:hover,
