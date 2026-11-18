@@ -9,6 +9,11 @@ export const router = createRouter({
     { path: '/', name: 'player', component: PlayerView },
     // Lazy: the library UI isn't needed to play.
     { path: '/library', name: 'library', component: () => import('../views/LibraryView.vue') },
+    {
+      path: '/bookmarks',
+      name: 'bookmarks',
+      component: () => import('../views/BookmarkManagerView.vue'),
+    },
     // Developer tool, deliberately not linked from the player. Lazy so it stays out of the main bundle.
     { path: '/debug', name: 'debug', component: () => import('../views/DebugView.vue') },
   ],
