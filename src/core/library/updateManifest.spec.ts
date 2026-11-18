@@ -26,6 +26,19 @@ describe('updateManifest', () => {
     ])
   })
 
+  it('gives a new file its guessed title and composer, and never touches kept ones', () => {
+    const existing = updateManifest(null, [{ fileName: 'a.mid', id: 'aa', facts: facts(1) }])
+    const guess = { title: 'Clair de Lune', composer: 'Claude Debussy' }
+    const m = updateManifest(existing, [
+      { fileName: 'a.mid', id: 'aa', facts: facts(1), guess },
+      { fileName: 'Clair_de_Lune.mid', id: 'cc', facts: facts(3), guess },
+    ])
+    expect(m.songs.map((s) => [s.title, s.composer])).toEqual([
+      ['a', ''],
+      ['Clair de Lune', 'Claude Debussy'],
+    ])
+  })
+
   it('keeps hand edits and order, refreshes ids and facts, drops removed files, appends new ones', () => {
     const existing = {
       version: 1 as const,
