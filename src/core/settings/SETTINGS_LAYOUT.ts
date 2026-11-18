@@ -11,7 +11,14 @@ export const SETTINGS_LAYOUT = {
     { id: 'render', title: 'Render quality' },
   ],
   tabs: [
-    { id: 'practice', title: 'Practice', sections: [{ id: 'preRoll', title: 'Pre-roll' }] },
+    {
+      id: 'practice',
+      title: 'Practice',
+      sections: [
+        { id: 'tempo', title: 'Tempo' },
+        { id: 'preRoll', title: 'Pre-roll' },
+      ],
+    },
     {
       id: 'audio',
       title: 'Audio',

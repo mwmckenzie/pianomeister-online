@@ -7,6 +7,23 @@ import { settingMax } from './settingMax'
 import { SETTINGS_REGISTRY as R } from './SETTINGS_REGISTRY'
 import { withSetting } from './settingValues'
 
+describe('formatSettingValue — whole percent and seconds', () => {
+  it('shows the number itself', () => {
+    const base = {
+      kind: 'number',
+      label: 'x',
+      default: 0,
+      home: { area: 'sidebar', section: 'camera' },
+      min: 0,
+      max: 10,
+      step: 1,
+    } as const
+    expect(formatSettingValue({ ...base, unit: 'wholePercent', digits: 0 }, 5)).toBe('5%')
+    expect(formatSettingValue({ ...base, unit: 'seconds', digits: 1 }, 2.5)).toBe('2.5 s')
+    expect(formatSettingValue({ ...base, unit: 'seconds', digits: 1 }, 3)).toBe('3 s')
+  })
+})
+
 describe('formatSettingValue', () => {
   it('shows keyboard lengths in mm (×23.5)', () => {
     expect(formatSettingValue(R['keyboard.blackHeight'], 12 / 23.5)).toBe('12 mm')

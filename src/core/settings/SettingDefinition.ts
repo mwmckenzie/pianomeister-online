@@ -3,9 +3,10 @@ import type { SettingHome } from './SettingHome'
 
 /**
  * How a number is shown: `mm` = world units × 23.5 (one white key is 23.5 mm), `percent` =
- * × 100. The stored value is always the raw number.
+ * × 100, `wholePercent` = the number itself with "%", `seconds` = "2.5 s". The stored value is always the raw number.
  */
-export type SettingUnit = 'none' | 'mm' | 'percent' | 'deg' | 'beats' | 'times' | 'px'
+export type SettingUnit =
+  'none' | 'mm' | 'percent' | 'wholePercent' | 'deg' | 'beats' | 'times' | 'px' | 'seconds'
 
 interface BaseSetting<V> {
   readonly label: string
@@ -13,6 +14,8 @@ interface BaseSetting<V> {
   readonly home: SettingHome
   /** Hidden while it has no effect (e.g. edge size with square edges). */
   readonly visible?: (settings: PlayerSettings) => boolean
+  /** Shown but disabled while it has no effect (e.g. the idle delay with hiding off). */
+  readonly enabled?: (settings: PlayerSettings) => boolean
 }
 
 export interface NumberSetting extends BaseSetting<number> {

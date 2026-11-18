@@ -185,7 +185,7 @@ describe('loadSettings', () => {
     const loaded = loadSettings(
       stored({
         audio: { master: 3, rightAudio: 'solo', leftAudio: 'loud', metronomeMode: 'preRoll' },
-        practice: { preRollBeats: 40, preRollMode: 'quiet' },
+        practice: { preRollBeats: 40, preRollMode: 'quiet', tempoStep: 0 },
         appearance: { primary: '#ffb38a', secondary: 'orange', blur: -5, motion: 'reduced' },
       }),
     )
@@ -193,10 +193,34 @@ describe('loadSettings', () => {
     expect(loaded.audio.rightAudio).toBe('solo')
     expect(loaded.audio.leftAudio).toBe('on')
     expect(loaded.audio.metronomeMode).toBe('preRoll')
-    expect(loaded.practice).toEqual({ preRollBeats: 16, preRollMode: 'quiet' })
+    expect(loaded.practice).toEqual({ tempoStep: 1, preRollBeats: 16, preRollMode: 'quiet' })
     expect(loaded.appearance.primary).toBe('#FFB38A')
     expect(loaded.appearance.secondary).toBe('#7EE0C3')
     expect(loaded.appearance.blur).toBe(0)
     expect(loaded.appearance.motion).toBe('reduced')
+  })
+
+  it('migrates v3 "Hide controls when idle" to the switch plus seconds', () => {
+    const v3 = (hideControls: string) =>
+      loadSettings({ version: 3, settings: { appearance: { hideControls, motion: 'full' } } })
+    expect(v3('off').appearance).toMatchObject({ hideControls: false, hideControlsAfter: 3 })
+    expect(v3('2').appearance).toMatchObject({ hideControls: true, hideControlsAfter: 2 })
+    expect(v3('10').appearance).toMatchObject({
+      hideControls: true,
+      hideControlsAfter: 10,
+      motion: 'full',
+    })
+    // Never set: the defaults (on, after 3 s); the new tempo step is 5%.
+    const fresh = loadSettings({ version: 3, settings: {} })
+    expect(fresh.appearance).toMatchObject({ hideControls: true, hideControlsAfter: 3 })
+    expect(fresh.practice.tempoStep).toBe(5)
+  })
+
+  it('keeps the idle delay in 0.5–10 s', () => {
+    const loaded = loadSettings({
+      version: 4,
+      settings: { appearance: { hideControls: false, hideControlsAfter: 40 } },
+    })
+    expect(loaded.appearance).toMatchObject({ hideControls: false, hideControlsAfter: 10 })
   })
 })

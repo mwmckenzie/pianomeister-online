@@ -6,7 +6,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 3
+export const SETTINGS_VERSION = 4
 
 type Raw = Record<string, unknown>
 
@@ -20,6 +20,22 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
   1: (settings) => settings,
   // v3 adds the audio, practice and appearance sections (brief decision 63).
   2: (settings) => settings,
+  // v4: "Hide controls when idle" becomes a switch plus a delay in seconds (Off → switch off,
+  // "2"/"3"/"5"/"10" → on after that many seconds); practice gains the tempo step.
+  3: (settings) => {
+    const appearance = isRecord(settings.appearance) ? settings.appearance : {}
+    const old = appearance.hideControls
+    if (typeof old !== 'string') return settings
+    const seconds = Number(old)
+    return {
+      ...settings,
+      appearance: {
+        ...appearance,
+        hideControls: old !== 'off',
+        ...(Number.isFinite(seconds) ? { hideControlsAfter: seconds } : {}),
+      },
+    }
+  },
 }
 
 const COLOR = /^#[0-9a-f]{6}$/i
