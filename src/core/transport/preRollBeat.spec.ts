@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest'
 
 import { preRollBeat } from './preRollBeat'
 
-const window = { startSec: 10, endSec: 12, targetTick: 0, beats: 4, beatSec: 0.5, ticksPerBeat: 480 }
+const window = {
+  startSec: 10,
+  endSec: 12,
+  targetTick: 0,
+  beats: 4,
+  beatSec: 0.5,
+  ticksPerBeat: 480,
+}
 
 describe('preRollBeat', () => {
   it('counts the beats of the count-in from 1', () => {

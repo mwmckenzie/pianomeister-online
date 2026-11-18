@@ -53,7 +53,7 @@ describe('computeSongFacts', () => {
     })
   })
 
-    it('uses the defaults (4/4, 120 BPM) when the file has no meta events', async () => {
+  it('uses the defaults (4/4, 120 BPM) when the file has no meta events', async () => {
     const song = await importMidi(synthFixtures.noMeta(), { fileName: 'x.mid' })
     expect(computeSongFacts(song)).toMatchObject({
       timeSignatures: ['4/4'],

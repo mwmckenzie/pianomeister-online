@@ -38,7 +38,12 @@ for (let bar = 0; bar < 8; bar++) {
   // Broken chord in eighths, each note written short: the pedal makes them ring.
   for (let i = 0; i < 8; i++) {
     const midiNote = chord[i % chord.length] + (i >= 4 ? 12 : 0)
-    right.addNote({ midi: midiNote, ticks: start + i * (PPQ / 2), durationTicks: PPQ / 4, velocity: 0.62 })
+    right.addNote({
+      midi: midiNote,
+      ticks: start + i * (PPQ / 2),
+      durationTicks: PPQ / 4,
+      velocity: 0.62,
+    })
   }
   left.addNote({ midi: BASS[bar % BASS.length], ticks: start, durationTicks: PPQ, velocity: 0.7 })
   // Legato pedalling: up at the bar line, down again just after the new harmony sounds.
@@ -49,6 +54,12 @@ for (let bar = 0; bar < 8; bar++) {
   }
 }
 
-const target = join(dirname(fileURLToPath(import.meta.url)), '..', 'test-fixtures', 'midi', 'pedal-demo.mid')
+const target = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'test-fixtures',
+  'midi',
+  'pedal-demo.mid',
+)
 await writeFile(target, midi.toArray())
 console.log(`wrote ${target}`)

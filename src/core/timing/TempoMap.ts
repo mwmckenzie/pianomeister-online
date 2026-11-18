@@ -31,7 +31,12 @@ export class TempoMap {
       if (prev !== undefined && prev.microsPerQuarter === microsPerQuarter) continue
       const seconds =
         prev === undefined ? 0 : prev.seconds + (tick - prev.tick) * prev.secondsPerTick
-      segments.push({ tick, seconds, secondsPerTick: microsPerQuarter / 1e6 / ppq, microsPerQuarter })
+      segments.push({
+        tick,
+        seconds,
+        secondsPerTick: microsPerQuarter / 1e6 / ppq,
+        microsPerQuarter,
+      })
     }
     this.segments = segments
   }

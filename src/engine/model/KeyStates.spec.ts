@@ -16,7 +16,7 @@ describe('KeyStates', () => {
     expect(states[0]).toMatchObject({ midi: 21, colorIndex: 9, alpha: 0, sounding: false })
   })
 
-  it('reports the sounding note\'s velocity (the latest onset wins)', () => {
+  it("reports the sounding note's velocity (the latest onset wins)", () => {
     const keys = new KeyStates([
       { midi: 60, startTick: 0, endTick: 960, velocity: 30 },
       { midi: 60, startTick: 480, endTick: 960, velocity: 110 },

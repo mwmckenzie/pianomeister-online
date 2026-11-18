@@ -211,7 +211,7 @@ describe('AudioScheduler — resets', () => {
     run(0.2)
     // 48 is 0.05 song-seconds away at 50% speed: 0.1 s after the change.
     expect(last(output)?.midi).toBe(48)
-    expect((last(output)?.time ?? NaN)).toBeCloseTo(T0 + 1.05, 9)
+    expect(last(output)?.time ?? NaN).toBeCloseTo(T0 + 1.05, 9)
     expect(clock.now()).toBeCloseTo(T0 + 1.15, 9)
   })
 
