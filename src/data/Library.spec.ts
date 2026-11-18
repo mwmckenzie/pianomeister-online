@@ -6,10 +6,13 @@ import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { SongManifest } from '@/core/library/SongManifest'
+import { buildSmf, ev } from '@/core/testing/buildSmf'
 import { readFixture } from '@/core/testing/readFixture'
 
 import type { BundledSongs } from './BundledSongs'
 import { Library } from './Library'
+import { makeBookmark, makePracticeData, makeRecord } from '@/core/testing/makePracticeData'
+
 import { PianoMeisterDb } from './PianoMeisterDb'
 import type { UploadFile } from './UploadFile'
 
@@ -80,6 +83,31 @@ describe('Library', () => {
     })
     expect(entries[3]?.addedAt).toBeGreaterThan(0)
     expect(persistenceRequests).toBe(1)
+  })
+
+  it("guesses a new upload's title and composer, in the library's spelling", async () => {
+    const bytes = buildSmf({
+      format: 1,
+      ppq: 480,
+      tracks: [[ev.trackName(0, 'Piano'), ev.noteOn(0, 0, 60), ev.noteOff(480, 0, 60)]],
+    })
+    const [result] = await library.upload([file('Bach_Invention_No.8_bwv_779_TwoHands.mid', bytes)])
+    if (result?.outcome !== 'added') throw new Error('upload failed')
+    expect(await library.entry(result.songId)).toMatchObject({
+      title: 'Invention No. 8 BWV 779',
+      composer: 'J.S. Bach',
+      original: { title: 'Invention No. 8 BWV 779', composer: 'J.S. Bach' },
+      edited: false,
+    })
+    // "Guess from file" guesses afresh and saves nothing.
+    await library.setMeta(result.songId, { title: 'Mine', composer: '', tags: [] })
+    expect(await library.guessMeta(result.songId)).toEqual({
+      title: 'Invention No. 8 BWV 779',
+      composer: 'J.S. Bach',
+    })
+    expect((await library.entry(result.songId))?.title).toBe('Mine')
+    // Bundled songs have no file to guess from here.
+    expect(await library.guessMeta((await library.entries())[0]?.songId ?? '')).toBeNull()
   })
 
   it('reports duplicates (of bundled songs, uploads, and within a batch) and rejections', async () => {
@@ -169,24 +197,57 @@ describe('Library', () => {
       barOneStartTick: 0,
     })
     await library.setHands(id, { right: [1], left: [0] })
-    await library.setLastSongId(id)
-    expect(await library.startSongId()).toBe(id)
+    await library.setLastOpened(id, 'b1')
+    expect(await library.startEntry()).toEqual({ songId: id, bookmarkId: 'b1' })
+    await db.bookmarks.put(makeBookmark({ id: 'b1', profileId: 'default', songId: id }))
+    await db.playRecords.put(makeRecord({ id: 'r1', profileId: 'default', songId: id }))
 
     await library.deleteUpload(id)
     expect(await library.entry(id)).toBeNull()
     expect(await db.songMeta.count()).toBe(0)
     expect(await db.meterOverrides.count()).toBe(0)
     expect(await db.handAssignments.count()).toBe(0)
-    expect(await library.startSongId()).toBe((await library.entries())[0]?.songId)
+    expect(await library.startEntry()).toEqual({
+      songId: (await library.entries())[0]?.songId,
+      bookmarkId: null,
+    })
+    // Bookmarks and stats are kept by default (decision 74).
+    expect(await db.bookmarks.count()).toBe(1)
+    expect(await db.playRecords.count()).toBe(1)
   })
 
-  it('starts with the first bundled song, then the last opened one', async () => {
+  it('deletes an upload with its bookmarks and stats when asked to', async () => {
+    const id = await uploadPedalDemo()
+    await db.bookmarks.put(makeBookmark({ id: 'b1', profileId: 'default', songId: id }))
+    await db.bookmarks.put(makeBookmark({ id: 'b2', profileId: 'default', songId: 'other' }))
+    await db.playRecords.put(makeRecord({ id: 'r1', profileId: 'p2', songId: id }))
+    await library.deleteUpload(id, { withPracticeData: true })
+    expect((await db.bookmarks.toArray()).map((b) => b.id)).toEqual(['b2'])
+    expect(await db.playRecords.count()).toBe(0)
+  })
+
+  it('starts with the first bundled song, then the profile last opened one', async () => {
     const entries = await library.entries()
-    expect(await library.startSongId()).toBe(entries[0]?.songId)
-    await library.setLastSongId(entries[2]?.songId ?? '')
-    expect(await library.startSongId()).toBe(entries[2]?.songId)
-    await library.setLastSongId('no-such-song')
-    expect(await library.startSongId()).toBe(entries[0]?.songId)
+    expect(await library.startEntry()).toEqual({ songId: entries[0]?.songId, bookmarkId: null })
+    await library.setLastOpened(entries[2]?.songId ?? '', null)
+    expect((await library.startEntry()).songId).toBe(entries[2]?.songId)
+    // Another profile has its own.
+    library.setProfile('p2')
+    expect((await library.startEntry()).songId).toBe(entries[0]?.songId)
+    await library.setLastOpened(entries[1]?.songId ?? '', 'b9')
+    library.setProfile('default')
+    expect((await library.startEntry()).songId).toBe(entries[2]?.songId)
+    await library.setLastOpened('no-such-song', null)
+    expect((await library.startEntry()).songId).toBe(entries[0]?.songId)
+  })
+
+  it('keeps hand assignments per profile', async () => {
+    const id = (await library.entries())[0]?.songId ?? ''
+    await library.setHands(id, { right: [1], left: [0] })
+    library.setProfile('p2')
+    expect((await library.entry(id))?.hands).not.toEqual({ right: [1], left: [0] })
+    library.setProfile('default')
+    expect((await library.entry(id))?.hands).toEqual({ right: [1], left: [0] })
   })
 
   it('exports and re-imports uploads with metadata and overrides', async () => {
@@ -201,7 +262,7 @@ describe('Library', () => {
 
     await library.deleteUpload(id)
     await library.resetMeta(minuetId)
-    const report = await library.importArchive(zip)
+    const report = await library.applyImport(await library.prepareImport(zip), new Map())
     expect(report.uploads).toMatchObject([{ outcome: 'added', songId: id }])
     expect(report).toMatchObject({ metaApplied: 2, metaKept: 0, overridesApplied: 1 })
     expect(await library.entry(id)).toMatchObject({
@@ -215,13 +276,91 @@ describe('Library', () => {
 
     // Again: everything is already there, so local edits win.
     await library.setMeta(id, { title: 'Changed locally', composer: 'Me', tags: ['exam'] })
-    const again = await library.importArchive(zip)
+    const again = await library.applyImport(await library.prepareImport(zip), new Map())
     expect(again.uploads).toMatchObject([{ outcome: 'duplicate' }])
     expect(again).toMatchObject({ metaApplied: 0, metaKept: 2, overridesKept: 1 })
     expect((await library.entry(id))?.title).toBe('Changed locally')
   })
 
   it('rejects an archive that is not a library export', async () => {
-    await expect(library.importArchive(new Uint8Array([1, 2, 3]))).rejects.toThrow(/Not a zip/)
+    await expect(library.prepareImport(new Uint8Array([1, 2, 3]))).rejects.toThrow(/Not a zip/)
+  })
+
+  describe('backups with profiles', () => {
+    let next = 0
+    const newId = () => `id${++next}`
+
+    async function seedMe(bookmarks: number, prefix: string): Promise<void> {
+      const data = makePracticeData({ bookmarks, prefix })
+      await db.bookmarks.bulkPut([...data.bookmarks])
+      await db.sessions.bulkPut([...data.sessions])
+      await db.playRecords.bulkPut([...data.playRecords])
+      await db.handAssignments.bulkPut([...data.handAssignments])
+    }
+
+    it('round-trips profiles, bookmarks and the play log; a re-import adds nothing', async () => {
+      await seedMe(3, 'A')
+      await db.profiles.put({ id: 'p2', name: 'Anna', color: '#FFB38A', createdAt: 5 })
+      const zip = await library.exportArchive()
+      await db.bookmarks.clear()
+      await db.playRecords.clear()
+      await db.profiles.delete('p2')
+
+      const prepared = await library.prepareImport(zip)
+      // Nothing is written until the import is applied.
+      expect(await db.bookmarks.count()).toBe(0)
+      expect(prepared.collisions.map((c) => c.defaultChoice)).toEqual(['merge'])
+      const report = await library.applyImport(prepared, new Map([['default', 'merge']]), newId)
+      expect(report.profiles).toEqual({
+        merged: [{ name: 'Me', bookmarksAdded: 3 }],
+        replaced: [],
+        addedProfiles: 1,
+      })
+      expect(await db.bookmarks.count()).toBe(3)
+      expect(await db.playRecords.count()).toBe(3)
+      expect((await db.profiles.toArray()).map((p) => p.name).sort()).toEqual(['Anna', 'Me'])
+
+      const again = await library.applyImport(await library.prepareImport(zip), new Map(), newId)
+      // Both profiles exist now: each collision merges and adds nothing.
+      expect(again.profiles.merged).toEqual([
+        { name: 'Me', bookmarksAdded: 0 },
+        { name: 'Anna', bookmarksAdded: 0 },
+      ])
+      expect(await db.bookmarks.count()).toBe(3)
+      expect(await db.profiles.count()).toBe(2)
+    })
+
+    it('Add as new and Replace write what the plan says', async () => {
+      await seedMe(2, 'B')
+      const zip = await library.exportArchive()
+      await seedMe(4, 'L')
+
+      await library.applyImport(
+        await library.prepareImport(zip),
+        new Map([['default', 'addNew']]),
+        newId,
+      )
+      const imported = (await db.profiles.toArray()).find((p) => p.name === 'Me (imported)')
+      expect(imported).toBeDefined()
+      expect(
+        await db.bookmarks
+          .where('[profileId+songId]')
+          .between([imported?.id, ''], [imported?.id, '\uffff'])
+          .count(),
+      ).toBe(2)
+
+      await library.applyImport(
+        await library.prepareImport(zip),
+        new Map([['default', 'replace']]),
+        newId,
+      )
+      const mine = await db.bookmarks.toArray()
+      expect(
+        mine
+          .filter((b) => b.profileId === 'default')
+          .map((b) => b.id)
+          .sort(),
+      ).toEqual(['Bb1', 'Bb2'])
+    })
   })
 })
