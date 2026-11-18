@@ -199,6 +199,15 @@ export class Transport {
     this.changed('loop')
   }
 
+  /**
+   * Moves the playhead to the loop's first bar (brief decision 8): while playing it plays on
+   * from there, pre-roll first; otherwise it parks there. Every committed loop change ends with
+   * this, so the next pass starts at the new range. Without a loop it does nothing.
+   */
+  seekToLoopStart(): void {
+    if (this.loopRange !== null) this.seekToBar(this.loopRange.startBar)
+  }
+
   setPreRoll(config: PreRollConfig): void {
     const beats = Number.isFinite(config.beats) ? Math.max(0, Math.floor(config.beats)) : 0
     this.preRollConfig = { ...config, beats }
