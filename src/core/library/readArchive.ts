@@ -4,6 +4,7 @@ import type { MeterOverride } from '../timing/MeterOverride'
 import type { ArchiveContents } from './ArchiveContents'
 import { LIBRARY_FORMAT } from './buildArchive'
 import type { LibraryDocument } from './LibraryDocument'
+import { readPracticeData } from './readPracticeData'
 import type { SongMetaEdit } from './SongMetaEdit'
 
 const SUPPORTED_MAJOR = 1
@@ -55,6 +56,7 @@ export function readArchive(bytes: Uint8Array): ArchiveContents {
     uploads,
     meta: pick(raw.meta, toMetaEdit),
     meterOverrides: pick(raw.meterOverrides, toMeterOverride),
+    practice: readPracticeData(raw.practice),
   }
   return { document, uploads: contents }
 }
