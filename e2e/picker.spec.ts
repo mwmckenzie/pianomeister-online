@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 
 import { fileURLToPath } from 'node:url'
 
-import { watchErrors } from './support'
+import { sortingHistory } from './practiceSeeds'
+import { seedPractice, watchErrors } from './support'
 
 const METER_DEMO = fileURLToPath(new URL('../test-fixtures/midi/meter-demo.mid', import.meta.url))
 
@@ -12,6 +13,9 @@ test('the picker opens from the toolbar, shows details, and loads the chosen son
   const errors = watchErrors(page)
   await page.goto('./')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
+  // A song picked while the ~230 samples download waits behind them (per-host request queue;
+  // seconds on a busy dev server): this test is about the picker, so start once they're in.
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
   await page.getByTestId('open-picker').click()
   const picker = page.getByTestId('song-picker')
   await expect(picker).toBeVisible()
@@ -41,6 +45,7 @@ test('O opens the picker; arrows move, Enter loads; typing in search triggers no
   const picker = page.getByTestId('song-picker')
   await expect(picker).toBeVisible()
   await expect(page.getByTestId('picker-search')).toBeFocused()
+  await expect(page.getByTestId('picker-song')).toHaveCount(3)
 
   // "o" and "p" are shortcuts elsewhere (picker, playfield panel): here they're just text.
   await page.keyboard.type('op')
@@ -175,5 +180,39 @@ test('uploads stored with old-shape facts are brought up to date in the backgrou
   await expect(page.getByTestId('picker-notes')).toContainText('Right hand')
   await expect(page.getByTestId('picker-notes')).toContainText(/\d+ notes/)
   await expect(page.getByTestId('picker-meter')).toHaveText('4/4+')
+  expect(errors).toEqual([])
+})
+
+test('the picker sorts songs by last practiced by default, and by plays, time and bookmarks', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./')
+  await expect(page.getByTestId('hud-bars')).toHaveText('64')
+  await seedPractice(page, sortingHistory(Date.now()))
+  await page.getByTestId('open-picker').click()
+  const titles = page.getByTestId('picker-song').locator('.title')
+  await expect(titles).toHaveText([/^Invention/, /^Canon/, /^Minuet/])
+  await page.getByTestId('picker-sort-plays').click()
+  await expect(titles).toHaveText([/^Canon/, /^Invention/, /^Minuet/])
+  await page.getByTestId('picker-sort-time').click()
+  await expect(titles).toHaveText([/^Canon/, /^Invention/, /^Minuet/])
+  await page.getByTestId('picker-sort-bookmarks').click()
+  await expect(titles.first()).toHaveText(/^Invention/)
+  await page.getByTestId('picker-sort-title').click()
+  await expect(titles).toHaveText([/^Canon/, /^Invention/, /^Minuet/])
+
+  // The Load list: Full song pinned, then the song's bookmarks; its headers sort them.
+  await page.getByTestId('picker-song').filter({ hasText: 'Invention' }).click()
+  await expect(page.getByTestId('picker-full-song')).toBeVisible()
+  await expect(page.getByTestId('picker-bookmark')).toHaveCount(2)
+  await expect(page.getByTestId('picker-entry-name')).toHaveText('Full song')
+  await expect(page.getByTestId('picker-entry-share')).toHaveText('100%')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByTestId('picker-entry-name')).toHaveText('Opening')
+  await expect(page.getByTestId('picker-load')).toHaveText('Load bookmark')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('hud-bookmark')).toHaveText('Opening')
   expect(errors).toEqual([])
 })
