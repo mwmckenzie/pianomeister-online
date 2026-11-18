@@ -67,4 +67,18 @@ describe('sortEntries', () => {
   it('sorts by source, bundled first, then title', () => {
     expect(titles('source', 'asc')).toEqual(['Canon', 'Étude 10', 'Air', 'etude 9'])
   })
+  it('sorts by a practice column with songs that have none last, in both directions', () => {
+    const practice = new Map([
+      ['Air', { plays: 3, playedMs: 60_000, lastPlayedAt: 500, bookmarks: 2 }],
+      ['Canon', { plays: 9, playedMs: 30_000, lastPlayedAt: 900, bookmarks: 0 }],
+      ['etude 9', { plays: 0, playedMs: 0, lastPlayedAt: null, bookmarks: 0 }],
+    ])
+    const by = (field: 'plays' | 'time' | 'last' | 'bookmarks', direction: 'asc' | 'desc') =>
+      sortEntries(entries, field, direction, practice).map((e) => e.title)
+    expect(by('plays', 'desc')).toEqual(['Canon', 'Air', 'etude 9', 'Étude 10'])
+    expect(by('plays', 'asc')).toEqual(['Air', 'Canon', 'etude 9', 'Étude 10'])
+    expect(by('time', 'desc')).toEqual(['Air', 'Canon', 'etude 9', 'Étude 10'])
+    expect(by('last', 'desc')).toEqual(['Canon', 'Air', 'etude 9', 'Étude 10'])
+    expect(by('bookmarks', 'desc')).toEqual(['Air', 'Canon', 'etude 9', 'Étude 10'])
+  })
 })
