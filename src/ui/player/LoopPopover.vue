@@ -8,9 +8,11 @@ import AppButton from '../components/AppButton.vue'
 import AppIcon from '../components/AppIcon.vue'
 import AppPopover from '../components/AppPopover.vue'
 import RangeSliderField from '../components/RangeSliderField.vue'
+import type { SettingOverride } from '../components/SettingOverride'
 import SettingRow from '../components/SettingRow.vue'
+import { usePracticeStore } from '../stores/practiceStore'
 import HudToggle from './HudToggle.vue'
-import { useSettingsStore } from '../stores/settingsStore'
+import TemporaryNote from './TemporaryNote.vue'
 
 /**
  * The HUD's loop row: "bars 17–32" in the secondary colour while on, the caret that opens the
@@ -18,7 +20,12 @@ import { useSettingsStore } from '../stores/settingsStore'
  * two-thumb bar range with from/to fields kept in sync, pre-roll beats (the same setting as the
  * Practice tab) counting back from the loop's first bar, and "Back to start" (decision 60).
  * Every change goes through adjustLoopRange, so an invalid range can't be set. While the loop is
- * on, changes apply at once; otherwise they become the range the loop button turns on.
+ * on, a committed change (slider let go, a From/To field committed) applies, and the playhead
+ * jumps to the new start (brief decision 8); dragging only moves the thumbs. With the loop off,
+ * changes become the range the loop button turns on.
+ *
+ * With a bookmark loaded these changes are temporary (brief decision 69): a note says so, and
+ * "Revert to bookmark" drops them. "Save as bookmark" saves what's playing in one click.
  */
 const props = defineProps<{
   readonly loop: LoopRange | null
@@ -33,9 +40,11 @@ const emit = defineEmits<{
   clear: []
   toStart: []
   'update:draft': [range: LoopRange]
+  saveBookmark: []
+  revert: []
 }>()
 const open = defineModel<boolean>('open', { default: false })
-const settings = useSettingsStore()
+const practice = usePracticeStore()
 
 const range = ref({ start: props.draft.startBar, end: props.draft.endBar })
 /** What the fields show while typing; committed on Enter or blur. */
@@ -65,11 +74,26 @@ watch(open, (isOpen) => {
   syncFields()
 })
 
+// A revert (or another load) moves the loop: show it.
+watch(
+  () => props.loop,
+  (loop) => {
+    if (loop === null || !open.value) return
+    range.value = { start: loop.startBar, end: loop.endBar }
+    syncFields()
+  },
+)
+
+/** Moves the shown range (and the loop button's range); the loop itself waits for a commit. */
 function change(edit: { start: number } | { end: number }): void {
   range.value = adjustLoopRange(range.value, edit, props.firstBar, props.lastBar)
   syncFields()
+  emit('update:draft', { startBar: range.value.start, endBar: range.value.end })
+}
+
+/** Applies the shown range to a loop that's on (the playhead then jumps to its start). */
+function commitRange(): void {
   const next = { startBar: range.value.start, endBar: range.value.end }
-  emit('update:draft', next)
   if (
     props.loop !== null &&
     (next.startBar !== props.loop.startBar || next.endBar !== props.loop.endBar)
@@ -81,14 +105,30 @@ function commit(end: 'start' | 'end'): void {
   const typed = Number.parseInt(end === 'start' ? fromText.value : toText.value, 10)
   // Nothing usable typed: show the current value again.
   if (Number.isNaN(typed)) syncFields()
-  else change(end === 'start' ? { start: typed } : { end: typed })
+  else {
+    change(end === 'start' ? { start: typed } : { end: typed })
+    commitRange()
+  }
 }
 
 function setLoop(): void {
   emit('set', { startBar: range.value.start, endBar: range.value.end })
 }
 
-const preRollBeats = computed(() => settings.settings.practice.preRollBeats)
+const preRollBeats = computed(() => practice.current.preRollBeats)
+
+/** With a bookmark loaded, pre-roll edits are temporary and reset to the bookmark's value. */
+const preRollOverride = computed((): SettingOverride | undefined =>
+  practice.bookmark === null
+    ? undefined
+    : {
+        value: practice.current.preRollBeats,
+        changed: practice.isTemporary('preRollBeats'),
+        set: (value) => practice.setPreRollBeats(value as number),
+        reset: () => practice.revertField('preRollBeats'),
+      },
+)
+
 /**
  * What the pre-roll leads into: the loop's first bar while a loop is on, otherwise wherever
  * play starts (decision 60).
@@ -144,6 +184,7 @@ const isCurrentLoop = computed(
           :value-texts="[`Bar ${range.start}`, `Bar ${range.end}`]"
           data-testid="loop-slider"
           @change="change"
+          @commit="commitRange"
         />
         <div class="fields">
           <label>
@@ -202,7 +243,21 @@ const isCurrentLoop = computed(
         inverted
         :value-text="preRollText"
         :end-label="loop === null ? 'play position' : `bar ${loop.startBar}`"
+        :override="preRollOverride"
       />
+      <div v-if="practice.bookmark" class="temporary">
+        <TemporaryNote @navigate="open = false" />
+        <AppButton
+          v-if="practice.changed.length > 0"
+          variant="text"
+          size="sm"
+          icon="reset"
+          data-testid="revert-bookmark"
+          @click="emit('revert')"
+        >
+          Revert to bookmark
+        </AppButton>
+      </div>
       <div class="foot">
         <AppButton
           variant="text"
@@ -212,6 +267,15 @@ const isCurrentLoop = computed(
           @click="emit('toStart')"
         >
           Back to start
+        </AppButton>
+        <AppButton
+          variant="text"
+          size="sm"
+          icon="bookmarkAdd"
+          data-testid="save-bookmark"
+          @click="emit('saveBookmark')"
+        >
+          Save as bookmark
         </AppButton>
       </div>
     </AppPopover>
@@ -304,5 +368,13 @@ label {
   justify-content: flex-start;
   padding-top: var(--space-1);
   border-top: 1px solid var(--divider);
+}
+
+.temporary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin-top: var(--space-3);
 }
 </style>
