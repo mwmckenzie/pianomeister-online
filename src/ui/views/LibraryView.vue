@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { commandForKey } from '@/core/commands/commandKeys'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -30,7 +29,9 @@ import { sceneSnapshot } from '../playback/sceneSnapshot'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { usePracticeStore } from '../stores/practiceStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useStatsStore } from '../stores/statsStore'
+import { pageListCommand } from '../input/pageListCommand'
 import { useToastStore } from '../stores/toastStore'
 
 /**
@@ -45,6 +46,7 @@ const bookmarks = useBookmarkStore()
 const stats = useStatsStore()
 const practice = usePracticeStore()
 const toasts = useToastStore()
+const settings = useSettingsStore()
 const { search, sortField, sortDirection, groupBy, tagFilter, sourceFilter } = storeToRefs(store)
 const backup = useLibraryBackup()
 const uploadInput = useTemplateRef<HTMLInputElement>('uploadInput')
@@ -229,12 +231,89 @@ function move(step: number): void {
   )
 }
 
-function onListKeyDown(event: KeyboardEvent): void {
-  const command = commandForKey('lists', event.code)
-  const by = command === 'listNext' ? 1 : command === 'listPrevious' ? -1 : undefined
-  if (by === undefined) return
+/**
+ * The filter column as one list for Shift+↑/↓ (brief decision 90): All songs (no source or tag
+ * filter), the sources, then the tags. Reaching an item applies it: a source on its own, or the
+ * tag as the only tag with the source kept. Clicking a tag still toggles several.
+ */
+const filterItems = computed((): readonly string[] => [
+  ...sources.value.map((s) => s.value),
+  ...store.allTags.map((t) => `tag:${t}`),
+])
+/** The filter item last clicked or reached, marked in the column; else the source in use. */
+const filterCursor = ref<string | null>(null)
+const shownCursor = computed(() =>
+  filterCursor.value !== null && filterItems.value.includes(filterCursor.value)
+    ? filterCursor.value
+    : sourceFilter.value,
+)
+
+function chooseSource(value: (typeof sources.value)[number]['value']): void {
+  sourceFilter.value = value
+  // "All songs" shows everything: no tag filter either.
+  if (value === 'all') tagFilter.value = []
+  filterCursor.value = value
+}
+
+function clickTag(tag: string): void {
+  store.toggleTag(tag)
+  filterCursor.value = `tag:${tag}`
+}
+
+function moveFilter(step: number): void {
+  const items = filterItems.value
+  const index = items.indexOf(shownCursor.value)
+  const next = items[Math.min(items.length - 1, Math.max(0, index + step))]
+  if (next === undefined) return
+  const hadFocus = document.activeElement?.closest('[data-filter-cursor]') != null
+  if (next.startsWith('tag:')) {
+    tagFilter.value = [next.slice(4)]
+    filterCursor.value = next
+  } else {
+    chooseSource(next as (typeof sources.value)[number]['value'])
+    tagFilter.value = []
+  }
+  void nextTick(() => {
+    const el = document.querySelector<HTMLElement>('[data-filter-cursor="true"]')
+    el?.scrollIntoView({ block: 'nearest' })
+    if (hadFocus) el?.focus()
+  })
+}
+
+/** Why the list is empty: the filters (with the key back to All songs), or the search. */
+const emptyText = computed(() => {
+  if (sourceFilter.value === 'all' && tagFilter.value.length === 0) return 'No songs match.'
+  const key = settings.shortcutLabel('secondaryPrevious')
+  return key === ''
+    ? 'No songs match these filters'
+    : `No songs match these filters · ${key} to All songs`
+})
+
+/** List keys by role, wherever focus is on the page (brief decisions 90–91). */
+function onPageKeyDown(event: KeyboardEvent): void {
+  const command = pageListCommand(event, settings.bindings)
+  switch (command) {
+    case 'listNext':
+    case 'listPrevious':
+      move(command === 'listNext' ? 1 : -1)
+      break
+    case 'secondaryNext':
+    case 'secondaryPrevious':
+      moveFilter(command === 'secondaryNext' ? 1 : -1)
+      break
+    case 'listOpen':
+      if (selectedId.value === null) return
+      void play(selectedId.value)
+      break
+    case 'nextTab':
+    case 'previousTab':
+      // Library | Bookmarks: either way, the other tab (the tabs wrap).
+      void router.push({ name: 'bookmarks' })
+      break
+    default:
+      return
+  }
   event.preventDefault()
-  move(by)
 }
 
 async function play(songId: string): Promise<void> {
@@ -277,6 +356,7 @@ function onDrop(event: DragEvent): void {
 }
 
 onMounted(() => {
+  window.addEventListener('keydown', onPageKeyDown)
   window.addEventListener('dragenter', onDragEnter)
   window.addEventListener('dragover', onDragOver)
   window.addEventListener('dragleave', onDragLeave)
@@ -288,6 +368,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onPageKeyDown)
   window.removeEventListener('dragenter', onDragEnter)
   window.removeEventListener('dragover', onDragOver)
   window.removeEventListener('dragleave', onDragLeave)
@@ -309,7 +390,12 @@ onBeforeUnmount(() => {
           <AppIcon name="chevronLeft" :size="18" /> Player
         </RouterLink>
         <ManageTabs active="library" />
-        <SearchField v-model="search" label="Search library" data-testid="search" />
+        <SearchField
+          v-model="search"
+          label="Search library"
+          data-list-search
+          data-testid="search"
+        />
         <AppButton
           variant="primary"
           :disabled="busy"
@@ -353,8 +439,9 @@ onBeforeUnmount(() => {
               type="button"
               class="source"
               :aria-pressed="sourceFilter === s.value"
+              :data-filter-cursor="shownCursor === s.value"
               :data-testid="`source-${s.value}`"
-              @click="sourceFilter = s.value"
+              @click="chooseSource(s.value)"
             >
               {{ s.label }} <span class="count">{{ s.count }}</span>
             </button>
@@ -369,8 +456,9 @@ onBeforeUnmount(() => {
                 type="button"
                 class="chip"
                 :aria-pressed="tagFilter.some((t) => t.toLowerCase() === tag.toLowerCase())"
+                :data-filter-cursor="shownCursor === `tag:${tag}`"
                 :data-testid="`tag-filter-${tag}`"
-                @click="store.toggleTag(tag)"
+                @click="clickTag(tag)"
               >
                 {{ tag }}
               </button>
@@ -439,7 +527,6 @@ onBeforeUnmount(() => {
             tabindex="0"
             aria-label="Songs"
             :aria-activedescendant="selectedId ? `song-${selectedId}` : undefined"
-            @keydown="onListKeyDown"
           >
             <div
               v-for="group in store.groups"
@@ -480,7 +567,13 @@ onBeforeUnmount(() => {
               </SongRow>
             </div>
           </div>
-          <p v-if="store.loaded && store.visible.length === 0" class="empty">No songs match.</p>
+          <p
+            v-if="store.loaded && store.visible.length === 0"
+            class="empty"
+            data-testid="library-empty"
+          >
+            {{ emptyText }}
+          </p>
           <button type="button" class="drop-zone" @click="uploadInput?.click()">
             Drop .mid files anywhere to add them
           </button>
@@ -641,6 +734,10 @@ onBeforeUnmount(() => {
   color: var(--text-4);
 }
 
+.source[data-filter-cursor='true'] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
 .source[aria-pressed='true'] .count {
   color: var(--text-3);
 }
@@ -665,6 +762,11 @@ onBeforeUnmount(() => {
   border-color: var(--primary);
   background: rgb(var(--primary-rgb) / 18%);
   color: var(--text-strong);
+}
+
+.chip[data-filter-cursor='true'] {
+  outline: 2px solid rgb(var(--primary-rgb) / 55%);
+  outline-offset: 2px;
 }
 
 .storage {

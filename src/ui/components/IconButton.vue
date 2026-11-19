@@ -4,7 +4,10 @@ import { TooltipContent, TooltipPortal, TooltipRoot, TooltipTrigger } from 'reka
 import AppIcon from './AppIcon.vue'
 import type { IconName } from './IconName'
 
-/** A round icon-only button with a tooltip naming it (the tooltip text is its label). */
+/**
+ * A round icon-only button with a tooltip naming it (the tooltip text is its label), plus its
+ * keyboard shortcut when it has one (decision 87).
+ */
 defineOptions({ inheritAttrs: false })
 withDefaults(
   defineProps<{
@@ -15,8 +18,10 @@ withDefaults(
     readonly active?: boolean
     readonly disabled?: boolean
     readonly variant?: 'ghost' | 'filled' | 'outline'
+    /** The key that does the same, shown in the tooltip, e.g. "Space". */
+    readonly shortcut?: string
   }>(),
-  { size: 'md', active: false, disabled: false, variant: 'ghost' },
+  { size: 'md', active: false, disabled: false, variant: 'ghost', shortcut: '' },
 )
 defineEmits<{ click: [event: MouseEvent] }>()
 </script>
@@ -38,12 +43,19 @@ defineEmits<{ click: [event: MouseEvent] }>()
       </button>
     </TooltipTrigger>
     <TooltipPortal>
-      <TooltipContent class="tooltip pm-fade" :side-offset="6">{{ label }}</TooltipContent>
+      <TooltipContent class="tooltip pm-fade" :side-offset="6"
+        >{{ label }}<span v-if="shortcut" class="tooltip-key">{{ shortcut }}</span></TooltipContent
+      >
     </TooltipPortal>
   </TooltipRoot>
 </template>
 
 <style scoped>
+.tooltip-key {
+  margin-left: 8px;
+  color: var(--text-4);
+}
+
 .icon-button {
   display: inline-grid;
   place-items: center;

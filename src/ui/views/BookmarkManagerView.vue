@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
@@ -24,7 +33,9 @@ import { sceneSnapshot } from '../playback/sceneSnapshot'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { usePracticeStore } from '../stores/practiceStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useStatsStore } from '../stores/statsStore'
+import { pageListCommand } from '../input/pageListCommand'
 import { useToastStore } from '../stores/toastStore'
 
 /**
@@ -45,6 +56,7 @@ const bookmarks = useBookmarkStore()
 const stats = useStatsStore()
 const toasts = useToastStore()
 const practice = usePracticeStore()
+const settings = useSettingsStore()
 const panel = useTemplateRef<InstanceType<typeof BookmarkEditPanel>>('panel')
 
 const search = ref('')
@@ -198,6 +210,65 @@ async function select(id: string): Promise<void> {
   selectedId.value = id
 }
 
+/** Scrolls the new selection into view; focus follows if it was on a row of the same list. */
+async function reveal(rowSelector: string, change: () => Promise<unknown>): Promise<void> {
+  const hadFocus = document.activeElement?.closest(rowSelector) != null
+  await change()
+  await nextTick()
+  const el = document.querySelector<HTMLElement>(`${rowSelector}[aria-pressed="true"]`)
+  el?.scrollIntoView({ block: 'nearest' })
+  if (hadFocus) el?.focus()
+}
+
+/** ↑/↓ move the selection through the bookmarks shown (the main list). */
+async function moveBookmark(by: number): Promise<void> {
+  const rows = groups.value.flatMap((g) => g.bookmarks)
+  const index = rows.findIndex((b) => b.id === selection.value?.bookmark.id)
+  const next = rows[Math.min(rows.length - 1, Math.max(0, index + by))]
+  if (next === undefined || next.id === selection.value?.bookmark.id) return
+  await reveal('[data-testid="bookmark-row"]', () => select(next.id))
+}
+
+/** Shift+↑/↓ move the song filter (the side list); it applies at once, like a click. */
+async function moveFilter(by: number): Promise<void> {
+  const items = [null, ...songsWithBookmarks.value.map((s) => s.song.songId)]
+  const index = items.indexOf(songFilter.value)
+  const next = items[Math.min(items.length - 1, Math.max(0, index + by))]
+  if (next === undefined || next === songFilter.value) return
+  await reveal('.filters .filter', () =>
+    router.replace({ name: 'bookmarks', query: next === null ? {} : { song: next } }),
+  )
+}
+
+/** List keys by role, wherever focus is on the page (brief decisions 90–91). */
+function onPageKeyDown(event: KeyboardEvent): void {
+  const command = pageListCommand(event, settings.bindings)
+  switch (command) {
+    case 'listNext':
+    case 'listPrevious':
+      void moveBookmark(command === 'listNext' ? 1 : -1)
+      break
+    case 'secondaryNext':
+    case 'secondaryPrevious':
+      void moveFilter(command === 'secondaryNext' ? 1 : -1)
+      break
+    case 'listOpen':
+      void loadInPlayer()
+      break
+    case 'nextTab':
+    case 'previousTab':
+      // Library | Bookmarks: either way, the other tab (the tabs wrap).
+      void router.push({ name: 'library' })
+      break
+    default:
+      return
+  }
+  event.preventDefault()
+}
+
+onMounted(() => window.addEventListener('keydown', onPageKeyDown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onPageKeyDown))
+
 async function loadInPlayer(): Promise<void> {
   const s = selection.value
   if (s === null) return
@@ -300,6 +371,7 @@ onMounted(async () => {
           v-model="search"
           label="Search bookmarks or songs"
           placeholder="Search bookmarks or songs"
+          data-list-search
           data-testid="bookmark-search"
         />
       </header>
@@ -345,6 +417,7 @@ onMounted(async () => {
               :class="{ selected: selection?.bookmark.id === b.id, draft: isDraft(b) }"
               :aria-pressed="selection?.bookmark.id === b.id"
               data-testid="bookmark-row"
+              data-list-row
               :data-draft="isDraft(b) ? 'true' : undefined"
               @click="select(b.id)"
             >

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { commandForKey } from '@/core/commands/commandKeys'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 
 import { summariseHandNotes } from '@/core/hands/summariseHandNotes'
@@ -38,6 +37,8 @@ import { formatTime } from '../format/formatTime'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { pageListCommand } from '../input/pageListCommand'
+import { useWindowKeys } from '../input/useWindowKeys'
 import { useStatsStore } from '../stores/statsStore'
 
 /**
@@ -83,6 +84,7 @@ const selectedEntryId = ref<string | null>(null)
 const searchField = useTemplateRef<{ focus: () => void }>('searchField')
 const songList = useTemplateRef<HTMLElement>('songList')
 const loadList = useTemplateRef<HTMLElement>('loadList')
+const root = useTemplateRef<HTMLElement>('root')
 
 const songs = computed(() =>
   sortEntries(
@@ -284,30 +286,31 @@ function load(): void {
   if (song !== null) emit('load', song.songId, selectedEntry.value?.bookmarkId ?? null)
 }
 
-/** ↑/↓ move through the focused list, ←/→ switch lists, Enter loads (Esc is the dialog's). */
+/**
+ * List keys by role (brief decisions 90–91), wherever focus is in the picker: ↑/↓ move the
+ * songs, Shift+↑/↓ the Load list, ←/→ and [ / ] move focus between the two lists, Enter loads
+ * the selected Load-list entry (Esc is the dialog's).
+ */
 function onKeyDown(event: KeyboardEvent): void {
-  const target = event.target as HTMLElement
-  const inLoadList = loadList.value?.contains(target) ?? false
-  const inSearch = target instanceof HTMLInputElement
-  // Keys from the command registry (decision 80).
-  const command = commandForKey('lists', event.code)
+  const command = pageListCommand(event, settings.bindings, root.value)
   switch (command) {
     case 'listNext':
     case 'listPrevious':
-      if (inLoadList) moveEntry(command === 'listNext' ? 1 : -1)
-      else move(command === 'listNext' ? 1 : -1)
+      move(command === 'listNext' ? 1 : -1)
+      break
+    case 'secondaryNext':
+    case 'secondaryPrevious':
+      moveEntry(command === 'secondaryNext' ? 1 : -1)
       break
     case 'listFocusNext':
-      if (inSearch) return
+    case 'nextTab':
       loadList.value?.focus()
       break
     case 'listFocusPrevious':
-      if (inSearch) return
+    case 'previousTab':
       songList.value?.focus()
       break
     case 'listOpen':
-      // Buttons (Cancel, Library…, sort headers, meter changes) handle their own Enter.
-      if (target instanceof HTMLButtonElement) return
       load()
       break
     default:
@@ -315,6 +318,8 @@ function onKeyDown(event: KeyboardEvent): void {
   }
   event.preventDefault()
 }
+
+useWindowKeys(() => open.value, onKeyDown)
 
 const SONG_SORTS = [
   { field: 'plays', label: 'Plays' },
@@ -333,13 +338,14 @@ const LOAD_SORTS = SONG_SORTS
     height="640px"
     data-testid="song-picker"
   >
-    <div class="picker" @keydown="onKeyDown">
+    <div ref="root" class="picker">
       <header class="head">
         <h2 class="heading">What to practice</h2>
         <SearchField
           ref="searchField"
           v-model="search"
           label="Search songs"
+          data-list-search
           data-testid="picker-search"
         />
         <IconButton icon="close" label="Close" variant="filled" @click="open = false" />

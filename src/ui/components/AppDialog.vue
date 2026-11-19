@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { commandForKey } from '@/core/commands/commandKeys'
 import {
   DialogContent,
   DialogDescription,
@@ -8,6 +7,11 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui'
+
+import { commandForEvent } from '@/core/commands/shortcutBindings'
+
+import { keyCapture } from '../input/keyCapture'
+import { useSettingsStore } from '../stores/settingsStore'
 
 /**
  * A centred glass dialog (Reka Dialog): focus is trapped while open, Esc and the backdrop close
@@ -30,6 +34,7 @@ withDefaults(
   { description: undefined, showTitle: false, width: '1200px', height: 'auto' },
 )
 const open = defineModel<boolean>('open', { required: true })
+const settings = useSettingsStore()
 
 /**
  * Esc from anywhere inside closes the dialog. Reka's own Esc handling only acts when the dialog
@@ -38,11 +43,17 @@ const open = defineModel<boolean>('open', { required: true })
  * Esc belongs to that popup: Reka closes it at the document, after this handler has run.
  */
 function onKeyDown(event: KeyboardEvent): void {
-  if (commandForKey('dialogs', event.code) !== 'closeDialog' || event.defaultPrevented) return
+  if (keyCapture.value || event.defaultPrevented) return
+  if (commandForEvent(settings.bindings, 'dialogs', event) !== 'closeDialog') return
   const popupOpen = document.querySelector(
     '[data-reka-popper-content-wrapper] > [data-state="open"]',
   )
   if (popupOpen === null) open.value = false
+}
+
+/** While Shortcuts records a key, Esc only cancels the recording (decision 84). */
+function onEscape(event: KeyboardEvent): void {
+  if (keyCapture.value) event.preventDefault()
 }
 </script>
 
@@ -55,6 +66,7 @@ function onKeyDown(event: KeyboardEvent): void {
         :style="{ '--dialog-width': width, '--dialog-height': height }"
         v-bind="$attrs"
         @keydown="onKeyDown"
+        @escape-key-down="onEscape"
       >
         <template v-if="showTitle">
           <header class="dialog-header">

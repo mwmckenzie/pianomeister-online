@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, useTemplateRef, watch } from 'vue'
 
 import type { Hand } from '@/core/hands/Hand'
 import { defaultHands } from '@/core/hands/defaultHands'
@@ -43,6 +43,16 @@ const confirmingDelete = ref(false)
 /** Deleting an upload keeps its bookmarks and stats unless ticked (decision 74). */
 const deletePracticeData = ref(false)
 const editingMeter = ref(false)
+const confirmBlock = useTemplateRef<HTMLElement>('confirmBlock')
+
+// The delete confirm can open below the fold of the panel: bring its buttons into view
+// (smoothly, unless motion is reduced, decision 54).
+watch(confirmingDelete, async (open) => {
+  if (!open) return
+  await nextTick()
+  const reduced = document.documentElement.dataset.motion === 'reduced'
+  confirmBlock.value?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' })
+})
 
 /** Loads the song and its stored settings; also used to undo a change whose save failed. */
 async function load(songId: string): Promise<void> {
@@ -369,7 +379,7 @@ function play(): void {
           >
             Delete upload…
           </AppButton>
-          <div v-else class="confirm-block">
+          <div v-else ref="confirmBlock" class="confirm-block" data-testid="delete-confirm">
             <span>Delete “{{ entry.title }}” and its edits?</span>
             <label class="check">
               <input

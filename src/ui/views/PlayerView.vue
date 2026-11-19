@@ -12,7 +12,8 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 
 import type { CommandId } from '@/core/commands/CommandId'
-import { commandForKey, shortcutLabel } from '@/core/commands/commandKeys'
+import { commandForEvent } from '@/core/commands/shortcutBindings'
+import { tempoSliderRange } from '@/core/practice/tempoSliderRange'
 import type { HandAssignment } from '@/core/hands/HandAssignment'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import { sameRange } from '@/core/practice/diffFromBookmark'
@@ -26,6 +27,7 @@ import { Engine } from '@/engine/Engine'
 import IconButton from '../components/IconButton.vue'
 import { formatTime } from '../format/formatTime'
 import { isTypingTarget } from '../input/isTypingTarget'
+import { keyCapture } from '../input/keyCapture'
 import type { LoadedSong } from '../playback/LoadedSong'
 import type { PlaybackSession } from '../playback/PlaybackSession'
 import { attachPlayLog } from '../playback/playLog'
@@ -42,6 +44,7 @@ import type { RenderStatus } from '../player/RenderStatus'
 import TempoPopover from '../player/TempoPopover.vue'
 import { useIdleHide } from '../player/useIdleHide'
 import ProfileMenu from '../player/ProfileMenu.vue'
+import { useLoopNudge } from '../player/useLoopNudge'
 import { useSaveBookmark } from '../player/useSaveBookmark'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
@@ -273,6 +276,7 @@ function showSong(
       ? requestedBookmarkId
       : null
   const sameEntry = !fresh && practice.songId === songId && practice.bookmarkId === bookmarkId
+  loopNudge.cancel()
   const key = JSON.stringify([songId, opened.hands, opened.override])
   const current = playback.song
   const sameSong = playback.songKey === key && current !== null
@@ -315,13 +319,34 @@ function togglePlay(): void {
 }
 
 function setLoop(range: LoopRange | null): void {
+  loopNudge.cancel()
   practice.setLoop(range)
   if (range !== null) loopDraft.value = range
 }
 
 function toggleLoop(): void {
+  const pending = loopNudge.pending.value
+  if (pending !== null) {
+    // Nudges still waiting show the loop as on, so the button turns it off; their range becomes
+    // the one the button turns on next.
+    loopDraft.value = pending
+    setLoop(null)
+    return
+  }
   setLoop(loop.value === null ? loopDraft.value : null)
 }
+
+/** Loop nudges (decision 92): shown at once, applied (loop on, one jump) when they pause. */
+const loopNudge = useLoopNudge({
+  base: () => loop.value ?? loopDraft.value,
+  firstBar: () => firstBar.value,
+  lastBar: () => lastBar.value,
+  apply: (range) => {
+    if (!sameRange(loop.value, range)) setLoop(range)
+  },
+})
+/** The loop as shown: nudges still waiting, else the loop in effect. */
+const shownLoop = computed(() => loopNudge.pending.value ?? loop.value)
 
 function backToStart(): void {
   session?.transport.stop()
@@ -444,7 +469,20 @@ function onPicked(songId: string, bookmarkId: string | null): void {
   void openSong(songId, bookmarkId)
 }
 
-/** What each player command does; its keys come from the command registry (decision 80). */
+/** A command's key as written in hints ("B"), or "" without one (decision 87). */
+const shortcutLabel = (id: CommandId) => settingsStore.shortcutLabel(id)
+
+/**
+ * Tempo keys (decision 89): the tempo step up or down, inside the tempo slider's range, or back
+ * to 100%. Through the practice store, so with a bookmark loaded they're temporary changes.
+ */
+function stepTempo(direction: -1 | 1): void {
+  const range = tempoSliderRange(settingsStore.settings.practice.tempoStep)
+  const next = tempoPercent.value + direction * range.step
+  tempoPercent.value = Math.min(range.max, Math.max(range.min, next))
+}
+
+/** What each player command does; its keys come from the shortcuts (decisions 80, 88). */
 const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
   playPause: togglePlay,
   previousBar: () => session?.transport.prevBar(),
@@ -456,14 +494,24 @@ const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
   openLibrary,
   togglePlayfield: toggleSidebar,
   openSettings,
+  tempoDown: () => stepTempo(-1),
+  tempoUp: () => stepTempo(1),
+  tempoReset: () => (tempoPercent.value = 100),
+  toggleLoop,
+  loopStartEarlier: () => loopNudge.nudge('start', -1),
+  loopStartLater: () => loopNudge.nudge('start', 1),
+  loopEndEarlier: () => loopNudge.nudge('end', -1),
+  loopEndLater: () => loopNudge.nudge('end', 1),
+  revertBookmark: () => {
+    if (practice.changed.length > 0) practice.revert()
+  },
 }
 
 /** Shortcuts (decision 60); ignored while typing, and while a dialog has the keyboard. */
 function onKeyDown(event: KeyboardEvent): void {
   if (session === null || event.defaultPrevented || isTypingTarget(event.target)) return
-  if (event.ctrlKey || event.metaKey || event.altKey) return
-  if (pickerOpen.value || settingsOpen.value) return
-  const command = commandForKey('player', event.code)
+  if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return
+  const command = commandForEvent(settingsStore.bindings, 'player', event)
   const action = command === null ? undefined : PLAYER_ACTIONS[command]
   if (action === undefined) return
   event.preventDefault()
@@ -485,6 +533,14 @@ watch(
     engine?.applySettings(settingsStore.snapshot())
     if (settings.audio !== previous.audio) applyAudio()
   },
+)
+// "Change shortcuts…" from the cheat sheet on another page: open the settings once here.
+watch(
+  () => ui.settingsTabRequest,
+  (tab) => {
+    if (tab !== null) openSettings()
+  },
+  { immediate: true },
 )
 // Switching profiles stops playback and opens that profile's last song or bookmark (decision 66).
 watch(
@@ -641,6 +697,13 @@ onBeforeUnmount(() => {
             data-testid="menu-settings"
             @click="openSettings"
           />
+          <HudMenuButton
+            icon="keyboard"
+            label="Keyboard shortcuts"
+            :shortcut="shortcutLabel('showShortcuts')"
+            data-testid="menu-shortcuts"
+            @click="ui.shortcutsOpen = true"
+          />
           <ProfileMenu v-if="profiles.profiles.length > 1" />
         </nav>
       </div>
@@ -673,23 +736,40 @@ onBeforeUnmount(() => {
           @pointerleave="overPlayback = false"
         >
           <div class="transport" role="toolbar" aria-label="Transport">
-            <IconButton icon="stop" label="Stop" data-testid="stop" @click="backToStart" />
-            <IconButton icon="prevBar" label="Previous bar" @click="session?.transport.prevBar()" />
+            <IconButton
+              icon="stop"
+              label="Stop"
+              :shortcut="shortcutLabel('stop')"
+              data-testid="stop"
+              @click="backToStart"
+            />
+            <IconButton
+              icon="prevBar"
+              label="Previous bar"
+              :shortcut="shortcutLabel('previousBar')"
+              @click="session?.transport.prevBar()"
+            />
             <IconButton
               :icon="hud.state === 'playing' ? 'pause' : 'play'"
               :label="hud.state === 'playing' ? 'Pause' : 'Play'"
+              :shortcut="shortcutLabel('playPause')"
               size="lg"
               variant="outline"
               :disabled="!samplesReady"
               data-testid="play-pause"
               @click="togglePlay"
             />
-            <IconButton icon="nextBar" label="Next bar" @click="session?.transport.nextBar()" />
+            <IconButton
+              icon="nextBar"
+              label="Next bar"
+              :shortcut="shortcutLabel('nextBar')"
+              @click="session?.transport.nextBar()"
+            />
           </div>
           <div class="toggles">
             <LoopPopover
               v-model:open="loopOpen"
-              :loop="loop"
+              :loop="shownLoop"
               :draft="loopDraft"
               :first-bar="firstBar"
               :last-bar="lastBar"
@@ -697,6 +777,7 @@ onBeforeUnmount(() => {
               @toggle="toggleLoop"
               @set="setLoop"
               @clear="setLoop(null)"
+              @nudge="loopNudge.nudge"
               @to-start="backToStart"
               @save-bookmark="saveAsBookmark"
               @revert="practice.revert()"

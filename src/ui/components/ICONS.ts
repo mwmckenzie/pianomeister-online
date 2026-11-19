@@ -30,6 +30,9 @@ export const ICONS = {
   bookmark: { d: 'M7.5 4.5h9v15l-4.5-3.5-4.5 3.5z' },
   bookmarkAdd: { d: 'M7.5 4.5h9v15l-4.5-3.5-4.5 3.5zM12 7.5v5.5M9.25 10.25h5.5' },
   metronome: { d: 'M9.6 4h4.8l3.6 15.5H6zM12 14.5l4-7.5M7.3 15h9.4' },
+  keyboard: {
+    d: 'M3.5 7h17v10h-17zM6.5 10h1M9.5 10h1M12.5 10h1M15.5 10h1M8 14h8',
+  },
   stop: { fill: 'M8 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z' },
   lock: {
     d: 'M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 11V8a4 4 0 0 1 8 0v3',

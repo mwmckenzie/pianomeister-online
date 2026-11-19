@@ -21,6 +21,7 @@ function update(value: unknown): void {
   <ToggleGroupRoot
     type="single"
     class="segmented"
+    data-owns-arrows
     :model-value="modelValue"
     :aria-label="label"
     @update:model-value="update"
