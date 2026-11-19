@@ -12,7 +12,6 @@ import type { SettingOverride } from '../components/SettingOverride'
 import SettingRow from '../components/SettingRow.vue'
 import { usePracticeStore } from '../stores/practiceStore'
 import HudToggle from './HudToggle.vue'
-import TemporaryNote from './TemporaryNote.vue'
 
 /**
  * The HUD's loop row: "bars 17–32" in the secondary colour while on, the caret that opens the
@@ -28,8 +27,9 @@ import TemporaryNote from './TemporaryNote.vue'
  * the range shows at once and applies once nudging pauses. They're for the pointer and left out
  * of the Tab order, so Tab still goes From → To (the keyboard has the fields and the commands).
  *
- * With a bookmark loaded these changes are temporary (brief decision 69): a note says so, and
- * "Revert to bookmark" drops them. "Save as bookmark" saves what's playing in one click.
+ * With a bookmark loaded these changes are temporary (brief decision 69). While the setup differs
+ * from the last loaded entry, "Back to ⟨name⟩" returns to it (the bookmark, or Full song: loop
+ * off, 100%). "Save as bookmark" saves what's playing in one click.
  */
 const props = defineProps<{
   readonly loop: LoopRange | null
@@ -122,6 +122,8 @@ function setLoop(): void {
 }
 
 const preRollBeats = computed(() => practice.current.preRollBeats)
+/** What "Back to" returns to: the last loaded bookmark, or Full song. */
+const backName = computed(() => practice.bookmark?.name ?? 'Full song')
 
 /** With a bookmark loaded, pre-roll edits are temporary and reset to the bookmark's value. */
 const preRollOverride = computed((): SettingOverride | undefined =>
@@ -297,19 +299,22 @@ const isCurrentLoop = computed(
         :end-label="loop === null ? 'play position' : `bar ${loop.startBar}`"
         :override="preRollOverride"
       />
-      <div v-if="practice.bookmark" class="temporary">
-        <TemporaryNote @navigate="open = false" />
-        <AppButton
-          v-if="practice.changed.length > 0"
-          variant="text"
-          size="sm"
-          icon="reset"
-          data-testid="revert-bookmark"
-          @click="emit('revert')"
-        >
-          Revert to bookmark
-        </AppButton>
-      </div>
+      <!-- "Back to" and the name on its own dim line: auto names are long (up to two lines,
+           then an ellipsis; the full name in the tooltip). -->
+      <button
+        v-if="practice.changed.length > 0"
+        type="button"
+        class="back"
+        :title="`Back to ${backName}`"
+        data-testid="back-to-loaded"
+        @click="emit('revert')"
+      >
+        <AppIcon name="reset" :size="16" class="back-icon" />
+        <span class="back-text">
+          <span>Back to</span>
+          <span class="back-name" data-testid="back-to-name">{{ backName }}</span>
+        </span>
+      </button>
       <div class="foot">
         <AppButton
           variant="text"
@@ -457,11 +462,52 @@ const isCurrentLoop = computed(
   border-top: 1px solid var(--divider);
 }
 
-.temporary {
+.back {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin-top: var(--space-2);
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.back:hover {
+  background: var(--field);
+}
+
+.back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-field);
+}
+
+.back-icon {
+  margin-top: 1px;
+  color: var(--text-3);
+}
+
+.back-text {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  align-items: flex-start;
-  margin-top: var(--space-3);
+  min-width: 0;
+}
+
+/* The name: dim, wrapping within the popover, at most two lines. */
+.back-name {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-3);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 </style>

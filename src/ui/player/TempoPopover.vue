@@ -9,7 +9,6 @@ import SliderField from '../components/SliderField.vue'
 import { usePracticeStore } from '../stores/practiceStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import HudToggle from './HudToggle.vue'
-import TemporaryNote from './TemporaryNote.vue'
 
 /**
  * The HUD's tempo row: "85%" in the primary colour while the tempo isn't 100%, then the tempo
@@ -78,7 +77,6 @@ const resetTo = computed(() => practice.saved.tempoPercent)
           Reset to {{ resetTo }}%
         </AppButton>
       </div>
-      <TemporaryNote class="note" @navigate="open = false" />
     </AppPopover>
   </div>
 </template>
@@ -116,9 +114,5 @@ const resetTo = computed(() => practice.saved.tempoPercent)
 .hint {
   color: var(--text-3);
   font-size: var(--text-sm);
-}
-
-.note {
-  margin-top: var(--space-3);
 }
 </style>

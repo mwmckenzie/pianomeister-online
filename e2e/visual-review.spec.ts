@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { test, expect, type Page } from '@playwright/test'
 
 import { practiceHistory } from './practiceHistory'
-import { seedPractice } from './support'
+import { seedBookmark, seedPractice, SONG_IDS } from './support'
 
 /**
  * Screenshots for a human to review (npm run test:visual), saved under test-results/visual/ and
@@ -378,13 +378,8 @@ for (const viewport of M6_VIEWPORTS) {
       })
 
       test(`@visual m7 player bookmark ${suffix}`, async ({ page }) => {
-        // A temporary tempo change: the dot after the bookmark name.
-        await page.getByTestId('open-tempo').click()
-        const slider = page.getByTestId('tempo-slider').getByRole('slider')
-        await slider.focus()
-        await slider.press('ArrowLeft')
-        await page.keyboard.press('Escape')
-        await expect(page.getByTestId('hud-modified')).toBeVisible()
+        // The bookmark as loaded: icon and name on the now-playing line (decision 60).
+        await expect(page.getByTestId('hud-entry-icon')).toBeVisible()
         for (let i = 1; i < 17; i++) await page.getByRole('button', { name: 'Next bar' }).click()
         await page.getByTestId('menu-profile').hover()
         await settle(page, 30)
@@ -395,9 +390,40 @@ for (const viewport of M6_VIEWPORTS) {
         await page.getByTestId('open-loop').click()
         await page.getByTestId('loop-to').fill('28')
         await page.getByTestId('loop-to').press('Enter')
-        await expect(page.getByTestId('revert-bookmark')).toBeVisible()
+        await expect(page.getByTestId('back-to-name')).toHaveText('B section')
         await settle(page, 30)
         await shoot(page, `m7-loop-popover-${suffix}`)
+      })
+
+      test(`@visual m7.6 player custom setup ${suffix}`, async ({ page }) => {
+        // A tempo change: the line shows the setup itself, plain and dim, with no icon.
+        await page.getByTestId('open-tempo').click()
+        const slider = page.getByTestId('tempo-slider').getByRole('slider')
+        await slider.focus()
+        await slider.press('ArrowLeft')
+        await page.keyboard.press('Escape')
+        await expect(page.getByTestId('hud-custom')).toBeVisible()
+        await page.getByTestId('hud-entry').hover()
+        await settle(page, 30)
+        await shoot(page, `m7-6-player-custom-${suffix}`)
+      })
+
+      test(`@visual m7.6 player full song ${suffix}`, async ({ page }) => {
+        await page.getByTestId('open-picker').click()
+        await page.getByTestId('picker-song').filter({ hasText: 'Minuet' }).click()
+        await page.getByTestId('picker-full-song').click()
+        await page.getByTestId('picker-load').click()
+        await expect(page.getByTestId('hud-full-song')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m7-6-player-full-song-${suffix}`)
+      })
+
+      test(`@visual m7.6 picker other setups ${suffix}`, async ({ page }) => {
+        await page.getByTestId('open-picker').click()
+        await page.getByTestId('picker-song').filter({ hasText: 'Minuet' }).click()
+        await expect(page.getByTestId('picker-other-setups')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m7-6-picker-other-setups-${suffix}`)
       })
 
       test(`@visual m7 picker ${suffix}`, async ({ page }) => {
@@ -576,3 +602,52 @@ test.describe('m7.5 800x600-glacier', () => {
     await shoot(page, 'm7-5-shortcuts-800x600-glacier')
   })
 })
+
+// 10. Milestone 7.6: the loop popover's "Back to" with the longest automatic name (it wraps
+// under "Back to", dim, at most two lines).
+for (const viewport of M6_VIEWPORTS) {
+  const suffix = `${viewport.width}x${viewport.height}-glacier`
+
+  test.describe(`m7.6 long name ${suffix}`, () => {
+    test.use({ viewport })
+
+    test(`@visual m7.6 loop popover long name ${suffix}`, async ({ page }) => {
+      const name = 'Bars 100–120 · 85% · left only · quiet pre-roll 4 · metronome in pre-roll'
+      const base = seedBookmark('long', name, { startBar: 100, endBar: 120 }) as {
+        config: object
+      }
+      await seed(page, {})
+      await page.goto('./')
+      await expect(page.getByTestId('hud-bars')).not.toHaveText('')
+      await seedPractice(page, {
+        bookmarks: [
+          {
+            ...base,
+            songId: SONG_IDS.canon,
+            autoName: true,
+            config: {
+              ...base.config,
+              tempoPercent: 85,
+              handAudio: { right: 'muted', left: 'solo' },
+              preRollBeats: 4,
+              preRollMode: 'quiet',
+              metronomeMode: 'preRoll',
+            },
+          },
+        ],
+        appState: [
+          {
+            key: 'lastOpened:default',
+            value: JSON.stringify({ songId: SONG_IDS.canon, bookmarkId: 'long' }),
+          },
+        ],
+      })
+      await expect(page.getByTestId('hud-bookmark')).toHaveText(name)
+      await page.keyboard.press('-')
+      await page.getByTestId('open-loop').click()
+      await expect(page.getByTestId('back-to-name')).toHaveText(name)
+      await settle(page, 30)
+      await shoot(page, `m7-6-loop-popover-long-name-${suffix}`)
+    })
+  })
+}

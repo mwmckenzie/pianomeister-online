@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 
-import { seedBookmark, seedPractice, SONG_IDS, watchErrors } from './support'
+import { readStore, seedBookmark, seedPractice, SONG_IDS, watchErrors } from './support'
 
 /**
  * Brief decision 8: every committed loop change moves the playhead to the new loop start —
@@ -36,39 +36,56 @@ async function openPlayer(page: Page, seed?: { bookmark?: boolean; loaded?: bool
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
 }
 
-/** Loop bars 40–44 on (the playhead jumps there; the test moves it back). */
-async function loopFrom40(page: Page): Promise<void> {
+/** A loop on (the playhead jumps to its start). */
+async function setLoop(page: Page, from: number, to: number): Promise<void> {
   await page.getByTestId('open-loop').click()
-  await page.getByTestId('loop-from').fill('40')
+  await page.getByTestId('loop-from').fill(String(from))
   await page.getByTestId('loop-from').press('Enter')
-  await page.getByTestId('loop-to').fill('44')
+  await page.getByTestId('loop-to').fill(String(to))
   await page.getByTestId('loop-to').press('Enter')
   await page.getByTestId('loop-set').click()
-  await expect(page.getByTestId('loop-value')).toHaveText('bars 40–44')
+  await expect(page.getByTestId('loop-value')).toHaveText(`bars ${from}–${to}`)
   await page.keyboard.press('Escape')
 }
 
-/** Back to bar 1 (the timeline's Home), then playing, or played briefly and paused. */
-async function enter(page: Page, state: State): Promise<void> {
-  const timeline = page.getByTestId('timeline')
-  await timeline.focus()
-  await timeline.press('Home')
-  await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
+/** Loop bars 40–44 on. */
+const loopFrom40 = (page: Page) => setLoop(page, 40, 44)
+
+/**
+ * The playhead to `bar` by a timeline click (with a loop on, decision 8: a bar inside it), then
+ * playing, or played briefly and paused. Tests that need room between the playhead and the jump
+ * target use a wide loop (bars 10–44) and start inside it.
+ */
+async function enter(page: Page, state: State, bar = 1): Promise<void> {
+  const box = await page.getByTestId('timeline').boundingBox()
+  if (box === null) throw new Error('No timeline')
+  await page.mouse.click(box.x + ((bar - 0.5) / 64) * box.width, box.y + box.height / 2)
+  await expect(page.getByTestId('hud-bar-beat')).toHaveText(`${bar}:1`)
   await page.getByTestId('play-pause').click()
   await expect(page.getByTestId('transport-state')).toHaveText('playing')
   if (state === 'paused') {
     await page.getByTestId('play-pause').click()
     await expect(page.getByTestId('transport-state')).toHaveText('paused')
   }
-  expect(await barNow(page)).toBeLessThan(5)
+  expect(await barNow(page)).toBeLessThan(bar + 4)
+}
+
+/** Plays counted so far (decision 70: starts, wraps and loop jumps). */
+async function plays(page: Page): Promise<number> {
+  const records = await readStore<{ readonly plays: number }>(page, 'playRecords')
+  return records.reduce((n, r) => n + r.plays, 0)
 }
 
 async function expectAt(page: Page, bar: number, state: State): Promise<void> {
   if (state === 'paused') {
     await expect(page.getByTestId('hud-bar-beat')).toHaveText(`${bar}:1`)
   } else {
-    await expect.poll(() => barNow(page), { timeout: 5_000 }).toBeGreaterThanOrEqual(bar)
-    expect(await barNow(page)).toBeLessThanOrEqual(bar + 1)
+    // At the target bar or just past it (the jump may still be on its way).
+    const near = async () => {
+      const now = await barNow(page)
+      return now >= bar && now <= bar + 1
+    }
+    await expect.poll(near, { timeout: 5_000 }).toBe(true)
   }
   await expect(page.getByTestId('transport-state')).toHaveText(state)
 }
@@ -94,8 +111,8 @@ for (const state of ['playing', 'paused'] as const) {
     test(`releasing the range slider jumps, dragging doesn't (${state})`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
-      await loopFrom40(page)
-      await enter(page, state)
+      await setLoop(page, 10, 44)
+      await enter(page, state, 30)
       await page.getByTestId('open-loop').click()
       const end = page.getByTestId('loop-slider').getByRole('slider').last()
       const box = (await end.boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 }
@@ -105,34 +122,33 @@ for (const state of ['playing', 'paused'] as const) {
       await page.mouse.down()
       await page.mouse.move(track.x + track.width - 4, y, { steps: 6 })
       // Mid-drag: the range follows the thumb, the loop and the playhead don't move yet.
-      await expect(page.getByTestId('loop-range')).not.toHaveText('40–44')
-      await expect(page.getByTestId('loop-value')).toHaveText('bars 40–44')
-      expect(await barNow(page)).toBeLessThan(5)
+      await expect(page.getByTestId('loop-range')).not.toHaveText('10–44')
+      await expect(page.getByTestId('loop-value')).toHaveText('bars 10–44')
+      expect(await barNow(page)).toBeGreaterThanOrEqual(30)
       await page.mouse.up()
-      await expect(page.getByTestId('loop-value')).not.toHaveText('bars 40–44')
-      await expectAt(page, 40, state)
+      await expect(page.getByTestId('loop-value')).not.toHaveText('bars 10–44')
+      await expectAt(page, 10, state)
       expect(errors).toEqual([])
     })
 
     test(`committing From or To jumps to the new start (${state})`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
-      await loopFrom40(page)
-      await enter(page, state)
+      await setLoop(page, 10, 44)
+      await enter(page, state, 30)
+      // To: the loop's start stays bar 10, and the playhead goes back there from bar 30.
       await page.getByTestId('open-loop').click()
+      await page.getByTestId('loop-to').fill('60')
+      await page.getByTestId('loop-to').press('Enter')
+      await expectAt(page, 10, state)
+      // From: to the new start, bar 42.
       await page.getByTestId('loop-from').fill('42')
       await page.getByTestId('loop-from').press('Enter')
-      await expectAt(page, 42, state)
-      await page.getByTestId('timeline').focus()
-      await page.getByTestId('timeline').press('Home')
-      await page.getByTestId('open-loop').click()
-      await page.getByTestId('loop-to').fill('46')
-      await page.getByTestId('loop-to').press('Enter')
       await expectAt(page, 42, state)
       expect(errors).toEqual([])
     })
 
-    test(`Revert to bookmark jumps to the bookmark's start (${state})`, async ({ page }) => {
+    test(`Back to the bookmark jumps to the bookmark's start (${state})`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page, { bookmark: true, loaded: true })
       await expect(page.getByTestId('hud-bookmark')).toHaveText('Bars 40 to 44')
@@ -141,10 +157,10 @@ for (const state of ['playing', 'paused'] as const) {
       await page.getByTestId('loop-from').fill('42')
       await page.getByTestId('loop-from').press('Enter')
       await page.keyboard.press('Escape')
-      await expect(page.getByTestId('hud-modified')).toBeVisible()
-      await enter(page, state)
+      await expect(page.getByTestId('hud-custom')).toBeVisible()
+      await enter(page, state, 42)
       await page.getByTestId('open-loop').click()
-      await page.getByTestId('revert-bookmark').click()
+      await page.getByTestId('back-to-loaded').click()
       await expect(page.getByTestId('loop-value')).toHaveText('bars 40–44')
       await expectAt(page, 40, state)
       expect(errors).toEqual([])
@@ -164,6 +180,39 @@ for (const state of ['playing', 'paused'] as const) {
     })
   })
 }
+
+test('a loop jump while playing is a start, counted at once', async ({ page }) => {
+  const errors = watchErrors(page)
+  await openPlayer(page)
+  await setLoop(page, 10, 44)
+  await enter(page, 'playing', 30)
+  // The Play in enter() was the first start.
+  await expect.poll(() => plays(page)).toBe(1)
+  await page.getByTestId('open-loop').click()
+  await page.getByTestId('loop-from').fill('42')
+  await page.getByTestId('loop-from').press('Enter')
+  await expectAt(page, 42, 'playing')
+  await expect.poll(() => plays(page)).toBe(2)
+  expect(errors).toEqual([])
+})
+
+test('a loop jump while paused arms a start: the next Play counts', async ({ page }) => {
+  const errors = watchErrors(page)
+  await openPlayer(page)
+  await setLoop(page, 10, 44)
+  await enter(page, 'paused', 30)
+  await expect.poll(() => plays(page)).toBe(1)
+  await page.getByTestId('open-loop').click()
+  await page.getByTestId('loop-from').fill('42')
+  await page.getByTestId('loop-from').press('Enter')
+  await expectAt(page, 42, 'paused')
+  // Parked at the new start: armed, not counted yet.
+  expect(await plays(page)).toBe(1)
+  await page.keyboard.press('Escape')
+  await page.getByTestId('play-pause').click()
+  await expect.poll(() => plays(page)).toBe(2)
+  expect(errors).toEqual([])
+})
 
 test('turning the loop off leaves the playhead where it is', async ({ page }) => {
   const errors = watchErrors(page)
@@ -215,7 +264,7 @@ test('arrow keys on the range slider apply the loop once they settle, or on focu
   await page.clock.install()
   await openPlayer(page)
   await loopFrom40(page)
-  await enter(page, 'paused')
+  await enter(page, 'paused', 40)
   await page.getByTestId('open-loop').click()
   const start = page.getByTestId('loop-slider').getByRole('slider').first()
   await start.focus()
@@ -226,7 +275,7 @@ test('arrow keys on the range slider apply the loop once they settle, or on focu
   await start.press('ArrowRight')
   await expect(page.getByTestId('loop-range')).toHaveText('43–44')
   await expect(page.getByTestId('loop-value')).toHaveText('bars 40–44')
-  await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
+  expect(await barNow(page)).toBe(40)
   // Still waiting just before the 400 ms are up…
   await page.clock.runFor(350)
   await expect(page.getByTestId('loop-value')).toHaveText('bars 40–44')

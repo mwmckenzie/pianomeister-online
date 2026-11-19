@@ -29,7 +29,7 @@ const zipWith = (json: unknown) => zipSync({ 'library.json': strToU8(JSON.string
 describe('library archive', () => {
   it('round-trips uploads, metadata and meter overrides', () => {
     const { document, uploads } = readArchive(archive())
-    expect(document.version).toBe('1.1')
+    expect(document.version).toBe('1.2')
     expect(document.exportedAt).toBe('2026-11-16T10:00:00.000Z')
     // Same file name twice (case-insensitively): the second gets a suffix.
     expect(document.uploads.map((u) => u.path)).toEqual(['uploads/song.mid', 'uploads/Song-2.mid'])
@@ -83,6 +83,43 @@ describe('library archive', () => {
       }),
     ).document.practice
     expect(practice).toEqual(good)
+  })
+
+  it('reads a 1.1 backup: complete passes count as plays; 1.2 keeps other setups and the full setup', () => {
+    const good = makePracticeData({ bookmarks: 1 })
+    const first = good.playRecords[0]
+    const old = readArchive(
+      zipWith({
+        format: 'pianomeister-library',
+        version: '1.1',
+        practice: {
+          ...good,
+          playRecords: [{ ...first, plays: undefined, passes: 4, temporary: true }],
+        },
+      }),
+    ).document.practice
+    expect(old?.playRecords[0]).toMatchObject({ plays: 4, temporary: true })
+    expect(old?.playRecords[0]).not.toHaveProperty('passes')
+
+    const other = {
+      ...good.playRecords[0],
+      bookmarkId: null,
+      plays: 2,
+      loop: { startBar: 3, endBar: 9 },
+      tempoPercent: 70,
+      handAudio: { right: 'solo', left: 'on' },
+      preRollBeats: 1,
+      preRollMode: 'quiet',
+      metronomeMode: 'always',
+    }
+    const current = readArchive(
+      zipWith({
+        format: 'pianomeister-library',
+        version: '1.2',
+        practice: { ...good, playRecords: [other] },
+      }),
+    ).document.practice
+    expect(current?.playRecords).toEqual([other])
   })
 
   it('rejects files that are not library exports', () => {

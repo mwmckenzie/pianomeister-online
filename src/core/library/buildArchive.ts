@@ -6,7 +6,7 @@ import type { PracticeData } from './PracticeData'
 import type { SongMetaEdit } from './SongMetaEdit'
 
 export const LIBRARY_FORMAT = 'pianomeister-library'
-export const LIBRARY_VERSION = '1.1'
+export const LIBRARY_VERSION = '1.2'
 
 /**
  * Zips all uploads plus library.json (with the profiles' practice data from 1.1). MIDI is

@@ -110,7 +110,7 @@ describe('planBackupMerge', () => {
     for (const r of add.playRecords) {
       expect(r.profileId).toBe('new1')
       expect(r.id.startsWith('new')).toBe(true)
-      expect(bookmarkIds.has(r.bookmarkId)).toBe(true)
+      expect(bookmarkIds.has(r.bookmarkId ?? '')).toBe(true)
     }
     // Records of the backup's own session point at its new id; records of a session the backup
     // doesn't contain still get a fresh (consistent) id, never a local one.

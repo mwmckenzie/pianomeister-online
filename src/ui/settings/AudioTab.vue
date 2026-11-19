@@ -7,10 +7,10 @@ import type { MetronomeMode } from '@/core/practice/MetronomeMode'
 import type { SettingOverride } from '../components/SettingOverride'
 import SettingRow from '../components/SettingRow.vue'
 import SettingsSection from '../components/SettingsSection.vue'
-import TemporaryNote from '../player/TemporaryNote.vue'
 import { usePracticeStore } from '../stores/practiceStore'
 
-const emit = defineEmits<{ navigate: [] }>()
+// Still declared: the settings window listens for it on every tab.
+defineEmits<{ navigate: [] }>()
 const practice = usePracticeStore()
 
 /**
@@ -58,7 +58,6 @@ const metronomeOverride = computed((): SettingOverride | undefined =>
         <SettingRow setting-key="audio.leftAudio" :override="leftOverride" />
       </div>
     </div>
-    <TemporaryNote class="note" @navigate="emit('navigate')" />
   </SettingsSection>
   <SettingsSection section-id="preRollMetronome" title="Pre-roll & metronome">
     <div class="columns">
@@ -66,7 +65,6 @@ const metronomeOverride = computed((): SettingOverride | undefined =>
       <SettingRow setting-key="audio.metronomeVolume" />
     </div>
     <SettingRow setting-key="audio.metronomeMode" :override="metronomeOverride" />
-    <TemporaryNote class="note" @navigate="emit('navigate')" />
   </SettingsSection>
   <SettingsSection section-id="soundSource" title="Sound source">
     <SettingRow setting-key="audio.output" />
@@ -74,10 +72,6 @@ const metronomeOverride = computed((): SettingOverride | undefined =>
 </template>
 
 <style scoped>
-.note {
-  margin-top: var(--space-2);
-}
-
 .columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

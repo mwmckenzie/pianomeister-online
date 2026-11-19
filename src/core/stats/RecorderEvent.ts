@@ -1,30 +1,27 @@
 import type { PlaySetup } from './PlaySetup'
 
-/** What the play log is attributed to: the loaded bookmark or Full song of one song. */
+/** The song the play log is recording for, in a profile. */
 export interface RecorderEntry {
   readonly profileId: string
   readonly songId: string
-  /** A bookmark id, or `full:<songId>`. */
-  readonly entryId: string
 }
 
 /**
- * What the player tells the play recorder. `now` is epoch ms. "Range start" means the first bar
- * of the effective range (the loop, or the song's start without one), or its pre-roll.
+ * What the player tells the play recorder (brief decision 70). `now` is epoch ms.
+ *
+ * - `load`: a song or bookmark was loaded (or nothing is): the next Play is a start.
+ * - `setup`: the setup in effect and what it matches exactly (a bookmark id, `full:<songId>`,
+ *   or null for other setups). A change of either splits the stretch under way.
+ * - `jump`: a committed loop change moved the playhead to the new loop start.
  */
 export type RecorderEvent =
   | { readonly type: 'load'; readonly entry: RecorderEntry | null; readonly now: number }
   | {
-      readonly type: 'play'
-      readonly atRangeStart: boolean
-      readonly rangeMatches: boolean
+      readonly type: 'setup'
+      readonly setup: PlaySetup
+      readonly entryId: string | null
       readonly now: number
     }
-  | { readonly type: 'pause' | 'stop' | 'hidden'; readonly now: number }
+  | { readonly type: 'play' | 'pause' | 'stop' | 'end' | 'hidden'; readonly now: number }
   | { readonly type: 'visible'; readonly playing: boolean; readonly now: number }
-  | { readonly type: 'seek'; readonly atRangeStart: boolean; readonly now: number }
-  /** The effective loop range changed; does it now equal the loaded entry's saved range? */
-  | { readonly type: 'range'; readonly matchesSaved: boolean; readonly now: number }
-  | { readonly type: 'wrap' | 'end' | 'tick'; readonly now: number }
-  /** Tempo, loop, metronome or temporary changes: a stretch under way ends and a new one starts. */
-  | { readonly type: 'setup'; readonly setup: PlaySetup; readonly now: number }
+  | { readonly type: 'wrap' | 'jump' | 'tick'; readonly now: number }

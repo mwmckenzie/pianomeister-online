@@ -17,17 +17,22 @@ function handsPart(config: PracticeConfig): string | null {
  * bookmark manager leaves out parts at their defaults (both hands on, no pre-roll); the picker
  * always names the hands ("both hands"); an automatic bookmark name names every part ("no
  * pre-roll" too). A quiet pre-roll says so ("quiet pre-roll 2"). The metronome is named only when on ("metronome", "metronome in pre-roll").
- * A null loop is the whole song.
+ * A null loop is the whole song: its bar range, or `wholeSong` when given ("Full song").
  */
 export function bookmarkSummary(
   config: PracticeConfig,
   lastBar: number,
-  options: { readonly alwaysHands?: boolean; readonly allParts?: boolean } = {},
+  options: {
+    readonly alwaysHands?: boolean
+    readonly allParts?: boolean
+    readonly wholeSong?: string
+  } = {},
 ): string {
-  const parts = [
-    rangeLabel(config.loop ?? { startBar: 1, endBar: lastBar }),
-    `${config.tempoPercent}%`,
-  ]
+  const range =
+    config.loop === null && options.wholeSong !== undefined
+      ? options.wholeSong
+      : rangeLabel(config.loop ?? { startBar: 1, endBar: lastBar })
+  const parts = [range, `${config.tempoPercent}%`]
   const all = options.allParts === true
   const hands = handsPart(config) ?? (options.alwaysHands === true || all ? 'both hands' : null)
   if (hands !== null) parts.push(hands)

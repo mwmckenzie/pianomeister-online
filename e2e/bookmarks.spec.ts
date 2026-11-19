@@ -13,8 +13,8 @@ import {
 } from './support'
 
 interface StoredRecord {
-  readonly bookmarkId: string
-  readonly passes: number
+  readonly bookmarkId: string | null
+  readonly plays: number
   readonly playedMs: number
 }
 
@@ -84,7 +84,8 @@ test('B saves what is playing in one click, auto-named; the HUD names it on its 
   await expect(page.getByTestId('hud-entry')).toHaveCSS('color', 'rgb(126, 224, 195)')
   await expect(page.getByTestId('hud-composer')).toHaveText('Christian Petzold (attrib. J.S. Bach)')
   await expect(page.getByTestId('hud-full-song')).toBeHidden()
-  await expect(page.getByTestId('hud-modified')).toBeHidden()
+  await expect(page.getByTestId('hud-entry')).toHaveAttribute('data-kind', 'bookmark')
+  await expect(page.getByTestId('hud-entry-icon')).toBeVisible()
   const [saved] = await readStore<StoredBookmark>(page, 'bookmarks')
   expect(saved).toMatchObject({ name: B_SECTION, autoName: true })
 
@@ -161,8 +162,8 @@ test('the save toast: Rename opens the manager on the name, Undo removes the boo
   await page.keyboard.type('Bridge')
   await expect(page.getByTestId('bookmark-row-name')).toHaveText('Bridge')
 
-  // Undo: the new bookmark goes, and the player is back to what it had: Bridge, with the
-  // temporary loop change.
+  // Undo: the new bookmark goes, and the player is back to what it had: Bridge loaded, with the
+  // temporary loop change, so the line shows that setup.
   await page.getByTestId('back-to-player').click()
   await expect(page.getByTestId('hud-bookmark')).toHaveText('Bridge')
   await setLoopBars(page, 9, 12)
@@ -172,9 +173,12 @@ test('the save toast: Rename opens the manager on the name, Undo removes the boo
     'Bars 9–12 · 100% · both hands · no pre-roll',
   )
   await page.getByTestId('toast-undo').click()
-  await expect(page.getByTestId('hud-bookmark')).toHaveText('Bridge')
-  await expect(page.getByTestId('hud-modified')).toBeVisible()
+  await expect(page.getByTestId('hud-custom')).toHaveText(
+    'Bars 9–12 · 100% · both hands · no pre-roll',
+  )
   await expect(page.getByTestId('loop-value')).toHaveText('bars 9–12')
+  await page.getByTestId('open-loop').click()
+  await expect(page.getByTestId('back-to-name')).toHaveText('Bridge')
   await expect.poll(async () => (await readStore(page, 'bookmarks')).length).toBe(1)
   expect(errors).toEqual([])
 })
@@ -200,7 +204,6 @@ test('saving the same settings again creates nothing: it loads the existing book
     .filter({ hasText: `Already saved as “${B_SECTION}” · no new bookmark created` })
   await expect(toast).toBeVisible()
   await expect(page.getByTestId('hud-bookmark')).toHaveText(B_SECTION)
-  await expect(page.getByTestId('hud-modified')).toBeHidden()
   expect(await readStore(page, 'bookmarks')).toHaveLength(1)
 
   await toast.getByTestId('toast-show').click()
@@ -210,7 +213,7 @@ test('saving the same settings again creates nothing: it loads the existing book
   expect(errors).toEqual([])
 })
 
-test('player changes to a loaded bookmark are temporary: a dot, a note, Revert, and no writes', async ({
+test('player changes to a loaded bookmark: the line shows the setup, Back to, and no writes', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -218,26 +221,36 @@ test('player changes to a loaded bookmark are temporary: a dot, a note, Revert, 
   await saveBSection(page)
   const settingsBefore = await page.evaluate(() => localStorage.getItem('pianomeister.settings'))
 
-  // A tempo change: the dot appears, the tempo popover says it's temporary and resets to 85%.
+  // A tempo change: the line shows the setup itself, plain, with no icon, and a hint.
   await setTempo(page, -2)
   await expect(page.getByTestId('hud-tempo-percent')).toHaveText('75%')
-  await expect(page.getByTestId('hud-modified')).toBeVisible()
-  await page.getByTestId('open-tempo').click()
-  await expect(page.getByTestId('tempo-popover').getByTestId('temporary-note')).toHaveText(
-    `Temporary for ${B_SECTION} · edit it in the Bookmark manager`,
+  const custom = page.getByTestId('hud-custom')
+  await expect(custom).toHaveText('Bars 17–32 · 75% · both hands · no pre-roll')
+  await expect(page.getByTestId('hud-entry-icon')).toBeHidden()
+  await expect(page.getByTestId('hud-entry')).toHaveAttribute(
+    'title',
+    'Bars 17–32 · 75% · both hands · no pre-roll\nDoesn’t match a bookmark · press B to save it',
   )
+  // No notes any more; the tempo reset still goes to the bookmark's 85%.
+  await page.getByTestId('open-tempo').click()
   await expect(page.getByTestId('tempo-reset')).toHaveText('Reset to 85%')
   await page.keyboard.press('Escape')
+  await expect(page.getByTestId('temporary-note')).toHaveCount(0)
+  await expect(page.getByTestId('hud-modified')).toHaveCount(0)
 
-  // A hand mode in the Audio tab is temporary too.
+  // Changed back: the bookmark again, with its icon.
+  await setTempo(page, 2)
+  await expect(page.getByTestId('hud-bookmark')).toHaveText(B_SECTION)
+  await expect(page.getByTestId('hud-entry-icon')).toBeVisible()
+
+  // A hand mode in the Audio tab is temporary too (still resets to the bookmark's value).
   await page.getByTestId('menu-settings').click()
   await page.getByTestId('tab-audio').click()
   await segment(page, 'audio.leftAudio', 'Mute')
   await expect(setting(page, 'audio.leftAudio')).toHaveAttribute('data-changed', 'true')
-  await expect(
-    page.getByTestId('settings-window').getByTestId('temporary-note').first(),
-  ).toBeVisible()
+  await expect(page.getByTestId('settings-window').getByTestId('temporary-note')).toHaveCount(0)
   await page.keyboard.press('Escape')
+  await expect(custom).toHaveText('Bars 17–32 · 85% · left muted · no pre-roll')
 
   // Neither the settings nor the bookmark were written.
   expect(await page.evaluate(() => localStorage.getItem('pianomeister.settings'))).toBe(
@@ -247,33 +260,20 @@ test('player changes to a loaded bookmark are temporary: a dot, a note, Revert, 
   expect(saved?.config.tempoPercent).toBe(85)
   expect(saved?.config.handAudio).toEqual({ right: 'on', left: 'on' })
 
-  // Revert drops them all.
+  // "Back to <name>" drops them all, and is gone once the setup matches.
   await page.getByTestId('open-loop').click()
-  await page.getByTestId('revert-bookmark').click()
-  await expect(page.getByTestId('hud-modified')).toBeHidden()
-  await expect(page.getByTestId('hud-tempo-percent')).toHaveText('85%')
-  await expect(page.getByTestId('revert-bookmark')).toBeHidden()
-  await page.keyboard.press('Escape')
-
-  // Temporary again, then the Audio tab's link opens the manager on the bookmark.
-  await setTempo(page, 1)
-  await page.getByTestId('menu-settings').click()
-  await page.getByTestId('tab-audio').click()
-  await page.getByTestId('settings-window').getByTestId('temporary-note-link').first().click()
-  await expect(page.getByTestId('bookmark-manager')).toBeVisible()
-  await expect(page.getByTestId('bookmark-name')).toHaveValue(B_SECTION)
-  // Loading it again drops the temporary change.
-  await page.getByTestId('bookmark-load').click()
+  await expect(page.getByTestId('back-to-name')).toHaveText(B_SECTION)
+  await page.getByTestId('back-to-loaded').click()
   await expect(page.getByTestId('hud-bookmark')).toHaveText(B_SECTION)
-  await expect(page.getByTestId('hud-tempo-percent')).toHaveText('85%')
-  await expect(page.getByTestId('hud-modified')).toBeHidden()
+  await expect(page.getByTestId('back-to-loaded')).toBeHidden()
+  await page.keyboard.press('Escape')
   expect(errors).toEqual([])
 })
 
-test('loop passes count as plays of the loaded bookmark; Full song stats stay separate', async ({
+test('a play is a start: the first Play and each loop wrap count, for the matching bookmark', async ({
   page,
 }) => {
-  // Loading the samples (up to 30 s on a busy machine) plus two real loop passes.
+  // Loading the samples (up to 30 s on a busy machine) plus a few real loop wraps.
   test.setTimeout(60_000)
   const errors = watchErrors(page)
   await openPlayer(page)
@@ -284,30 +284,33 @@ test('loop passes count as plays of the loaded bookmark; Full song stats stay se
   await page.keyboard.press('Escape')
 
   await page.getByTestId('play-pause').click()
-  const passes = async () =>
-    (await readStore<StoredRecord>(page, 'playRecords')).reduce((n, r) => n + r.passes, 0)
-  await expect.poll(passes, { timeout: 20_000 }).toBeGreaterThanOrEqual(2)
+  const plays = async () =>
+    (await readStore<StoredRecord>(page, 'playRecords')).reduce((n, r) => n + r.plays, 0)
+  // The start, then three wraps (one play each).
+  await expect.poll(plays, { timeout: 20_000 }).toBeGreaterThanOrEqual(4)
   await page.getByTestId('play-pause').click()
   await expect(page.getByTestId('transport-state')).toHaveText('paused')
 
   const records = await readStore<StoredRecord>(page, 'playRecords')
-  const plays = records.reduce((n, r) => n + r.passes, 0)
-  expect(plays).toBeGreaterThanOrEqual(2)
-  expect(records.every((r) => r.bookmarkId !== '' && !r.bookmarkId.startsWith('full:'))).toBe(true)
+  const total = records.reduce((n, r) => n + r.plays, 0)
+  expect(total).toBeGreaterThanOrEqual(4)
+  const [bookmark] = await readStore<StoredBookmark>(page, 'bookmarks')
+  expect(records.every((r) => r.bookmarkId === bookmark?.id)).toBe(true)
 
   await page.getByTestId('open-picker').click()
   const minuet = page.getByTestId('picker-song').filter({ hasText: 'Minuet in G' })
-  await expect(minuet.getByTestId('picker-song-plays')).toHaveText(String(plays))
+  await expect(minuet.getByTestId('picker-song-plays')).toHaveText(String(total))
   await expect(minuet.getByTestId('picker-song-time')).not.toHaveText('—')
   await expect(minuet.getByTestId('picker-song-lastcell')).toHaveText('Today')
-  await expect(page.getByTestId('picker-song-played')).toHaveText(`${plays}×`)
+  await expect(page.getByTestId('picker-song-played')).toHaveText(`${total}×`)
   // Full song is selected by default: none of this practice is its.
   await expect(page.getByTestId('picker-entry-name')).toHaveText('Full song')
   await expect(page.getByTestId('picker-entry-played')).toHaveText('—')
   await expect(page.getByTestId('picker-entry-share')).toHaveText('0%')
   await page.getByTestId('picker-bookmark').click()
-  await expect(page.getByTestId('picker-entry-played')).toHaveText(`${plays}×`)
+  await expect(page.getByTestId('picker-entry-played')).toHaveText(`${total}×`)
   await expect(page.getByTestId('picker-entry-share')).toHaveText('100%')
+  await expect(page.getByTestId('picker-other-setups')).toBeHidden()
   expect(errors).toEqual([])
 })
 
@@ -502,10 +505,12 @@ test('the metronome is part of a bookmark: temporary in the player, a row in the
   const errors = watchErrors(page)
   await openPlayer(page)
   await saveBSection(page)
-  // M with a bookmark loaded: a temporary change (dot, Revert); the setting stays off.
+  // M with a bookmark loaded: a temporary change (the line shows the setup); the setting stays off.
   await page.keyboard.press('m')
   await expect(page.getByTestId('toggle-metronome')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('hud-modified')).toBeVisible()
+  await expect(page.getByTestId('hud-custom')).toHaveText(
+    'Bars 17–32 · 85% · both hands · no pre-roll · metronome',
+  )
   await page.getByTestId('menu-settings').click()
   await page.getByTestId('tab-audio').click()
   await expect(setting(page, 'audio.metronomeMode')).toHaveAttribute('data-changed', 'true')
@@ -515,8 +520,9 @@ test('the metronome is part of a bookmark: temporary in the player, a row in the
   ) as { settings?: { audio?: { metronomeMode?: string } } }
   expect(stored.settings?.audio?.metronomeMode ?? 'off').toBe('off')
   await page.getByTestId('open-loop').click()
-  await page.getByTestId('revert-bookmark').click()
+  await page.getByTestId('back-to-loaded').click()
   await expect(page.getByTestId('toggle-metronome')).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByTestId('hud-bookmark')).toHaveText(B_SECTION)
   await page.keyboard.press('Escape')
 
   // In the manager: a Metronome row; the auto name follows it, and it counts as a setting.
@@ -529,7 +535,9 @@ test('the metronome is part of a bookmark: temporary in the player, a row in the
   await expect(page.getByTestId('bookmark-metronome-reset')).toHaveAttribute('data-changed', 'true')
   await page.getByTestId('bookmark-load').click()
   await expect(page.getByTestId('metronome-value')).toHaveText('pre-roll')
-  await expect(page.getByTestId('hud-modified')).toBeHidden()
+  await expect(page.getByTestId('hud-bookmark')).toHaveText(
+    'Bars 17–32 · 85% · both hands · no pre-roll · metronome in pre-roll',
+  )
   expect(errors).toEqual([])
 })
 
@@ -546,9 +554,9 @@ test('the Practice tab stays global with a bookmark loaded, and says so', async 
   await expect(page.getByTestId('defaults-note')).toHaveText(
     `The defaults for Full song. ${B_SECTION} has its own pre-roll · edit it in the Bookmark manager`,
   )
-  // Changing it edits the setting, not the bookmark (no temporary dot).
+  // Changing it edits the setting, not the bookmark: the bookmark still plays as saved.
   await nudge(page, 'practice.preRollBeats', 'ArrowRight')
-  await expect(page.getByTestId('hud-modified')).toBeHidden()
+  await expect(page.getByTestId('hud-bookmark')).toHaveText(B_SECTION)
   await page.getByTestId('defaults-note-link').click()
   await expect(page.getByTestId('bookmark-name')).toHaveValue(B_SECTION)
   expect(errors).toEqual([])

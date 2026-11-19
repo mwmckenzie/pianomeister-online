@@ -92,7 +92,11 @@ export function planBackupMerge(
           id: newId(),
           profileId: id,
           sessionId: remap(sessionIds, r.sessionId),
-          bookmarkId: isFullSongId(r.bookmarkId) ? r.bookmarkId : remap(bookmarkIds, r.bookmarkId),
+          // Other setups (null) and Full song keep theirs; bookmark ids follow the new bookmarks.
+          bookmarkId:
+            r.bookmarkId === null || isFullSongId(r.bookmarkId)
+              ? r.bookmarkId
+              : remap(bookmarkIds, r.bookmarkId),
         })),
       )
       add.handAssignments.push(...hands.map((h) => ({ ...h, profileId: id })))

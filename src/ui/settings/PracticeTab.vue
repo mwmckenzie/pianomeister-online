@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SettingRow from '../components/SettingRow.vue'
 import SettingsSection from '../components/SettingsSection.vue'
-import TemporaryNote from '../player/TemporaryNote.vue'
+import DefaultsNote from './DefaultsNote.vue'
 
 const emit = defineEmits<{ navigate: [] }>()
 </script>
@@ -19,7 +19,7 @@ const emit = defineEmits<{ navigate: [] }>()
     <SettingRow setting-key="practice.preRollBeats" />
     <SettingRow setting-key="practice.preRollMode" />
     <!-- Global even while a bookmark is loaded (decision 68): say so, and where to edit it. -->
-    <TemporaryNote kind="defaults" class="note" @navigate="emit('navigate')" />
+    <DefaultsNote class="note" @navigate="emit('navigate')" />
   </SettingsSection>
 </template>
 

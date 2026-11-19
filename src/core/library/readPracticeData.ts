@@ -6,6 +6,7 @@ import type { HandAudio } from '../practice/HandAudio'
 import type { Profile } from '../profiles/Profile'
 import type { PlayRecord } from '../stats/PlayRecord'
 import type { Session } from '../stats/Session'
+import type { PreRollMode } from '../transport/PreRollMode'
 import type { PracticeData } from './PracticeData'
 import type { ProfileHandAssignment } from './ProfileHandAssignment'
 
@@ -17,6 +18,7 @@ const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.is
 const isBar = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0
 const HAND_AUDIO: readonly unknown[] = ['on', 'muted', 'solo'] satisfies HandAudio[]
 const METRONOME_MODES: readonly unknown[] = ['off', 'preRoll', 'always'] satisfies MetronomeMode[]
+const PRE_ROLL_MODES: readonly unknown[] = ['muted', 'quiet'] satisfies PreRollMode[]
 
 function list<T>(value: unknown, convert: (v: Rec) => T | null): T[] {
   if (!Array.isArray(value)) return []
@@ -92,7 +94,7 @@ function toSession(v: Rec): Session | null {
 
 function toRecord(v: Rec): PlayRecord | null {
   if (!isString(v.id) || !isString(v.profileId) || !isString(v.sessionId)) return null
-  if (!isString(v.songId) || !isString(v.bookmarkId)) return null
+  if (!isString(v.songId) || !(isString(v.bookmarkId) || v.bookmarkId === null)) return null
   if (!isNumber(v.startedAt) || !isNumber(v.playedMs) || v.playedMs < 0) return null
   return {
     id: v.id,
@@ -102,7 +104,8 @@ function toRecord(v: Rec): PlayRecord | null {
     bookmarkId: v.bookmarkId,
     startedAt: v.startedAt,
     playedMs: v.playedMs,
-    passes: isBar(v.passes) ? v.passes : 0,
+    // Backups before 1.2 counted complete passes; they count as plays (decision 70).
+    plays: isBar(v.plays) ? v.plays : isBar(v.passes) ? v.passes : 0,
     // The setup it was played with (missing on older records).
     ...(isNumber(v.tempoPercent) ? { tempoPercent: v.tempoPercent } : {}),
     ...(v.loop === null ? { loop: null } : {}),
@@ -112,12 +115,26 @@ function toRecord(v: Rec): PlayRecord | null {
     ...(METRONOME_MODES.includes(v.metronomeMode)
       ? { metronomeMode: v.metronomeMode as MetronomeMode }
       : {}),
+    ...(isRecord(v.handAudio) &&
+    HAND_AUDIO.includes(v.handAudio.right) &&
+    HAND_AUDIO.includes(v.handAudio.left)
+      ? {
+          handAudio: {
+            right: v.handAudio.right as HandAudio,
+            left: v.handAudio.left as HandAudio,
+          },
+        }
+      : {}),
+    ...(isNumber(v.preRollBeats) ? { preRollBeats: v.preRollBeats } : {}),
+    ...(PRE_ROLL_MODES.includes(v.preRollMode)
+      ? { preRollMode: v.preRollMode as PreRollMode }
+      : {}),
     ...(typeof v.temporary === 'boolean' ? { temporary: v.temporary } : {}),
   }
 }
 
 /**
- * The profiles part of a backup (format 1.1). Malformed rows are dropped, not fatal; a 1.0
+ * The profiles part of a backup (format 1.1 and 1.2: 1.2 records count `plays`). Malformed rows are dropped, not fatal; a 1.0
  * backup (no practice data) reads as empty.
  */
 export function readPracticeData(value: unknown): PracticeData {

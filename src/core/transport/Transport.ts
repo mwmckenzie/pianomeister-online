@@ -12,6 +12,7 @@ import type { TimelineSegment } from './TimelineSegment'
 import type { TransportEvents } from './TransportEvents'
 import type { TransportSong } from './TransportSong'
 import type { TransportState } from './TransportState'
+import { loopSeekBar } from './loopSeekBar'
 
 const MIN_TEMPO_PERCENT = 25
 const MAX_TEMPO_PERCENT = 200
@@ -116,6 +117,15 @@ export class Transport {
 
   play(): void {
     if (this.prepared === null || this.currentState === 'playing') return
+    // Safety net (decision 8): playing never starts outside an active loop. From a playhead
+    // outside it, play starts at the loop start, pre-roll first, like a committed loop jump.
+    const loop = this.loopRange
+    if (loop !== null) {
+      const { barMap, tempoMap } = this.prepared.source
+      const tick = this.armedTick ?? tempoMap.secondsToTick(this.heldPosition)
+      const bar = barMap.tickToPosition(tick).bar
+      if (loopSeekBar(bar, loop) !== bar) this.armedTick = barMap.barStartTick(loop.startBar)
+    }
     if (this.armedTick !== null) {
       this.startFrom(this.armedTick)
     } else {
@@ -151,11 +161,17 @@ export class Transport {
     this.changed('tempo')
   }
 
+  /**
+   * Every seek ends here (timeline click, drag release and keys, ←/→, Home): while a loop is on,
+   * a bar outside it lands on the loop's first bar.
+   */
   seekToBar(bar: number): void {
     const song = this.prepared
     if (song === null) return
     const { barMap } = song.source
-    const target = Math.min(barMap.barCount, Math.max(barMap.firstBar, Math.round(bar)))
+    const clamped = Math.min(barMap.barCount, Math.max(barMap.firstBar, Math.round(bar)))
+    // While a loop is on, a seek outside it lands on the loop start (decision 8).
+    const target = loopSeekBar(clamped, this.loopRange)
     const tick = barMap.barStartTick(target)
     this.silence()
     if (this.currentState === 'playing') this.startFrom(tick)

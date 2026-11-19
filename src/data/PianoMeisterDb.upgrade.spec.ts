@@ -64,7 +64,7 @@ describe('PianoMeisterDb upgrade to v2', () => {
     await createV1([upload('minuet', readFixture('minuet-in-g.mid'))])
     const db = new PianoMeisterDb(name)
     expect((await db.uploads.get('minuet'))?.facts).toEqual(v1Facts)
-    expect(db.verno).toBe(4)
+    expect(db.verno).toBe(5)
     db.close()
   })
 })
@@ -136,6 +136,47 @@ describe('PianoMeisterDb upgrade to v4', () => {
       name: 'Bars 17–32 · 85% · left muted · no pre-roll',
     })
     expect(await db.bookmarks.get('b')).toMatchObject({ autoName: false, name: 'B section' })
+    db.close()
+  })
+})
+
+describe('PianoMeisterDb upgrade to v5', () => {
+  it('turns each record’s complete passes into plays and touches nothing else', async () => {
+    name = 'upgrade-v5'
+    const v4 = new Dexie(name)
+    v4.version(4).stores({
+      uploads: 'songId, addedAt',
+      songMeta: 'songId',
+      meterOverrides: 'songId',
+      handAssignments: '[profileId+songId], songId',
+      appState: 'key',
+      profiles: 'id',
+      bookmarks: 'id, [profileId+songId], songId',
+      sessions: 'id, profileId, [profileId+endedAt]',
+      playRecords:
+        'id, [profileId+songId], [profileId+bookmarkId], [profileId+startedAt], profileId, songId',
+    })
+    const row = {
+      profileId: 'default',
+      sessionId: 's1',
+      songId: 'song',
+      startedAt: 1,
+      playedMs: 60_000,
+      tempoPercent: 85,
+      loop: null,
+      metronomeMode: 'off',
+      temporary: true,
+    }
+    await v4.table('playRecords').bulkPut([
+      { ...row, id: 'a', bookmarkId: 'b1', passes: 3 },
+      { ...row, id: 'b', bookmarkId: 'full:song', passes: 0 },
+    ])
+    v4.close()
+    const db = new PianoMeisterDb(name)
+    const a = await db.playRecords.get('a')
+    expect(a).toEqual({ ...row, id: 'a', bookmarkId: 'b1', plays: 3 })
+    expect(await db.playRecords.get('b')).toMatchObject({ plays: 0, bookmarkId: 'full:song' })
+    expect(a).not.toHaveProperty('passes')
     db.close()
   })
 })

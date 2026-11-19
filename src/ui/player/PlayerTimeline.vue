@@ -115,6 +115,22 @@ function onKeyDown(event: KeyboardEvent): void {
       >
     </template>
     <span class="played" :style="{ width: `${shown * 100}%` }" />
+    <!-- Outside an active loop is out of bounds (seeks there land on the loop start): dimmed,
+         ticks still showing through. -->
+    <template v-if="loop">
+      <span
+        v-if="loop.from > 0"
+        class="outside"
+        :style="{ left: 0, width: `${loop.from * 100}%` }"
+        data-testid="timeline-outside"
+      />
+      <span
+        v-if="loop.to < 1"
+        class="outside"
+        :style="{ left: `${loop.to * 100}%`, right: 0 }"
+        data-testid="timeline-outside"
+      />
+    </template>
     <span
       class="head"
       :class="{ active: dragging !== null }"
@@ -172,6 +188,14 @@ function onKeyDown(event: KeyboardEvent): void {
   border: 1px solid rgb(var(--secondary-rgb) / 45%);
   border-radius: 4px;
   background: rgb(var(--secondary-rgb) / 12%);
+}
+
+.outside {
+  position: absolute;
+  top: 10px;
+  height: 7px;
+  background: rgb(5 7 15 / 45%);
+  pointer-events: none;
 }
 
 .loop-bar {

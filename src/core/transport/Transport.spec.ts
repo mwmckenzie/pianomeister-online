@@ -338,6 +338,47 @@ describe('Transport', () => {
     expect(transport.position).toBeCloseTo(2, 9)
   })
 
+  it('lands every seek outside an active loop on the loop start, playing or paused', () => {
+    transport.setLoop({ startBar: 2, endBar: 3 })
+    // Paused (stopped) at the loop start: a seek before or after it lands back there.
+    transport.seekToBar(1)
+    expect(transport.position).toBeCloseTo(2, 9)
+    transport.seekToBar(4)
+    expect(transport.position).toBeCloseTo(2, 9)
+    // Inside the loop works as before.
+    transport.seekToBar(3)
+    expect(transport.position).toBeCloseTo(4, 9)
+    // → on the loop's last bar wraps to its start; ← on its first bar stays.
+    transport.nextBar()
+    expect(transport.position).toBeCloseTo(2, 9)
+    transport.prevBar()
+    expect(transport.position).toBeCloseTo(2, 9)
+    // Playing: the same, and it plays on from the loop start.
+    transport.play()
+    run(0.5)
+    transport.seekToBar(4)
+    expect(transport.state).toBe('playing')
+    expect(transport.position).toBeCloseTo(2, 9)
+    // Without the loop, anywhere again.
+    transport.setLoop(null)
+    transport.seekToBar(4)
+    expect(transport.position).toBeCloseTo(6, 9)
+  })
+
+  it('never starts playing outside an active loop: it starts at the loop start, pre-roll first', () => {
+    transport.play()
+    run(0.5)
+    transport.pause()
+    // The loop set while paused doesn't move the playhead (bar 1, outside it)…
+    transport.setLoop({ startBar: 3, endBar: 4 })
+    expect(transport.position).toBeCloseTo(0.5, 9)
+    // …but Play starts at its start, with the count-in.
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
+    transport.play()
+    expect(transport.position).toBeCloseTo(3, 9)
+    expect(transport.activePreRoll?.targetTick).toBe(2 * BAR)
+  })
+
   it('validates and clamps loops', () => {
     expect(() => transport.setLoop({ startBar: 3, endBar: 2 })).toThrow(RangeError)
     expect(() => transport.setLoop({ startBar: 1.5, endBar: 2 })).toThrow(RangeError)

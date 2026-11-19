@@ -24,6 +24,7 @@ import type { LoopRange } from '@/core/transport/LoopRange'
 import type { OpenedSong } from '@/data/OpenedSong'
 import { Engine } from '@/engine/Engine'
 
+import AppIcon from '../components/AppIcon.vue'
 import IconButton from '../components/IconButton.vue'
 import { formatTime } from '../format/formatTime'
 import { isTypingTarget } from '../input/isTypingTarget'
@@ -151,9 +152,15 @@ function trackSidebarFocus(event: FocusEvent): void {
 
 const title = computed(() => entry.value?.title ?? '')
 const composer = computed(() => entry.value?.composer ?? '')
-/** The loaded bookmark's name, under the composer (decision 69); none = Full song. */
-const bookmarkName = computed(() => practice.bookmark?.name ?? '')
-const temporaryChanges = computed(() => practice.changed.length > 0)
+/** What's playing now, under the composer (decision 60): a bookmark, Full song, or the setup. */
+const nowPlaying = computed(() => practice.now)
+/** The custom line's hover hint, with the key in effect for Save as bookmark. */
+const customHint = computed(() => {
+  const key = shortcutLabel('saveBookmark')
+  return key === ''
+    ? 'Doesn’t match a bookmark · Save as bookmark to keep it'
+    : `Doesn’t match a bookmark · press ${key} to save it`
+})
 const length = computed(() => formatTime(loaded.value?.song.durationSeconds ?? 0))
 const barCount = computed(() => loaded.value?.barMap.barCount ?? 0)
 const firstBar = computed(() => loaded.value?.barMap.firstBar ?? 1)
@@ -502,8 +509,9 @@ const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
   loopStartLater: () => loopNudge.nudge('start', 1),
   loopEndEarlier: () => loopNudge.nudge('end', -1),
   loopEndLater: () => loopNudge.nudge('end', 1),
+  // "Back to bookmark": nothing to do while the setup matches the last loaded entry.
   revertBookmark: () => {
-    if (practice.changed.length > 0) practice.revert()
+    if (practice.changed.length > 0) practice.backToLoaded()
   },
 }
 
@@ -615,7 +623,7 @@ onBeforeUnmount(() => {
       />
 
       <!-- Left: what you're playing and where you are, then the app menu. -->
-      <div class="side left">
+      <div class="side left" data-testid="hud-left">
         <section class="hud-text song" aria-label="Song">
           <h1 class="title" :title="title" data-testid="hud-title">
             {{ title }}
@@ -624,23 +632,26 @@ onBeforeUnmount(() => {
             {{ composer }}
           </p>
           <p
-            v-if="entry"
+            v-if="entry && nowPlaying"
             class="composer entry"
-            :class="{ full: !bookmarkName }"
-            :title="bookmarkName || 'Full song'"
+            :class="{ custom: nowPlaying.kind === 'custom' }"
+            :title="
+              nowPlaying.kind === 'custom'
+                ? `${nowPlaying.label}
+${customHint}`
+                : nowPlaying.label
+            "
+            :data-kind="nowPlaying.kind"
             data-testid="hud-entry"
           >
-            <span v-if="bookmarkName" data-testid="hud-bookmark">{{ bookmarkName }}</span><span
-              v-else
-              data-testid="hud-full-song"
-              >Full song</span
-            ><span
-              v-if="temporaryChanges"
-              class="modified-dot"
-              role="img"
-              aria-label="temporary changes"
-              data-testid="hud-modified"
-            />
+            <template v-if="nowPlaying.kind !== 'custom'">
+              <AppIcon name="bookmark" :size="15" class="entry-icon" data-testid="hud-entry-icon" />
+              <span
+                :data-testid="nowPlaying.kind === 'bookmark' ? 'hud-bookmark' : 'hud-full-song'"
+                >{{ nowPlaying.label }}</span
+              >
+            </template>
+            <span v-else data-testid="hud-custom">{{ nowPlaying.label }}</span>
           </p>
           <BarBeatCounter
             :bar="hud.bar"
@@ -780,7 +791,7 @@ onBeforeUnmount(() => {
               @nudge="loopNudge.nudge"
               @to-start="backToStart"
               @save-bookmark="saveAsBookmark"
-              @revert="practice.revert()"
+              @revert="practice.backToLoaded()"
             />
             <TempoPopover
               v-model:open="tempoOpen"
@@ -934,17 +945,29 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* The loaded bookmark on its own line under the composer, in the secondary colour like the loop
-   region; "Full song" in the dim neutral text colour. */
+/* What's playing (decision 60): a matching bookmark or Full song with the bookmark icon, in the
+   secondary colour like the loop region; any other setup in plain dim text. */
 .composer.entry {
+  display: flex;
+  align-items: center;
   color: var(--secondary);
 }
 
-.composer.entry.full {
+.composer.entry > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.composer.entry.custom {
   color: var(--text-4);
 }
 
-/* Temporary changes to the loaded bookmark (decision 69). */
+.entry-icon {
+  flex-shrink: 0;
+  margin: 0 3px 0 -2px;
+  filter: var(--icon-shadow-hud);
+}
+
 .hud-row {
   display: flex;
   align-items: center;
@@ -955,17 +978,6 @@ onBeforeUnmount(() => {
   color: var(--primary);
   font-size: var(--text-sm);
   text-shadow: var(--text-shadow-hud);
-}
-
-.modified-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--secondary);
-  box-shadow: 0 0 6px rgb(var(--secondary-rgb) / 60%);
-  vertical-align: middle;
 }
 
 .title {

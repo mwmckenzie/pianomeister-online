@@ -6,7 +6,7 @@ import type { PlayRecord } from '@/core/stats/PlayRecord'
 import type { PracticeRow } from '@/core/stats/PracticeRow'
 import type { PracticeTotals } from '@/core/stats/PracticeTotals'
 import type { RecorderWrite } from '@/core/stats/RecorderWrite'
-import { NO_PRACTICE, practiceShare, totalsBy } from '@/core/stats/sumPractice'
+import { NO_PRACTICE, otherSetupTotals, practiceShare, totalsBy } from '@/core/stats/sumPractice'
 import { summariseProfile } from '@/core/stats/summariseProfile'
 import { PlayLog } from '@/data/PlayLog'
 
@@ -55,6 +55,7 @@ export const useStatsStore = defineStore('stats', () => {
 
   const bySong = computed(() => totalsBy(records.value, 'songId'))
   const byEntry = computed(() => totalsBy(records.value, 'bookmarkId'))
+  const byOtherSetups = computed(() => otherSetupTotals(records.value))
 
   /** Per song: totals plus bookmark count, for the practice columns and their sorting. */
   const songRows = computed(() => {
@@ -78,6 +79,11 @@ export const useStatsStore = defineStore('stats', () => {
   /** A bookmark's or Full song's totals (entry id: a bookmark id or `full:<songId>`). */
   function entry(entryId: string): PracticeTotals {
     return byEntry.value.get(entryId) ?? NO_PRACTICE
+  }
+
+  /** A song's plays and time on setups that matched no bookmark and not Full song. */
+  function otherSetups(songId: string): PracticeTotals {
+    return byOtherSetups.value.get(songId) ?? NO_PRACTICE
   }
 
   function share(entryId: string, songId: string): number | null {
@@ -125,6 +131,7 @@ export const useStatsStore = defineStore('stats', () => {
     summary,
     song,
     entry,
+    otherSetups,
     share,
     chart,
     lastSession,

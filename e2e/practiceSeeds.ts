@@ -14,7 +14,7 @@ export function sortingHistory(now: number): PracticeSeed {
     songId: string,
     startedAt: number,
     minutes: number,
-    passes: number,
+    plays: number,
   ) => ({
     id,
     profileId: 'default',
@@ -23,7 +23,7 @@ export function sortingHistory(now: number): PracticeSeed {
     bookmarkId: `full:${songId}`,
     startedAt,
     playedMs: minutes * MIN,
-    passes,
+    plays,
   })
   const bookmark = (id: string, name: string) => ({
     id,

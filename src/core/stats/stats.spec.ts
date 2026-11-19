@@ -6,27 +6,27 @@ import { comparePractice } from './comparePractice'
 import { formatPlayedTimes, formatPlays, formatShare } from './formatPlays'
 import { formatPracticeTime } from './formatPracticeTime'
 import { sessionize } from './sessionize'
-import { NO_PRACTICE, practiceShare, totalsBy } from './sumPractice'
+import { NO_PRACTICE, otherSetupTotals, practiceShare, totalsBy } from './sumPractice'
 import { summariseProfile } from './summariseProfile'
 
 const MIN = 60_000
 
 function rec(
   songId: string,
-  bookmarkId: string,
+  bookmarkId: string | null,
   startedAt: number,
   playedMs: number,
-  passes = 0,
+  plays = 0,
 ): PlayRecord {
   return {
-    id: `${bookmarkId}@${startedAt}`,
+    id: `${bookmarkId ?? 'other'}@${startedAt}`,
     profileId: 'p',
     sessionId: 's',
     songId,
     bookmarkId,
     startedAt,
     playedMs,
-    passes,
+    plays,
   }
 }
 
@@ -35,12 +35,14 @@ const LOG = [
   rec('a', 'b1', 5 * MIN, 6 * MIN, 3),
   rec('b', 'full:b', 60 * MIN, 10 * MIN, 0),
   rec('a', 'b1', 120 * MIN, 2 * MIN, 1),
+  // Other setups of song a: no bookmark matched.
+  rec('a', null, 130 * MIN, 3 * MIN, 2),
 ]
 
 describe('totals', () => {
-  it('sums plays and time per song, Full song and bookmarks together', () => {
+  it('sums plays and time per song from all its records: bookmarks, Full song, other setups', () => {
     const bySong = totalsBy(LOG, 'songId')
-    expect(bySong.get('a')).toEqual({ plays: 5, playedMs: 12 * MIN, lastPlayedAt: 122 * MIN })
+    expect(bySong.get('a')).toEqual({ plays: 7, playedMs: 15 * MIN, lastPlayedAt: 133 * MIN })
     expect(bySong.get('b')).toEqual({ plays: 0, playedMs: 10 * MIN, lastPlayedAt: 70 * MIN })
   })
 
@@ -48,8 +50,20 @@ describe('totals', () => {
     const byEntry = totalsBy(LOG, 'bookmarkId')
     const song = totalsBy(LOG, 'songId').get('a') ?? NO_PRACTICE
     expect(byEntry.get('b1')).toEqual({ plays: 4, playedMs: 8 * MIN, lastPlayedAt: 122 * MIN })
-    expect(practiceShare(byEntry.get('b1') ?? NO_PRACTICE, song)).toBeCloseTo(8 / 12)
+    // The share is of all the song's time, other setups included (decision 71).
+    expect(practiceShare(byEntry.get('b1') ?? NO_PRACTICE, song)).toBeCloseTo(8 / 15)
     expect(practiceShare(NO_PRACTICE, NO_PRACTICE)).toBeNull()
+    // Other setups belong to no entry.
+    expect([...byEntry.keys()].sort()).toEqual(['b1', 'full:a', 'full:b'])
+  })
+
+  it('sums other setups per song', () => {
+    expect(otherSetupTotals(LOG).get('a')).toEqual({
+      plays: 2,
+      playedMs: 3 * MIN,
+      lastPlayedAt: 133 * MIN,
+    })
+    expect(otherSetupTotals(LOG).has('b')).toBe(false)
   })
 })
 
@@ -74,10 +88,10 @@ describe('summariseProfile', () => {
     expect(summariseProfile(LOG)).toEqual({
       sessions: 3,
       songsPracticed: 2,
-      playedMs: 22 * MIN,
+      playedMs: 25 * MIN,
       mostPracticedSongId: 'a',
-      lastPlayedAt: 122 * MIN,
-      averageSessionMs: (22 * MIN) / 3,
+      lastPlayedAt: 133 * MIN,
+      averageSessionMs: (25 * MIN) / 3,
     })
   })
 

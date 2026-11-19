@@ -4,14 +4,9 @@ import { useRouter } from 'vue-router'
 import { usePracticeStore } from '../stores/practiceStore'
 
 /**
- * While a bookmark is loaded, player-side practice controls only make temporary changes
- * (brief decision 69). This says so, and links to the bookmark manager, where the bookmark
- * itself is edited. `defaults` is for controls that stay global while a bookmark is loaded (the
- * Practice tab's pre-roll, decision 68): it says the loaded bookmark has its own values.
+ * The Practice tab's pre-roll rows always edit the global defaults (brief decision 68): while a
+ * bookmark is loaded this says so, and links to the bookmark manager, where it is edited.
  */
-const props = withDefaults(defineProps<{ readonly kind?: 'temporary' | 'defaults' }>(), {
-  kind: 'temporary',
-})
 const practice = usePracticeStore()
 const router = useRouter()
 const emit = defineEmits<{ navigate: [] }>()
@@ -25,26 +20,16 @@ function openManager(): void {
 </script>
 
 <template>
-  <p
-    v-if="practice.bookmark && props.kind === 'defaults'"
-    class="temporary-note"
-    data-testid="defaults-note"
-  >
+  <p v-if="practice.bookmark" class="defaults-note" data-testid="defaults-note">
     The defaults for Full song. {{ practice.bookmark.name }} has its own pre-roll ·
     <a href="#" class="link" data-testid="defaults-note-link" @click.prevent="openManager"
-      >edit it in the Bookmark manager</a
-    >
-  </p>
-  <p v-else-if="practice.bookmark" class="temporary-note" data-testid="temporary-note">
-    Temporary for {{ practice.bookmark.name }} ·
-    <a href="#" class="link" data-testid="temporary-note-link" @click.prevent="openManager"
       >edit it in the Bookmark manager</a
     >
   </p>
 </template>
 
 <style scoped>
-.temporary-note {
+.defaults-note {
   margin: 0;
   color: var(--text-3);
   font-size: var(--text-xs);
