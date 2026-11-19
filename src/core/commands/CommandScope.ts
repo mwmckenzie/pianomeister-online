@@ -1,5 +1,8 @@
 /**
- * Where a command's keys apply: the player screen (window-wide while no dialog has the
- * keyboard), any dialog, or a focused list (song picker, library).
+ * Where a command's keys apply (brief decision 86): the player screen; lists (song picker,
+ * library, bookmark manager); tabs (the library and bookmark pages, the song picker and the
+ * settings window); any dialog; or `app`, on every page (player, library, bookmark manager)
+ * while no dialog is open. Player never runs together with lists or tabs; dialogs run on top of
+ * everything, and app keys work on all pages, so those two conflict with every scope.
  */
-export type CommandScope = 'player' | 'dialogs' | 'lists'
+export type CommandScope = 'player' | 'lists' | 'tabs' | 'dialogs' | 'app'
