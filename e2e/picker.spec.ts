@@ -208,8 +208,8 @@ test('the picker sorts songs by last practiced by default, and by plays, time an
   await expect(page.getByTestId('picker-bookmark')).toHaveCount(2)
   await expect(page.getByTestId('picker-entry-name')).toHaveText('Full song')
   await expect(page.getByTestId('picker-entry-share')).toHaveText('100%')
-  await page.keyboard.press('ArrowRight')
-  await page.keyboard.press('ArrowDown')
+  // Shift+↓ moves the Load list (the side list, decision 90).
+  await page.keyboard.press('Shift+ArrowDown')
   await expect(page.getByTestId('picker-entry-name')).toHaveText('Opening')
   await expect(page.getByTestId('picker-load')).toHaveText('Load bookmark')
   await page.keyboard.press('Enter')
