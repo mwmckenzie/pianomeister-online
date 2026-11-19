@@ -196,7 +196,7 @@ test('settings: ] and [ step through the tabs and wrap', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-/** Loop bars 40–44 on, then the playhead parked back at bar 1. */
+/** Loop bars 40–44 on, the playhead parked at its start. */
 async function loop40Parked(page: Page): Promise<void> {
   await page.getByTestId('open-loop').click()
   await page.getByTestId('loop-from').fill('40')
@@ -208,8 +208,9 @@ async function loop40Parked(page: Page): Promise<void> {
   await page.keyboard.press('Escape')
   const timeline = page.getByTestId('timeline')
   await timeline.focus()
+  // Home lands on the loop start while the loop is on (decision 8).
   await timeline.press('Home')
-  await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
+  await expect(page.getByTestId('hud-bar-beat')).toHaveText('40:1')
 }
 
 test('four quick loop nudges show at once and apply as one jump', async ({ page }) => {
@@ -232,7 +233,7 @@ test('four quick loop nudges show at once and apply as one jump', async ({ page 
   await expect(page.getByTestId('loop-from')).toHaveValue('42')
   await expect(page.getByTestId('loop-to')).toHaveValue('46')
   // …but no jump yet.
-  await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
+  await expect(page.getByTestId('hud-bar-beat')).toHaveText('40:1')
   await page.clock.runFor(150)
   await page.clock.runFor(50)
   // One jump, to the final start.

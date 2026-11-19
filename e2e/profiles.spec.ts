@@ -40,7 +40,7 @@ test('a second profile has its own bookmarks and stats; switch from the tab or t
         bookmarkId: `full:${SONG_IDS.minuet}`,
         startedAt: hourAgo,
         playedMs: 600_000,
-        passes: 2,
+        plays: 2,
       },
     ],
   })

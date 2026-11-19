@@ -53,18 +53,20 @@ export function practiceHistory(now: number): PracticeSeed {
     bookmark('bm-canon', SONG_IDS.canon, 'Variation 3', config(29, 40, 90), 4),
   ]
   // Minutes per day (14 days ago … today) for each entry.
-  const plan: [entry: string, songId: string, minutes: number[], passesPerMin: number][] = [
+  const plan: [entry: string | null, songId: string, minutes: number[], playsPerMin: number][] = [
     ['bm-b', SONG_IDS.minuet, [0, 6, 0, 8, 10, 0, 4, 12, 0, 9, 7, 0, 11, 6], 0.6],
     ['bm-open', SONG_IDS.minuet, [3, 0, 4, 0, 0, 5, 0, 2, 3, 0, 0, 4, 0, 3], 0.5],
     ['bm-left', SONG_IDS.minuet, [0, 0, 0, 0, 6, 0, 0, 0, 5, 0, 4, 0, 0, 0], 0.4],
     [`full:${SONG_IDS.minuet}`, SONG_IDS.minuet, [5, 0, 0, 4, 0, 0, 0, 0, 6, 0, 0, 0, 0, 2], 0.08],
     ['bm-canon', SONG_IDS.canon, [0, 0, 8, 0, 0, 0, 7, 0, 0, 0, 6, 0, 0, 0], 0.5],
+    // Other setups of the Minuet (matched no bookmark; decision 70).
+    [null, SONG_IDS.minuet, [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 5, 0, 0, 4], 0.9],
   ]
   const startOfToday = new Date(now)
   startOfToday.setHours(9, 0, 0, 0)
   const playRecords: object[] = []
   const sessions = new Map<string, { id: string; startedAt: number; endedAt: number }>()
-  for (const [entry, songId, minutes, passesPerMin] of plan) {
+  for (const [entry, songId, minutes, playsPerMin] of plan) {
     minutes.forEach((m, i) => {
       if (m === 0) return
       const day = 13 - i
@@ -78,14 +80,14 @@ export function practiceHistory(now: number): PracticeSeed {
       session.endedAt = startedAt + m * MIN
       sessions.set(sessionId, session)
       playRecords.push({
-        id: `${entry}-${day}`,
+        id: `${entry ?? 'other'}-${day}`,
         profileId: 'default',
         sessionId,
         songId,
         bookmarkId: entry,
         startedAt,
         playedMs: m * MIN,
-        passes: Math.max(1, Math.round(m * passesPerMin)),
+        plays: Math.max(1, Math.round(m * playsPerMin)),
       })
     })
   }

@@ -205,7 +205,7 @@ test('export, clear storage, import: bookmarks and stats come back; importing ag
         bookmarkId: 'a',
         startedAt: now - 60_000,
         playedMs: 60_000,
-        passes: 3,
+        plays: 3,
       },
     ],
   })

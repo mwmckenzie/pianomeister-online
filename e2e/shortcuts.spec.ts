@@ -187,7 +187,7 @@ test('tempo keys follow the tempo step and a bookmark’s temporary layer', asyn
   await page.keyboard.press('-')
   await expect(page.getByTestId('hud-tempo-percent')).toHaveText('98%')
 
-  // With a bookmark loaded the change is temporary: the dot, and the bookmark keeps 100%.
+  // With a bookmark loaded the change is temporary: the line shows the setup; the bookmark keeps 100%.
   await seedPractice(page, {
     bookmarks: [seedBookmark('b1', 'Opening', { startBar: 1, endBar: 4 })],
   })
@@ -200,7 +200,9 @@ test('tempo keys follow the tempo step and a bookmark’s temporary layer', asyn
   await page.getByTestId('stage').click()
   await page.keyboard.press('+')
   await expect(page.getByTestId('hud-tempo-percent')).toHaveText('102%')
-  await expect(page.getByTestId('hud-modified')).toBeVisible()
+  await expect(page.getByTestId('hud-custom')).toHaveText(
+    'Bars 1–4 · 102% · both hands · no pre-roll',
+  )
   expect(errors).toEqual([])
 })
 
