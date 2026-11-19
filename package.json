@@ -9,8 +9,9 @@
     "preview": "vite preview",
     "check": "run-s type-check lint && vitest run",
     "test:unit": "vitest",
-    "test:e2e": "playwright test --project=chromium",
-    "test:visual": "playwright test --project=visual",
+    "test:e2e": "npm run build-only && playwright test --project=chromium",
+    "test:e2e:dev": "playwright test --project=chromium",
+    "test:visual": "npm run build-only && playwright test --project=visual",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "run-s lint:oxlint lint:eslint",
@@ -20,7 +21,7 @@
     "format": "prettier --write --experimental-cli src/",
     "songs:manifest": "node scripts/build-song-manifest.mjs",
     "songs:manifest:check": "node scripts/build-song-manifest.mjs --check",
-    "test:perf": "playwright test --project=perf"
+    "test:perf": "npm run build-only && playwright test --project=perf"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",

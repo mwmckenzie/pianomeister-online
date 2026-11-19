@@ -11,7 +11,9 @@ Browser-based piano practice visualizer: MIDI songs scroll down a perspective no
 - `npm run build` — production build to `dist/`
 - `npm run preview` — serve the production build locally
 - `npm run test:unit` — Vitest (watch mode); `npx vitest run` for a single pass
-- `npm run test:e2e` — Playwright
+- `npm run test:e2e` — Playwright against the production preview (builds first, then serves `dist/` on port 4173), the same server `CI=1` uses. Use this to call e2e green.
+- `npm run test:e2e:dev` — Playwright against the dev server (5173, reused if running) for quick checks. Expect flakes in full runs: on the dev server the ~230 sample downloads saturate HTTP/1.1's six connections and lazy chunks queue behind them.
+- `npm run test:visual` / `npm run test:perf` — visual review shots / frame timings, also against the production preview
 - `npm run songs:manifest` — regenerate `public/songs/manifest.json` after adding/changing bundled songs (then fill in title/composer/tags)
 
 ## Stack

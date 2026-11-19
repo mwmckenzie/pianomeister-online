@@ -1,8 +1,12 @@
 import process from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
 
-// Dev server locally for fast feedback; preview of the production build on CI.
-const port = process.env.CI ? 4173 : 5173
+// The production preview by default (what CI and users get). On the dev server every lazy chunk
+// queues behind the ~230 sample downloads on HTTP/1.1's six connections, so tests flake there;
+// `npm run test:e2e:dev` (or PW_DEV=1) still runs against it for quick checks of unbuilt code.
+const useDevServer =
+  process.env.PW_DEV === '1' || process.env.npm_lifecycle_event === 'test:e2e:dev'
+const port = useDevServer ? 5173 : 4173
 // Trailing slash matters: tests use relative paths (`page.goto('./')`) so they stay under the Vite base.
 const baseURL = `http://localhost:${port}/pianomeister-online/`
 
@@ -75,7 +79,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: process.env.CI ? 'npm run preview' : 'npm run dev',
+    command: useDevServer ? 'npm run dev' : 'npm run preview',
     // Wait on the app's real path; the server root isn't served under a Vite base.
     url: baseURL,
     reuseExistingServer: !process.env.CI,
