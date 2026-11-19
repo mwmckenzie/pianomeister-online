@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
-import { loadSettings, SETTINGS_VERSION, storedSettings } from './loadSettings'
+import { charKey } from '../commands/keyBindings'
+import { loadSettings, loadShortcuts, SETTINGS_VERSION, storedSettings } from './loadSettings'
 import { SETTINGS_REGISTRY as R } from './SETTINGS_REGISTRY'
 
 const stored = (settings: unknown, version = SETTINGS_VERSION) => ({ version, settings })
@@ -222,5 +223,17 @@ describe('loadSettings', () => {
       settings: { appearance: { hideControls: false, hideControlsAfter: 40 } },
     })
     expect(loaded.appearance).toMatchObject({ hideControls: false, hideControlsAfter: 10 })
+  })
+
+  it('migrates v4 to v5 with no shortcut overrides, and round-trips them from v5', () => {
+    const v4 = { version: 4, settings: { camera: { tiltDeg: 50 } } }
+    expect(loadSettings(v4).camera.tiltDeg).toBe(50)
+    expect(loadShortcuts(v4)).toEqual({})
+    const overrides = { playPause: [charKey('k')], stop: [] }
+    const stored = JSON.parse(JSON.stringify(storedSettings(loadSettings(v4), overrides)))
+    expect(stored.version).toBe(5)
+    expect(loadShortcuts(stored)).toEqual(overrides)
+    expect(loadShortcuts({ ...stored, version: 6 })).toEqual({})
+    expect(loadShortcuts(null)).toEqual({})
   })
 })
