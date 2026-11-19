@@ -88,6 +88,21 @@ export class PianoMeisterDb extends Dexie {
             ref.value = settleBookmark(bookmark)
           })
       })
+    // v5: a play is a start, not a complete pass (brief decision 70). Records keep what they
+    // counted: `passes` becomes `plays`. Schema unchanged; nothing else is touched.
+    this.version(5)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table<PlayRecord & { passes?: number }, string>('playRecords')
+          .toCollection()
+          .modify((record) => {
+            if (record.plays === undefined) {
+              ;(record as { plays: number }).plays = record.passes ?? 0
+            }
+            delete record.passes
+          })
+      })
     // A new database starts with the "Me" profile (brief decision 65).
     this.on('populate', (tx) => {
       void tx.table<Profile, string>('profiles').add(DEFAULT_PROFILE)

@@ -1,15 +1,8 @@
-import type { MetronomeMode } from '../practice/MetronomeMode'
-import type { LoopRange } from '../transport/LoopRange'
+import type { PracticeConfig } from '../practice/PracticeConfig'
 
 /**
- * The setup in effect during a stretch of play (brief decision 70), kept with each play record
- * for a later stats page (tempo progress per bookmark).
+ * The setup in effect during a stretch of play (brief decision 70): tempo %, loop (null = the
+ * whole song), hand modes, pre-roll beats and mode, metronome mode. Kept with each play record so
+ * the stats page can group plays by setup (roadmap 7.7).
  */
-export interface PlaySetup {
-  readonly tempoPercent: number
-  /** The effective loop, or null for the whole song. */
-  readonly loop: LoopRange | null
-  readonly metronomeMode: MetronomeMode
-  /** The loaded bookmark had temporary changes (never true for Full song). */
-  readonly temporary: boolean
-}
+export type PlaySetup = PracticeConfig

@@ -1,5 +1,6 @@
-import type { RecorderEntry, RecorderEvent } from './RecorderEvent'
+import { sameBookmarkSettings } from '../practice/sameBookmarkSettings'
 import type { PlaySetup } from './PlaySetup'
+import type { RecorderEntry, RecorderEvent } from './RecorderEvent'
 import type { RecorderWrite } from './RecorderWrite'
 import { SESSION_GAP_MS } from './SESSION_GAP_MS'
 import type { Session } from './Session'
@@ -7,56 +8,62 @@ import type { Session } from './Session'
 interface Stretch {
   readonly id: string
   readonly entry: RecorderEntry
+  readonly entryId: string | null
   readonly setup: PlaySetup
   readonly sessionId: string
   readonly startedAt: number
-  passes: number
+  plays: number
 }
 
-/** Until the player says otherwise: 100%, the whole song, no metronome. */
+/** Until the player says otherwise: the whole song at 100%, both hands, no pre-roll. */
 const DEFAULT_SETUP: PlaySetup = {
-  tempoPercent: 100,
   loop: null,
+  tempoPercent: 100,
+  handAudio: { right: 'on', left: 'on' },
+  preRollBeats: 0,
+  preRollMode: 'muted',
   metronomeMode: 'off',
-  temporary: false,
 }
 
-function sameSetup(a: PlaySetup, b: PlaySetup): boolean {
-  return (
-    a.tempoPercent === b.tempoPercent &&
-    a.metronomeMode === b.metronomeMode &&
-    a.temporary === b.temporary &&
-    a.loop?.startBar === b.loop?.startBar &&
-    a.loop?.endBar === b.loop?.endBar
-  )
-}
+const sameSetup = (a: PlaySetup, b: PlaySetup): boolean =>
+  sameBookmarkSettings({ songId: '', config: a }, { songId: '', config: b })
 
 /**
  * Turns the player's transport events into play-log writes (brief decision 70). Pure: it never
  * reads a clock or storage; every event carries `now`, and every write is returned.
  *
+ * - **A play is a start:** the first Play after a load, a Stop or the song's end (a timeline
+ *   click in between changes nothing), every loop wrap, and every committed loop change's jump
+ *   to the new loop start (at once while playing; else the next Play counts). Resuming after a
+ *   pause is not a play, wherever the playhead was moved meanwhile.
+ * - **Attribution:** each stretch keeps the setup and what it matched exactly (a bookmark, Full
+ *   song, or null for other setups); a change of either ends the record and starts another.
  * - A stretch is one record, rewritten on every tick (the player sends one each 30 s), on each
- *   counted pass, and when it ends (pause, stop, song end, load, tab hidden).
- * - Time always goes to the loaded entry. A pass counts when the range was covered from its
- *   start to a loop wrap or the song's end, and only while the effective range equals the
- *   entry's saved range. A seek or a range change voids the pass in progress; pausing doesn't.
+ *   play counted, and when it ends (pause, stop, song end, load, tab hidden).
  * - A stretch joins the current session unless the last playback was more than 10 minutes ago.
- * - Each record keeps the setup it was played with; a setup change mid-stretch ends the record
- *   and starts a new one (like a load, but the pass in progress carries on).
  */
 export class PlayRecorder {
   private entry: RecorderEntry | null = null
   private stretch: Stretch | null = null
   private session: Session | null
-  private passValid = false
-  private rangeMatches = true
+  /** The next Play is a start. */
+  private armed = false
   private setup: PlaySetup = DEFAULT_SETUP
+  private entryId: string | null = null
 
   constructor(
     private readonly newId: () => string,
     lastSession: Session | null = null,
   ) {
     this.session = lastSession
+  }
+
+  /**
+   * The profile's last stored session, read after the recorder started: the next stretch may
+   * continue it. Ignored once a session is under way (the recorder already has one).
+   */
+  continueSession(lastSession: Session | null): void {
+    if (this.session === null) this.session = lastSession
   }
 
   get playing(): boolean {
@@ -68,57 +75,52 @@ export class PlayRecorder {
       case 'load': {
         const write = this.endStretch(event.now)
         this.entry = event.entry
-        this.passValid = false
-        this.rangeMatches = true
+        this.armed = true
         return write
       }
-      case 'play':
-        if (this.stretch !== null) return null
-        this.passValid = event.atRangeStart || this.passValid
-        this.rangeMatches = event.rangeMatches
-        this.startStretch(event.now)
-        return null
-      case 'visible':
-        if (event.playing && this.stretch === null) this.startStretch(event.now)
-        return null
-      case 'pause':
-      case 'stop':
-      case 'hidden':
-        return this.endStretch(event.now)
-      case 'seek':
-        this.passValid = event.atRangeStart
-        return null
-      case 'range':
-        this.rangeMatches = event.matchesSaved
-        this.passValid = false
-        return null
-      case 'wrap': {
-        const counted = this.countPass()
-        this.passValid = true
-        return counted ? this.write(event.now) : null
-      }
-      case 'end': {
-        this.countPass()
-        this.passValid = false
-        return this.endStretch(event.now)
-      }
       case 'setup': {
-        const changed = !sameSetup(this.setup, event.setup)
+        const changed = !sameSetup(this.setup, event.setup) || this.entryId !== event.entryId
         this.setup = event.setup
+        this.entryId = event.entryId
         if (!changed || this.stretch === null) return null
         const write = this.endStretch(event.now)
         this.startStretch(event.now)
         return write
       }
+      case 'play': {
+        if (this.stretch !== null) return null
+        this.startStretch(event.now)
+        if (!this.armed || this.stretch === null) return null
+        this.armed = false
+        return this.countPlay(event.now)
+      }
+      case 'visible':
+        if (event.playing && this.stretch === null) this.startStretch(event.now)
+        return null
+      case 'pause':
+      case 'hidden':
+        return this.endStretch(event.now)
+      case 'stop':
+      case 'end':
+        this.armed = true
+        return this.endStretch(event.now)
+      case 'wrap':
+        return this.countPlay(event.now)
+      case 'jump':
+        if (this.stretch === null) {
+          this.armed = true
+          return null
+        }
+        return this.countPlay(event.now)
       case 'tick':
         return this.stretch === null ? null : this.write(event.now)
     }
   }
 
-  private countPass(): boolean {
-    if (this.stretch === null || !this.passValid || !this.rangeMatches) return false
-    this.stretch.passes += 1
-    return true
+  private countPlay(now: number): RecorderWrite | null {
+    if (this.stretch === null) return null
+    this.stretch.plays += 1
+    return this.write(now)
   }
 
   private startStretch(now: number): void {
@@ -135,10 +137,11 @@ export class PlayRecorder {
     this.stretch = {
       id: this.newId(),
       entry,
+      entryId: this.entryId,
       setup: this.setup,
       sessionId: this.session?.id ?? '',
       startedAt: now,
-      passes: 0,
+      plays: 0,
     }
   }
 
@@ -161,10 +164,10 @@ export class PlayRecorder {
         profileId: stretch.entry.profileId,
         sessionId: stretch.sessionId,
         songId: stretch.entry.songId,
-        bookmarkId: stretch.entry.entryId,
+        bookmarkId: stretch.entryId,
         startedAt: stretch.startedAt,
         playedMs: Math.max(0, now - stretch.startedAt),
-        passes: stretch.passes,
+        plays: stretch.plays,
         ...stretch.setup,
       },
       session: this.session,

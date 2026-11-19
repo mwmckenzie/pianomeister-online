@@ -100,7 +100,7 @@ describe('Bookmarks and PlayLog', () => {
       bookmarkId: 'full:song',
       startedAt: 0,
       playedMs: 10,
-      passes: 0,
+      plays: 0,
     }
     await log.write({ record, session })
     await log.write({ record: { ...record, playedMs: 40 }, session: { ...session, endedAt: 40 } })

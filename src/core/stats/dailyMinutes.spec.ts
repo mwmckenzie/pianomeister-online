@@ -15,7 +15,7 @@ function rec(startedAt: number, playedMs: number): PlayRecord {
     bookmarkId: 'full:song',
     startedAt,
     playedMs,
-    passes: 0,
+    plays: 0,
   }
 }
 

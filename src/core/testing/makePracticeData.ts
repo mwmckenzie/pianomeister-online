@@ -36,7 +36,7 @@ export function makeRecord(
     bookmarkId: 'full:song',
     startedAt: 0,
     playedMs: 10 * MIN,
-    passes: 1,
+    plays: 1,
     ...fields,
   }
 }
