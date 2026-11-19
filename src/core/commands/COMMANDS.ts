@@ -67,9 +67,10 @@ export const COMMANDS = [
     scope: 'player',
   },
   {
+    // The id stays from milestone 7.5, so stored key overrides keep working.
     id: 'revertBookmark',
-    label: 'Revert to bookmark',
-    description: 'Drop the loaded bookmark’s temporary changes',
+    label: 'Back to bookmark',
+    description: 'Back to the last loaded bookmark (or Full song) as saved',
     keys: [],
     scope: 'player',
   },
