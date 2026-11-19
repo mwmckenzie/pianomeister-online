@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from 'reka-ui'
 import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
+import { KEY_SETTLE_MS } from '../input/KEY_SETTLE_MS'
 
 /**
  * A two-thumb slider for a range, drawn and announced by Reka's Slider. Pointer and keys are
@@ -31,8 +32,6 @@ const value = computed(() => [props.start, props.end])
 const field = useTemplateRef<HTMLElement>('field')
 const dragging = ref<'start' | 'end' | null>(null)
 
-/** Key steps settle after this pause, so holding or tapping an arrow applies once. */
-const KEY_SETTLE_MS = 400
 let keyTimer: ReturnType<typeof setTimeout> | undefined
 
 function settleKeys(): void {

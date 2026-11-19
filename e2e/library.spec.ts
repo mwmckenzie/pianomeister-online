@@ -292,6 +292,8 @@ test('exports, deletes and re-imports an upload with its metadata', async ({ pag
 
   await row(page, 'Pedal study').click()
   await page.getByTestId('delete-upload').click()
+  // The confirm scrolls into view as it opens.
+  await expect(page.getByTestId('confirm-delete')).toBeInViewport()
   await page.getByTestId('confirm-delete').click()
   await expect(page.getByTestId('song-row')).toHaveCount(3)
 

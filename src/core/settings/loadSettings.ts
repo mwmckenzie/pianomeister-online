@@ -1,3 +1,5 @@
+import { readShortcutOverrides } from '../commands/readShortcutOverrides'
+import type { ShortcutOverrides } from '../commands/ShortcutOverrides'
 import { constrainKeyboard } from './constrainKeyboard'
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
 import type { PlayerSettings } from './PlayerSettings'
@@ -6,7 +8,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 4
+export const SETTINGS_VERSION = 5
 
 type Raw = Record<string, unknown>
 
@@ -36,16 +38,32 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
       },
     }
   },
+  // v5 stores the keyboard shortcut overrides beside the settings (brief decision 88); a
+  // migrated store has none.
+  4: (settings) => settings,
 }
 
 const COLOR = /^#[0-9a-f]{6}$/i
 
-/** The persisted shape: `{ version, settings }`. */
-export function storedSettings(settings: PlayerSettings): {
+/** The persisted shape: `{ version, settings, shortcuts }` (shortcuts from v5). */
+export function storedSettings(
+  settings: PlayerSettings,
+  shortcuts: ShortcutOverrides = {},
+): {
   readonly version: number
   readonly settings: PlayerSettings
+  readonly shortcuts: ShortcutOverrides
 } {
-  return { version: SETTINGS_VERSION, settings }
+  return { version: SETTINGS_VERSION, settings, shortcuts }
+}
+
+/**
+ * The shortcut overrides from stored settings (brief decision 88): none before v5, and none
+ * from a newer version (like the settings themselves).
+ */
+export function loadShortcuts(raw: unknown): ShortcutOverrides {
+  if (!isRecord(raw) || raw.version !== SETTINGS_VERSION) return {}
+  return readShortcutOverrides(raw.shortcuts)
 }
 
 /**

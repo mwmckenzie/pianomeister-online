@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, ref, useId, useTemplateRef, watch } from 'vue'
 
 import { adjustLoopRange } from '@/core/practice/adjustLoopRange'
 import type { LoopRange } from '@/core/transport/LoopRange'
@@ -24,6 +24,10 @@ import TemporaryNote from './TemporaryNote.vue'
  * jumps to the new start (brief decision 8); dragging only moves the thumbs. With the loop off,
  * changes become the range the loop button turns on.
  *
+ * The −/+ beside each field nudge that end by a bar, like the loop nudge commands (decision 92):
+ * the range shows at once and applies once nudging pauses. They're for the pointer and left out
+ * of the Tab order, so Tab still goes From → To (the keyboard has the fields and the commands).
+ *
  * With a bookmark loaded these changes are temporary (brief decision 69): a note says so, and
  * "Revert to bookmark" drops them. "Save as bookmark" saves what's playing in one click.
  */
@@ -42,9 +46,11 @@ const emit = defineEmits<{
   'update:draft': [range: LoopRange]
   saveBookmark: []
   revert: []
+  nudge: [edge: 'start' | 'end', bars: number]
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const practice = usePracticeStore()
+const uid = useId()
 
 const range = ref({ start: props.draft.startBar, end: props.draft.endBar })
 /** What the fields show while typing; committed on Enter or blur. */
@@ -187,36 +193,82 @@ const isCurrentLoop = computed(
           @commit="commitRange"
         />
         <div class="fields">
-          <label>
-            <span>From bar</span>
-            <input
-              ref="fromInput"
-              v-model="fromText"
-              class="form-control"
-              type="number"
-              inputmode="numeric"
-              :min="firstBar"
-              :max="lastBar"
-              data-testid="loop-from"
-              @change="commit('start')"
-              @keydown.enter.prevent="commit('start')"
-            />
-          </label>
-          <label>
-            <span>To bar</span>
-            <input
-              ref="toInput"
-              v-model="toText"
-              class="form-control"
-              type="number"
-              inputmode="numeric"
-              :min="firstBar"
-              :max="lastBar"
-              data-testid="loop-to"
-              @change="commit('end')"
-              @keydown.enter.prevent="commit('end')"
-            />
-          </label>
+          <div class="field">
+            <label :for="`${uid}-start`">From bar</label>
+            <div class="field-row">
+              <input
+                :id="`${uid}-start`"
+                ref="fromInput"
+                v-model="fromText"
+                class="form-control"
+                type="number"
+                inputmode="numeric"
+                :min="firstBar"
+                :max="lastBar"
+                data-testid="loop-from"
+                @change="commit('start')"
+                @keydown.enter.prevent="commit('start')"
+              />
+              <button
+                type="button"
+                class="nudge"
+                tabindex="-1"
+                aria-label="Loop start one bar earlier"
+                data-testid="loop-from-down"
+                @click="emit('nudge', 'start', -1)"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                class="nudge"
+                tabindex="-1"
+                aria-label="Loop start one bar later"
+                data-testid="loop-from-up"
+                @click="emit('nudge', 'start', 1)"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <label :for="`${uid}-end`">To bar</label>
+            <div class="field-row">
+              <input
+                :id="`${uid}-end`"
+                ref="toInput"
+                v-model="toText"
+                class="form-control"
+                type="number"
+                inputmode="numeric"
+                :min="firstBar"
+                :max="lastBar"
+                data-testid="loop-to"
+                @change="commit('end')"
+                @keydown.enter.prevent="commit('end')"
+              />
+              <button
+                type="button"
+                class="nudge"
+                tabindex="-1"
+                aria-label="Loop end one bar earlier"
+                data-testid="loop-to-down"
+                @click="emit('nudge', 'end', -1)"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                class="nudge"
+                tabindex="-1"
+                aria-label="Loop end one bar later"
+                data-testid="loop-to-up"
+                @click="emit('nudge', 'end', 1)"
+              >
+                +
+              </button>
+            </div>
+          </div>
         </div>
         <div class="actions">
           <AppButton
@@ -346,15 +398,50 @@ const isCurrentLoop = computed(
 
 .fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-3);
 }
 
-label {
+.field {
   display: grid;
   gap: var(--space-1);
+  min-width: 0;
+}
+
+.field label {
   color: var(--text-3);
   font-size: var(--text-sm);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px 28px;
+  gap: 4px;
+}
+
+.field-row .form-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.nudge {
+  padding: 0;
+  border: 1px solid var(--border-field);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.nudge:hover {
+  color: var(--text-1);
+}
+
+.nudge:focus-visible {
+  box-shadow: var(--focus-ring-field);
+  outline: none;
 }
 
 .actions {

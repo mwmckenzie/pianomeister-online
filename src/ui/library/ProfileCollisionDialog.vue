@@ -127,7 +127,7 @@ const OPTIONS = ['merge', 'addNew', 'replace'] as const
         </AppButton>
       </div>
     </div>
-    <footer class="foot">
+    <template #footer>
       <AppButton data-testid="collision-cancel" @click="imports.cancel()">Cancel import</AppButton>
       <AppButton
         variant="primary"
@@ -137,7 +137,7 @@ const OPTIONS = ['merge', 'addNew', 'replace'] as const
       >
         {{ choice === 'replace' ? 'Replace and import' : 'Import' }}
       </AppButton>
-    </footer>
+    </template>
   </AppDialog>
 </template>
 
@@ -146,7 +146,6 @@ const OPTIONS = ['merge', 'addNew', 'replace'] as const
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: 0 var(--space-6) var(--space-4);
 }
 
 .step {
@@ -254,13 +253,6 @@ const OPTIONS = ['merge', 'addNew', 'replace'] as const
   justify-content: space-between;
   color: var(--danger);
   font-size: var(--text-sm);
-}
-
-.foot {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 
 @media (width < 640px) {

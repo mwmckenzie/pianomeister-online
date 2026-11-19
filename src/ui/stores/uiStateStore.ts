@@ -54,5 +54,10 @@ export const useUiStateStore = defineStore('uiState', () => {
     { deep: true },
   )
 
-  return { sidebarOpen, sidebarSections }
+  /** The keyboard shortcuts cheat sheet (decision 89); not kept across reloads. */
+  const shortcutsOpen = ref(false)
+  /** A settings tab to open when the player next can (e.g. "Change shortcuts…" elsewhere). */
+  const settingsTabRequest = ref<string | null>(null)
+
+  return { sidebarOpen, sidebarSections, shortcutsOpen, settingsTabRequest }
 })

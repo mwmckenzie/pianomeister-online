@@ -439,6 +439,140 @@ for (const viewport of M6_VIEWPORTS) {
         await settle(page, 30)
         await shoot(page, `m7-profiles-${suffix}`)
       })
+
+      // Confirm dialogs use AppDialog's standard layout (padding, title, footer): one size and
+      // theme is enough to catch a dialog that loses it.
+      if (suffix === '1280x720-glacier') {
+        test(`@visual dialog discard duplicate ${suffix}`, async ({ page }) => {
+          await page.getByTestId('menu-library').click()
+          await page.getByTestId('tab-bookmarks').click()
+          await page.getByTestId('bookmark-row').filter({ hasText: 'B section' }).click()
+          await page.getByTestId('bookmark-duplicate').click()
+          await page.getByTestId('bookmark-row').filter({ hasText: 'Left hand alone' }).click()
+          await expect(page.getByTestId('discard-duplicate')).toBeVisible()
+          await settle(page, 30)
+          await shoot(page, `dialog-discard-duplicate-${suffix}`)
+        })
+
+        test(`@visual dialog profile delete ${suffix}`, async ({ page }) => {
+          await page.getByTestId('menu-settings').click()
+          await page.getByTestId('tab-profiles').click()
+          await page
+            .getByTestId('profile-row')
+            .filter({ hasText: 'Anna' })
+            .getByTestId('profile-delete')
+            .click()
+          await expect(page.getByTestId('profile-delete-dialog')).toBeVisible()
+          await settle(page, 30)
+          await shoot(page, `dialog-profile-delete-${suffix}`)
+        })
+      }
     })
   }
 }
+
+// 8. Milestone 7.5: Settings → Shortcuts (default, one changed, recording, a conflict, the
+// Lists group with its role table), the loop popover's nudge buttons and the cheat sheet. No
+// mockup: built from the milestone 6 settings patterns.
+for (const viewport of M6_VIEWPORTS) {
+  const suffix = `${viewport.width}x${viewport.height}-glacier`
+
+  test.describe(`m7.5 ${suffix}`, () => {
+    test.use({ viewport })
+
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem(
+          'pianomeister.ui',
+          JSON.stringify({ sidebarOpen: false, sidebarSections: ['keyboard'] }),
+        )
+      })
+      await seed(page, {})
+      await page.goto('./')
+      await expect(page.getByTestId('hud-bars')).toHaveText('64')
+    })
+
+    test(`@visual m7.5 shortcuts tab ${suffix}`, async ({ page }) => {
+      await page.getByTestId('menu-settings').click()
+      await page.getByTestId('tab-shortcuts').click()
+      const playPause = page.getByTestId('shortcut-playPause')
+      await expect(playPause).toBeVisible()
+      await settle(page, 30)
+      await shoot(page, `m7-5-shortcuts-${suffix}`)
+
+      // One changed: Play / pause on K.
+      await playPause.getByTestId('shortcut-key').click()
+      await page.keyboard.press('k')
+      await expect(playPause.getByTestId('shortcut-key')).toHaveText(['K'])
+      await settle(page, 30)
+      await shoot(page, `m7-5-shortcuts-changed-${suffix}`)
+
+      // Recording a second key for Stop.
+      await page.getByTestId('shortcut-stop').getByTestId('shortcut-add').click()
+      await expect(page.getByTestId('shortcut-recording')).toBeFocused()
+      await settle(page, 30)
+      await shoot(page, `m7-5-shortcuts-recording-${suffix}`)
+
+      // A conflict: M is the metronome's.
+      await page.keyboard.press('m')
+      await expect(page.getByTestId('shortcut-conflict')).toBeVisible()
+      await settle(page, 30)
+      await shoot(page, `m7-5-shortcuts-conflict-${suffix}`)
+    })
+
+    test(`@visual m7.5 shortcuts lists group ${suffix}`, async ({ page }) => {
+      await page.getByTestId('menu-settings').click()
+      await page.getByTestId('tab-shortcuts').click()
+      await page
+        .getByTestId('shortcuts-lists')
+        .evaluate((el) => el.scrollIntoView({ block: 'start' }))
+      await settle(page, 30)
+      await shoot(page, `m7-5-shortcuts-lists-${suffix}`)
+    })
+
+    test(`@visual m7.5 loop popover nudges ${suffix}`, async ({ page }) => {
+      await page.getByTestId('open-loop').click()
+      await page.getByTestId('loop-to-up').click()
+      await expect(page.getByTestId('loop-value')).toHaveText('bars 1–5')
+      await settle(page, 30)
+      await shoot(page, `m7-5-loop-nudges-${suffix}`)
+    })
+
+    test(`@visual m7.5 cheat sheet ${suffix}`, async ({ page }) => {
+      await page.keyboard.press('?')
+      await expect(page.getByTestId('shortcuts-sheet')).toBeVisible()
+      await settle(page, 30)
+      await shoot(page, `m7-5-cheat-sheet-${suffix}`)
+    })
+  })
+}
+
+// 9. The cheat sheet and the Shortcuts tab at a small-tablet size (one column, the role table
+// stacked); 1280×720 and 1024×768 are in block 8.
+test.describe('m7.5 800x600-glacier', () => {
+  test.use({ viewport: { width: 800, height: 600 } })
+
+  test.beforeEach(async ({ page }) => {
+    await seed(page, {})
+    await page.goto('./')
+    await expect(page.getByTestId('hud-bars')).toHaveText('64')
+  })
+
+  test('@visual m7.5 cheat sheet 800x600-glacier', async ({ page }) => {
+    await page.keyboard.press('?')
+    await expect(page.getByTestId('shortcuts-sheet')).toBeVisible()
+    await settle(page, 30)
+    await shoot(page, 'm7-5-cheat-sheet-800x600-glacier')
+    await page.getByTestId('list-roles').evaluate((el) => el.scrollIntoView({ block: 'end' }))
+    await settle(page, 30)
+    await shoot(page, 'm7-5-cheat-sheet-roles-800x600-glacier')
+  })
+
+  test('@visual m7.5 shortcuts tab 800x600-glacier', async ({ page }) => {
+    await page.getByTestId('menu-settings').click()
+    await page.getByTestId('tab-shortcuts').click()
+    await expect(page.getByTestId('shortcut-playPause')).toBeVisible()
+    await settle(page, 30)
+    await shoot(page, 'm7-5-shortcuts-800x600-glacier')
+  })
+})

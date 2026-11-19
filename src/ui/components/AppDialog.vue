@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { commandForKey } from '@/core/commands/commandKeys'
 import {
   DialogContent,
   DialogDescription,
@@ -9,9 +8,18 @@ import {
   DialogTitle,
 } from 'reka-ui'
 
+import { commandForEvent } from '@/core/commands/shortcutBindings'
+
+import { keyCapture } from '../input/keyCapture'
+import { useSettingsStore } from '../stores/settingsStore'
+
 /**
  * A centred glass dialog (Reka Dialog): focus is trapped while open, Esc and the backdrop close
  * it, and focus returns to what opened it.
+ *
+ * With `showTitle` it lays itself out like the picker and settings window: a padded title, the
+ * default slot as the body, and the `footer` slot as a right-aligned button row (`.dialog-text`
+ * styles a plain paragraph). Without it, the content brings its own layout (picker, settings).
  */
 defineOptions({ inheritAttrs: false })
 withDefaults(
@@ -26,6 +34,7 @@ withDefaults(
   { description: undefined, showTitle: false, width: '1200px', height: 'auto' },
 )
 const open = defineModel<boolean>('open', { required: true })
+const settings = useSettingsStore()
 
 /**
  * Esc from anywhere inside closes the dialog. Reka's own Esc handling only acts when the dialog
@@ -34,11 +43,17 @@ const open = defineModel<boolean>('open', { required: true })
  * Esc belongs to that popup: Reka closes it at the document, after this handler has run.
  */
 function onKeyDown(event: KeyboardEvent): void {
-  if (commandForKey('dialogs', event.code) !== 'closeDialog' || event.defaultPrevented) return
+  if (keyCapture.value || event.defaultPrevented) return
+  if (commandForEvent(settings.bindings, 'dialogs', event) !== 'closeDialog') return
   const popupOpen = document.querySelector(
     '[data-reka-popper-content-wrapper] > [data-state="open"]',
   )
   if (popupOpen === null) open.value = false
+}
+
+/** While Shortcuts records a key, Esc only cancels the recording (decision 84). */
+function onEscape(event: KeyboardEvent): void {
+  if (keyCapture.value) event.preventDefault()
 }
 </script>
 
@@ -51,12 +66,21 @@ function onKeyDown(event: KeyboardEvent): void {
         :style="{ '--dialog-width': width, '--dialog-height': height }"
         v-bind="$attrs"
         @keydown="onKeyDown"
+        @escape-key-down="onEscape"
       >
-        <DialogTitle :class="showTitle ? 'dialog-title' : 'visually-hidden'">{{
-          title
-        }}</DialogTitle>
-        <DialogDescription class="visually-hidden">{{ description ?? title }}</DialogDescription>
-        <slot />
+        <template v-if="showTitle">
+          <header class="dialog-header">
+            <DialogTitle class="dialog-title">{{ title }}</DialogTitle>
+          </header>
+          <DialogDescription class="visually-hidden">{{ description ?? title }}</DialogDescription>
+          <div class="dialog-body"><slot /></div>
+          <footer v-if="$slots.footer" class="dialog-footer"><slot name="footer" /></footer>
+        </template>
+        <template v-else>
+          <DialogTitle class="visually-hidden">{{ title }}</DialogTitle>
+          <DialogDescription class="visually-hidden">{{ description ?? title }}</DialogDescription>
+          <slot />
+        </template>
       </DialogContent>
     </DialogPortal>
   </DialogRoot>
@@ -89,9 +113,39 @@ function onKeyDown(event: KeyboardEvent): void {
   outline: none;
 }
 
+/* The standard layout (showTitle): the picker's spacing — 22 px sides, 10 px between buttons. */
+.dialog-header {
+  flex-shrink: 0;
+  padding: 20px 22px 0;
+}
+
 .dialog-title {
   margin: 0;
   font-size: var(--text-xl);
   font-weight: var(--weight-medium);
+  line-height: 1.3;
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 22px 0;
+  overflow-y: auto;
+}
+
+.dialog-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 22px 22px;
+}
+
+.dialog-text {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.5;
 }
 </style>
