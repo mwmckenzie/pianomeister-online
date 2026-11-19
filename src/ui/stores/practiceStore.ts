@@ -9,6 +9,8 @@ import type { HandAudio } from '@/core/practice/HandAudio'
 import type { MetronomeMode } from '@/core/practice/MetronomeMode'
 import type { PracticeConfig } from '@/core/practice/PracticeConfig'
 import type { PracticeField } from '@/core/practice/PracticeField'
+import type { NowPlayingInfo } from '@/core/practice/NowPlayingInfo'
+import { nowPlaying } from '@/core/practice/nowPlaying'
 import { fullSongConfig } from '@/core/practice/practiceDefaults'
 import type { LoopRange } from '@/core/transport/LoopRange'
 import type { PreRollMode } from '@/core/transport/PreRollMode'
@@ -63,6 +65,8 @@ export const usePracticeStore = defineStore('practice', () => {
   const fullTempo = ref(100)
   /** Bumped by every committed loop change: the playhead goes to the loop start. */
   const loopJump = ref(0)
+  /** Bumped by every load (the same entry again included): the next Play is a start. */
+  const loads = ref(0)
 
   /** The loaded bookmark as currently saved (edits in the manager show up here). */
   const bookmark = computed((): Bookmark | null =>
@@ -104,13 +108,31 @@ export const usePracticeStore = defineStore('practice', () => {
     }
   })
 
-  /** The loaded bookmark's temporary changes (empty for Full song). */
+  /**
+   * Where the setup differs from the last loaded entry: the bookmark's temporary changes, or
+   * Full song's loop and tempo (its other fields are the settings themselves). "Back to ⟨name⟩"
+   * shows while there are any (brief decision 69).
+   */
   const changed = computed((): readonly PracticeField[] =>
-    bookmark.value === null ? [] : diffFromBookmark(saved.value, current.value),
+    diffFromBookmark(saved.value, current.value),
   )
 
-  /** Passes count only while the range is the saved one (brief decision 70). */
-  const rangeMatchesSaved = computed(() => sameRange(current.value.loop, saved.value.loop))
+  /**
+   * What's playing now (brief decision 69): the bookmark or Full song the setup matches exactly,
+   * else a custom setup. It decides the HUD's now-playing line and where plays and time go; the
+   * last loaded entry stays as it is.
+   */
+  const now = computed((): NowPlayingInfo | null =>
+    songId.value === null
+      ? null
+      : nowPlaying(
+          songId.value,
+          current.value,
+          bookmarks.forSong(songId.value),
+          fullSongConfig(settings.settings),
+          bars.value,
+        ),
+  )
 
   function isTemporary(field: PracticeField): boolean {
     return changed.value.includes(field)
@@ -133,7 +155,11 @@ export const usePracticeStore = defineStore('practice', () => {
     temporary.value = {}
     fullLoop.value = null
     fullTempo.value = 100
-    if (nextBookmarkId !== null && options.jump !== false) loopJump.value++
+    // A bookmark just saved from what's playing becomes the loaded one without restarting
+    // anything: no jump, and not a new start (decision 70).
+    if (options.jump === false) return
+    loads.value++
+    if (nextBookmarkId !== null) loopJump.value++
   }
 
   function snapshot(): PracticeSnapshot {
@@ -233,10 +259,18 @@ export const usePracticeStore = defineStore('practice', () => {
     if (field === 'loop') loopJump.value++
   }
 
-  /** "Revert to bookmark": drops every temporary change and goes to the bookmark's start. */
-  function revert(): void {
-    temporary.value = {}
-    loopJump.value++
+  /**
+   * "Back to ⟨name⟩" (brief decision 69): the last loaded bookmark's saved setup, or Full song's
+   * (loop off, 100%). A loop that changes jumps to its start, like any committed loop change.
+   */
+  function backToLoaded(): void {
+    const loopBefore = current.value.loop
+    if (bookmark.value === null) {
+      fullLoop.value = null
+      fullTempo.value = 100
+    } else temporary.value = {}
+    const loop = current.value.loop
+    if (loop !== null && !sameRange(loop, loopBefore)) loopJump.value++
   }
 
   return {
@@ -244,12 +278,13 @@ export const usePracticeStore = defineStore('practice', () => {
     bookmarkId,
     bars,
     loopJump,
+    loads,
     bookmark,
     entryId,
     saved,
     current,
     changed,
-    rangeMatchesSaved,
+    now,
     isTemporary,
     load,
     snapshot,
@@ -264,6 +299,6 @@ export const usePracticeStore = defineStore('practice', () => {
     setPreRollMode,
     setMetronomeMode,
     revertField,
-    revert,
+    backToLoaded,
   }
 })

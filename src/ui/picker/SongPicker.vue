@@ -183,6 +183,16 @@ const songStats = computed(() => {
   }
 })
 
+/** "Other setups: 12 plays · 18 min" under the entry's stats, when the song has any (decision 72). */
+const otherSetupsLine = computed(() => {
+  const song = highlighted.value
+  if (song === null) return ''
+  const other = stats.otherSetups(song.songId)
+  if (other.plays === 0 && other.playedMs === 0) return ''
+  const plays = other.plays === 1 ? '1 play' : `${other.plays} plays`
+  return `Other setups: ${plays} · ${formatPracticeTime(other.playedMs)}`
+})
+
 const entryStats = computed(() => {
   const song = highlighted.value
   const entry = selectedEntry.value
@@ -508,6 +518,9 @@ const LOAD_SORTS = SONG_SORTS
                 :label="`${selectedEntry.name}, practice per day`"
                 data-testid="picker-entry-chart"
               />
+              <p v-if="otherSetupsLine" class="other-setups" data-testid="picker-other-setups">
+                {{ otherSetupsLine }}
+              </p>
             </div>
           </template>
         </section>
@@ -812,6 +825,12 @@ dd {
   margin: 0;
   font-size: var(--text-md);
   font-weight: var(--weight-medium);
+}
+
+.other-setups {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .entry-summary {

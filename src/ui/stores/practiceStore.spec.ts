@@ -42,7 +42,7 @@ describe('practice store with a bookmark loaded', () => {
     expect(practice.current).toEqual(SAVED.config)
     expect(practice.entryId).toBe('b1')
     expect(practice.changed).toEqual([])
-    expect(practice.rangeMatchesSaved).toBe(true)
+    expect(practice.now).toMatchObject({ kind: 'bookmark', entryId: 'b1', label: 'B section' })
   })
 
   it('keeps player-side changes temporary: never in the bookmark or the settings', () => {
@@ -69,20 +69,43 @@ describe('practice store with a bookmark loaded', () => {
       'preRollBeats',
       'preRollMode',
     ])
-    expect(practice.rangeMatchesSaved).toBe(false)
+    // Matches nothing now: a custom setup, labelled like an automatic name.
+    expect(practice.now).toEqual({
+      kind: 'custom',
+      entryId: null,
+      label: 'Bars 17–24 · 60% · right only · pre-roll 4',
+    })
     expect(settings.settings).toBe(before)
     expect(useBookmarkStore().byId.get('b1')).toEqual(SAVED)
   })
 
-  it('resets one field to the saved value, or reverts them all', () => {
+  it('resets one field to the saved value, or goes back to the bookmark', () => {
     const practice = loadBookmark()
     practice.setTempo(60)
     practice.setPreRollBeats(4)
     practice.revertField('tempoPercent')
     expect(practice.current.tempoPercent).toBe(85)
     expect(practice.changed).toEqual(['preRollBeats'])
-    practice.revert()
+    practice.backToLoaded()
     expect(practice.changed).toEqual([])
+    expect(practice.now?.kind).toBe('bookmark')
+  })
+
+  it('adopts another bookmark the setup comes to match; the loaded one stays', () => {
+    const opening = makeBookmark({
+      id: 'b2',
+      profileId: 'default',
+      songId: 'song',
+      name: 'Opening',
+      config: { ...SAVED.config, loop: { startBar: 1, endBar: 4 } },
+    })
+    useBookmarkStore().bookmarks = [SAVED, opening]
+    const practice = loadBookmark()
+    practice.setLoop({ startBar: 1, endBar: 4 })
+    expect(practice.now).toMatchObject({ kind: 'bookmark', entryId: 'b2', label: 'Opening' })
+    // Back to returns to the loaded B section; edits stay temporary for it.
+    expect(practice.bookmark?.id).toBe('b1')
+    expect(practice.changed).toEqual(['loop'])
   })
 
   it('counts a change back to the saved value as no change', () => {
@@ -120,9 +143,15 @@ describe('practice store with Full song loaded', () => {
     practice.setTempo(70)
     practice.setLoop({ startBar: 1, endBar: 8 })
     expect(practice.current).toMatchObject({ tempoPercent: 70, loop: { startBar: 1, endBar: 8 } })
-    expect(practice.changed).toEqual([])
-    // A loop isn't Full song's range: time counts, passes don't.
-    expect(practice.rangeMatchesSaved).toBe(false)
+    // Not Full song any more: "Back to Full song" turns the loop off and goes back to 100%.
+    expect(practice.changed).toEqual(['loop', 'tempoPercent'])
+    expect(practice.now?.kind).toBe('custom')
+    const jumps = practice.loopJump
+    practice.backToLoaded()
+    expect(practice.current).toMatchObject({ tempoPercent: 100, loop: null })
+    expect(practice.now).toEqual({ kind: 'fullSong', entryId: 'full:song', label: 'Full song' })
+    // The loop going off doesn't jump.
+    expect(practice.loopJump).toBe(jumps)
   })
 
   it('edits the global settings for hand modes and pre-roll', () => {
@@ -156,16 +185,25 @@ describe('practice store loop jumps (brief decision 8)', () => {
     expect(practice.loopJump).toBe(2)
   })
 
-  it('jumps when a bookmark loads or is reverted, unless it was just saved', () => {
+  it('jumps when a bookmark loads or Back to changes the loop, unless it was just saved', () => {
     const practice = loadBookmark()
     expect(practice.loopJump).toBe(1)
+    // Only the tempo differs: going back changes no loop, so no jump.
     practice.setTempo(70)
-    practice.revert()
+    practice.backToLoaded()
+    expect(practice.loopJump).toBe(1)
+    practice.setLoop({ startBar: 1, endBar: 2 })
     expect(practice.loopJump).toBe(2)
+    practice.backToLoaded()
+    expect(practice.loopJump).toBe(3)
+    practice.setTempo(70)
     practice.revertField('tempoPercent')
-    expect(practice.loopJump).toBe(2)
+    expect(practice.loopJump).toBe(3)
+    // A bookmark just saved from what's playing: no jump, and not a new load (start).
+    const loads = practice.loads
     practice.load('song', 'b1', { first: 1, last: 64 }, { jump: false })
-    expect(practice.loopJump).toBe(2)
+    expect(practice.loopJump).toBe(3)
+    expect(practice.loads).toBe(loads)
   })
 
   it('restores a snapshot: what was loaded and its temporary changes', () => {
