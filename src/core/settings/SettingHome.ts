@@ -15,6 +15,7 @@ export type WindowSectionId =
   | 'glass'
   | 'motion'
   | 'playerControls'
+  | 'start'
 
 /** Where a setting is shown (brief decision 50); reset groups are derived from it. */
 export type SettingHome =

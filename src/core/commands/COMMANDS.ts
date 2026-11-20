@@ -220,6 +220,20 @@ export const COMMANDS = [
   },
   // Every page
   {
+    id: 'goHome',
+    label: 'Home',
+    description: 'The Welcome screen',
+    keys: [charKey('h')],
+    scope: 'app',
+  },
+  {
+    id: 'openStats',
+    label: 'Stats',
+    description: 'The stats page',
+    keys: [charKey('s')],
+    scope: 'app',
+  },
+  {
     id: 'showShortcuts',
     label: 'Show shortcuts',
     description: 'This list of keyboard shortcuts',

@@ -322,4 +322,14 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...num('After', 3, tab('appearance', 'playerControls'), [0.5, 10, 0.5], 'seconds', 1),
       enabled: (settings) => settings.appearance.hideControls,
     },
+    'appearance.startOn': {
+      kind: 'choice',
+      label: 'Start on',
+      default: 'welcome',
+      home: tab('appearance', 'start'),
+      options: [
+        { value: 'welcome', label: 'Welcome' },
+        { value: 'player', label: 'Player' },
+      ],
+    },
   }

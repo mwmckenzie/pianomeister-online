@@ -133,5 +133,7 @@ export interface PlayerSettings {
     readonly hideControls: boolean
     /** 0.5–10 s, in 0.5 s steps. */
     readonly hideControlsAfter: number
+    /** Where the app opens (m7-7 decision 1): the Welcome screen or the player. */
+    readonly startOn: 'welcome' | 'player'
   }
 }

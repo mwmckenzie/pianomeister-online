@@ -99,6 +99,7 @@ describe('SETTINGS_REGISTRY', () => {
       motion: 'system',
       hideControls: true,
       hideControlsAfter: 3,
+      startOn: 'welcome',
     })
     expect(DEFAULT_SETTINGS.audio).toMatchObject({
       master: 0.8,

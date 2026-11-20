@@ -36,6 +36,7 @@ export const SETTINGS_LAYOUT = {
         { id: 'glass', title: 'Glass panels' },
         { id: 'motion', title: 'Motion' },
         { id: 'playerControls', title: 'Player controls' },
+        { id: 'start', title: 'Start' },
       ],
     },
   ],
