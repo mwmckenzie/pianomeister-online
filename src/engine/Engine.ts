@@ -83,6 +83,10 @@ export class Engine {
   private timeSource: () => number = () => 0
   private guides = false
   private frame = 0
+  /** While frozen the loop stops; changes ask for a single frame instead (Welcome's backdrop). */
+  private frozen = false
+  private pendingFrame = 0
+  private rendered = 0
   private lastTick: number | null = null
   private lastFrameAt: number | null = null
   private readonly frameMs: number[] = []
@@ -155,6 +159,7 @@ export class Engine {
     this.lastTick = null
     this.effects.clear()
     this.applySettings(this.settings)
+    this.invalidate()
   }
 
   applySettings(settings: PlayerSettings): void {
@@ -199,12 +204,41 @@ export class Engine {
       this.resize()
     }
     this.placeCamera()
+    this.invalidate()
   }
 
   /** Debug review aid: marker lines at 1× and 1.5× look-ahead. */
   setGuides(visible: boolean): void {
     this.guides = visible
     this.placeCamera()
+    this.invalidate()
+  }
+
+  /**
+   * Stops (true) or restarts (false) the render loop. Frozen, the scene renders one frame now
+   * and then only when invalidate() is called or its size, settings or song change.
+   */
+  setFrozen(frozen: boolean): void {
+    if (frozen === this.frozen) return
+    this.frozen = frozen
+    cancelAnimationFrame(this.frame)
+    cancelAnimationFrame(this.pendingFrame)
+    this.pendingFrame = 0
+    // A stale timestamp would make the first frame after a freeze one long time step.
+    this.lastFrameAt = null
+    if (this.pipeline === null) return
+    if (frozen) this.invalidate()
+    else this.frame = requestAnimationFrame(this.loop)
+  }
+
+  /** While frozen, renders one more frame (e.g. after a seek); running, the loop already does. */
+  invalidate(): void {
+    if (!this.frozen || this.pipeline === null || this.pendingFrame !== 0) return
+    this.pendingFrame = requestAnimationFrame((now) => {
+      this.pendingFrame = 0
+      this.lastFrameAt = null
+      this.draw(now)
+    })
   }
 
   resize(): void {
@@ -219,6 +253,7 @@ export class Engine {
     this.placeCamera()
     const bufferHeight = height * pipeline.renderer.getPixelRatio()
     this.effects.setScale(bufferHeight / (2 * Math.tan(((FOV_DEG / 2) * Math.PI) / 180)))
+    this.invalidate()
   }
 
   /** Average CPU time per frame and average interval between frames, in ms. */
@@ -226,6 +261,8 @@ export class Engine {
     readonly averageFrameMs: number
     readonly averageIntervalMs: number
     readonly frames: number
+    /** Frames rendered since mount. */
+    readonly rendered: number
   } {
     const mean = (xs: readonly number[]) =>
       xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length
@@ -233,6 +270,7 @@ export class Engine {
       averageFrameMs: mean(this.frameMs),
       averageIntervalMs: mean(this.intervalMs),
       frames: this.frameMs.length,
+      rendered: this.rendered,
     }
   }
 
@@ -264,6 +302,7 @@ export class Engine {
 
   dispose(): void {
     cancelAnimationFrame(this.frame)
+    cancelAnimationFrame(this.pendingFrame)
     this.sizeObserver?.disconnect()
     this.disposeSong()
     this.keyboard.dispose()
@@ -274,6 +313,10 @@ export class Engine {
 
   private readonly loop = (now: number): void => {
     this.frame = requestAnimationFrame(this.loop)
+    this.draw(now)
+  }
+
+  private draw(now: number): void {
     const pipeline = this.pipeline
     if (pipeline === null) return
     // Moving to another monitor or zooming changes the DPR without necessarily resizing the
@@ -299,6 +342,7 @@ export class Engine {
     }
     this.lastTick = tick
     pipeline.render()
+    this.rendered++
     this.record(this.frameMs, performance.now() - started)
   }
 
