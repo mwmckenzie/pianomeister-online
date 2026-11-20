@@ -28,7 +28,7 @@ interface StoredBookmark {
 const B_SECTION = 'Bars 17–32 · 85% · both hands · no pre-roll'
 
 async function openPlayer(page: Page): Promise<void> {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
 }
 

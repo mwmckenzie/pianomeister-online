@@ -2,14 +2,14 @@ import { test, expect } from '@playwright/test'
 
 test('opens the player as the home page', async ({ page }) => {
   // Relative path so navigation stays under the /pianomeister-online/ base in baseURL.
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('stage')).toBeVisible()
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await expect(page.getByRole('button', { name: 'Playfield panel (P)' })).toBeVisible()
 })
 
 test('serves a web app manifest that Chromium parses without errors', async ({ page }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   const cdp = await page.context().newCDPSession(page)
   const { url, errors } = (await cdp.send('Page.getAppManifest')) as {
     url: string

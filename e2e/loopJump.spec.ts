@@ -16,7 +16,7 @@ const barNow = async (page: Page): Promise<number> =>
   Number.parseInt((await page.getByTestId('hud-bar-beat').textContent()) ?? '0', 10)
 
 async function openPlayer(page: Page, seed?: { bookmark?: boolean; loaded?: boolean }) {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   if (seed?.bookmark === true) {
     await seedPractice(page, {

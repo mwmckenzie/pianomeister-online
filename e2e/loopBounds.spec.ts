@@ -12,7 +12,7 @@ const barNow = async (page: Page): Promise<number> =>
   Number.parseInt((await page.getByTestId('hud-bar-beat').textContent()) ?? '0', 10)
 
 async function openWithLoop(page: Page): Promise<void> {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
   await setLoopBars(page, 20, 35)

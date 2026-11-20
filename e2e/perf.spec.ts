@@ -121,7 +121,7 @@ for (const variant of VARIANTS) {
 test('@perf render diagnostics: buffer size, MSAA, and a device-pixel-ratio change', async ({
   page,
 }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   const initial = await canvasInfo(page)
   // Simulate moving the window to a monitor with another scale factor: only the DPR changes.
@@ -136,4 +136,44 @@ test('@perf render diagnostics: buffer size, MSAA, and a device-pixel-ratio chan
   const afterDprChange = await canvasInfo(page)
   save('render-diagnostics', { initial, afterDprChange })
   expect(initial.buffer[0]).toBeGreaterThan(0)
+})
+
+/**
+ * Milestone 7.7: the player paused vs Welcome over it (frozen scene). Over 10 s each: frames the
+ * engine rendered and the main thread's busy time (CDP TaskDuration), per second.
+ */
+test('@perf Welcome open vs closed: frames and main-thread time over 10 s', async ({ page }) => {
+  await openCanon(page)
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Performance.enable')
+  const taskSeconds = async () => {
+    const { metrics } = (await cdp.send('Performance.getMetrics')) as {
+      metrics: { name: string; value: number }[]
+    }
+    return metrics.find((m) => m.name === 'TaskDuration')?.value ?? 0
+  }
+  const rendered = () =>
+    page.evaluate(
+      () =>
+        (
+          window as { pianomeisterEngineStats?: () => { rendered: number } }
+        ).pianomeisterEngineStats?.().rendered ?? 0,
+    )
+  const measure = async (state: string) => {
+    await pause(page, 1000)
+    const [frames0, task0] = [await rendered(), await taskSeconds()]
+    await pause(page, 10_000)
+    const [frames1, task1] = [await rendered(), await taskSeconds()]
+    return {
+      state,
+      framesPerSecond: Number(((frames1 - frames0) / 10).toFixed(1)),
+      mainThreadMsPerSecond: Number((((task1 - task0) * 1000) / 10).toFixed(1)),
+    }
+  }
+  const closed = await measure('player, paused')
+  await page.getByTestId('menu-home').click()
+  await expect(page.getByTestId('welcome')).toBeVisible()
+  const open = await measure('Welcome open')
+  save('welcome-open-vs-closed', { closed, open })
+  expect(open.framesPerSecond).toBeLessThan(closed.framesPerSecond)
 })

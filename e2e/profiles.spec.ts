@@ -25,7 +25,7 @@ test('a second profile has its own bookmarks and stats; switch from the tab or t
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   // Me practised the Minuet an hour ago.
   const hourAgo = Date.now() - 3_600_000
@@ -96,7 +96,7 @@ test('a profile can be renamed, recoloured and deleted with a confirm; Me stays 
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await seedPractice(page, {
     profiles: [{ id: 'anna', name: 'Anna', color: '#FFB38A', createdAt: 10 }],
