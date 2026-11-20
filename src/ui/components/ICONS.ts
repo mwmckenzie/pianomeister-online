@@ -17,6 +17,11 @@ export const ICONS = {
   nextBar: { d: 'M17.5 5.5v13', fill: 'M6 6.2v11.6l8.8-5.8z' },
   play: { fill: 'M9 6.3v11.4c0 .6.7 1 1.2.7l8.9-5.7c.5-.3.5-1 0-1.3l-8.9-5.8c-.5-.3-1.2 0-1.2.7z' },
   pause: { d: 'M9 6v12M15 6v12' },
+  /** The loop editor: a piano-roll strip with a selected section (not the loop arrows). */
+  loopEditor: {
+    d: 'M4.5 6.5h15A1.5 1.5 0 0 1 21 8v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16V8a1.5 1.5 0 0 1 1.5-1.5zM5.5 10h2M6 14h1.5M17 10.5h1.5M16.5 14h2',
+    fill: 'M9.5 5h5v14h-5z',
+  },
   loop: {
     d: 'M5 11V9.5A3.5 3.5 0 0 1 8.5 6H18m-2.5-2.5L18 6l-2.5 2.5M19 13v1.5a3.5 3.5 0 0 1-3.5 3.5H6m2.5 2.5L6 18l2.5-2.5',
   },

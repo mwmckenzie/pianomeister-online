@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 import { test, expect, type Page } from '@playwright/test'
 
@@ -176,4 +177,109 @@ test('@perf Welcome open vs closed: frames and main-thread time over 10 s', asyn
   const open = await measure('Welcome open')
   save('welcome-open-vs-closed', { closed, open })
   expect(open.framesPerSecond).toBeLessThan(closed.framesPerSecond)
+})
+
+/**
+ * Milestone 8: the overview strip while playing the longest song we have (a generated 340-bar,
+ * 9,520-note demo): the engine's frame time and the main thread's busy time with the strip
+ * closed vs open (whole song, then zoomed to 8 bars and following), and the notes layer's
+ * redraw time across zoom steps.
+ */
+test('@perf overview strip on a 340-bar song: closed vs open while playing, redraw on zoom', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    ;(window as { pianomeisterOverviewDraws?: number[] }).pianomeisterOverviewDraws = []
+  })
+  await page.goto('./#/library')
+  await page
+    .getByTestId('upload-input')
+    .setInputFiles(fileURLToPath(new URL('../test-fixtures/midi/long-demo.mid', import.meta.url)))
+  await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
+  await page.getByTestId('details-play').click()
+  await expect(page.getByTestId('hud-bars')).toHaveText('340')
+  await page.goto('./#/?stats=1')
+  await page.reload()
+  await expect(page.getByTestId('hud-bars')).toHaveText('340')
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Performance.enable')
+  const taskSeconds = async () => {
+    const { metrics } = (await cdp.send('Performance.getMetrics')) as {
+      metrics: { name: string; value: number }[]
+    }
+    return metrics.find((m) => m.name === 'TaskDuration')?.value ?? 0
+  }
+  const draws = () =>
+    page.evaluate(() => [
+      ...((window as { pianomeisterOverviewDraws?: number[] }).pianomeisterOverviewDraws ?? []),
+    ])
+  const clearDraws = () =>
+    page.evaluate(() => {
+      ;(window as { pianomeisterOverviewDraws?: number[] }).pianomeisterOverviewDraws?.splice(0)
+    })
+  const measure = async (state: string) => {
+    await pause(page, 1000)
+    const task0 = await taskSeconds()
+    const samples: EngineStats[] = []
+    for (let second = 0; second < 10; second++) {
+      await pause(page, 1000)
+      samples.push(
+        await page.evaluate(
+          () =>
+            (
+              window as { pianomeisterEngineStats?: () => EngineStats }
+            ).pianomeisterEngineStats?.() ?? { averageFrameMs: 0, averageIntervalMs: 0, frames: 0 },
+        ),
+      )
+    }
+    const task1 = await taskSeconds()
+    const mean = (pick: (s: EngineStats) => number) =>
+      samples.reduce((sum, s) => sum + pick(s), 0) / samples.length
+    return {
+      state,
+      averageFrameMs: Number(mean((s) => s.averageFrameMs).toFixed(3)),
+      averageIntervalMs: Number(mean((s) => s.averageIntervalMs).toFixed(3)),
+      mainThreadMsPerSecond: Number((((task1 - task0) * 1000) / 10).toFixed(1)),
+    }
+  }
+
+  await page.getByTestId('play-pause').click()
+  await expect(page.getByTestId('transport-state')).toHaveText('playing')
+  const closed = await measure('strip closed')
+
+  await page.getByTestId('overview-toggle').click()
+  await expect(page.getByTestId('overview-strip')).toBeVisible()
+  const openWhole = await measure('strip open, whole song')
+
+  await clearDraws()
+  // Zoom steps: Whole song → 4 bars and back, each a notes redraw.
+  const zoomDraws: number[] = []
+  for (const value of ['0.25', '0.5', '0.75', '1', '0.6', '0.3', '0']) {
+    await clearDraws()
+    await page.getByTestId('overview-zoom').fill(value)
+    await expect.poll(async () => (await draws()).length).toBeGreaterThan(0)
+    zoomDraws.push(...(await draws()))
+  }
+  await page.getByTestId('overview-zoom').fill('0.85')
+  await clearDraws()
+  const openZoomed = await measure('strip open, zoomed in, following')
+  const followDraws = await draws()
+
+  const stats = (xs: readonly number[]) => ({
+    count: xs.length,
+    meanMs: Number((xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length)).toFixed(2)),
+    maxMs: Number(Math.max(0, ...xs).toFixed(2)),
+  })
+  const result = {
+    song: '340 bars, 9,520 notes',
+    closed,
+    openWhole,
+    openZoomed,
+    zoomRedraw: stats(zoomDraws),
+    followRedrawsIn11s: stats(followDraws),
+  }
+  save('overview-long-demo', result)
+  expect(result.zoomRedraw.maxMs).toBeLessThan(16)
 })

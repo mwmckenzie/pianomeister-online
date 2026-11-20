@@ -58,7 +58,8 @@ async function choose(profileId: string): Promise<void> {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 40px;
+  /* Like the other menu items (36 px from milestone 8). */
+  height: 36px;
   padding: 0 8px 0 0;
   border: 0;
   border-radius: 8px;

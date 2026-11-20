@@ -49,6 +49,8 @@ import { useIdleHide } from '../player/useIdleHide'
 import ProfileMenu from '../player/ProfileMenu.vue'
 import { useLoopNudge } from '../player/useLoopNudge'
 import { useSaveBookmark } from '../player/useSaveBookmark'
+import { overviewHostKey } from '../overview/overviewHostKey'
+import { useSaveSelection } from '../overview/useSaveSelection'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { usePracticeStore } from '../stores/practiceStore'
@@ -63,6 +65,11 @@ const loadPicker = () => import('../picker/SongPicker.vue')
 const SongPicker = defineAsyncComponent(loadPicker)
 const loadSettingsWindow = () => import('../settings/SettingsWindow.vue')
 const SettingsWindow = defineAsyncComponent(loadSettingsWindow)
+// The overview strip draws only while open (brief decision 101); like the dialogs, its chunk and
+// the loop editor's are fetched when the player mounts (see onMounted).
+const loadOverviewStrip = () => import('../overview/OverviewStrip.vue')
+const OverviewStrip = defineAsyncComponent(loadOverviewStrip)
+const loadLoopEditor = () => import('./LoopEditorView.vue')
 
 const route = useRoute()
 const router = useRouter()
@@ -127,6 +134,7 @@ const hud = ref({
 /** The pointer is over the app menu or the playback block: they never hide then. */
 const overMenu = ref(false)
 const overPlayback = ref(false)
+const overStrip = ref(false)
 /** Keyboard focus is on a playfield panel control. */
 const focusInSidebar = ref(false)
 
@@ -141,6 +149,7 @@ const controlsHidden = useIdleHide(
     hud.value.state === 'playing' &&
     !overMenu.value &&
     !overPlayback.value &&
+    !overStrip.value &&
     !focusInSidebar.value &&
     !pickerOpen.value &&
     !settingsOpen.value &&
@@ -506,13 +515,142 @@ function openStats(): void {
 
 /** Welcome is shown over the player (m7-7 decision 12): the scene, paused, is its backdrop. */
 const onWelcome = computed(() => route.name === 'welcome')
+/** The loop editor too (brief decision 106), but playback keeps running under it. */
+const onEditor = computed(() => route.name === 'editor')
+/** A still backdrop: no render loop behind Welcome or the editor (weak tablets; m7-7 round 2). */
+const frozen = computed(() => onWelcome.value || onEditor.value)
+watch(frozen, (still) => engine?.setFrozen(still))
 watch(onWelcome, (welcome) => {
-  // A still backdrop: no render loop while Welcome is shown (weak tablets; m7-7 round 2).
-  engine?.setFrozen(welcome)
   if (!welcome) return
   if (session?.transport.state === 'playing') session.transport.pause()
   else rememberBar()
 })
+
+/** The overview strip (brief decision 105): open state kept across reloads, hidden on overlays. */
+/**
+ * Below this many px between the columns the strip isn't shown (the chevron and V open the
+ * loop editor instead); it comes back by itself when there's room again.
+ */
+const STRIP_MIN_ROOM = 360
+const stripFits = computed(() => stripBox.value.room >= STRIP_MIN_ROOM)
+const stripShown = computed(
+  () =>
+    ui.overviewOpen &&
+    stripFits.value &&
+    loaded.value !== null &&
+    !onWelcome.value &&
+    !onEditor.value,
+)
+const overviewHint = computed(() => {
+  const editorKey = shortcutLabel('openLoopEditor')
+  if (!stripFits.value) {
+    return `Not enough room for the overview here · open the loop editor${editorKey === '' ? '' : ` (${editorKey})`}`
+  }
+  const key = shortcutLabel('toggleOverview')
+  return `${ui.overviewOpen ? 'Close' : 'Open'} overview${key === '' ? '' : ` (${key})`}`
+})
+const stripBookmarks = computed(() =>
+  entry.value === null ? [] : bookmarks.forSong(entry.value.songId),
+)
+const playingBookmarkId = computed(() =>
+  practice.now?.kind === 'bookmark' ? practice.now.bookmark.id : null,
+)
+const playing = computed(() => hud.value.state === 'playing')
+const tick = computed(() => hud.value.tick)
+
+/** The chevron and V: the strip, or — without room for it — the loop editor. */
+function toggleOverview(): void {
+  if (!stripFits.value) openLoopEditor()
+  else ui.overviewOpen = !ui.overviewOpen
+}
+
+function openLoopEditor(): void {
+  void router.push({ name: onEditor.value ? 'player' : 'editor' })
+}
+
+/** A bookmark of the loaded song, from the strip's lane or the editor: a normal load. */
+function loadBookmark(id: string): void {
+  const songId = entry.value?.songId
+  if (songId !== undefined) void openSong(songId, id)
+}
+
+const saveSelection = useSaveSelection(loadBookmark)
+
+provide(overviewHostKey, {
+  song: loaded,
+  songId: computed(() => entry.value?.songId ?? null),
+  title,
+  tick,
+  playing,
+  loop: shownLoop,
+  seekBar,
+  setLoop,
+  playFrom: (bar) => {
+    seekBar(bar)
+    if (!playing.value) togglePlay()
+  },
+  loadBookmark,
+  saveSelection,
+  backToPlayer: () => void router.push({ name: 'player' }),
+})
+
+/**
+ * Where the strip goes (decision 60, m8 agreed 19): under the timeline, between the HUD
+ * columns as they are, about 24 px from each. The left column is measured at its counter and
+ * "bar N of M" (the title and composer truncate at the strip instead); the right column whole.
+ */
+const STRIP_GAP = 24
+const stage = useTemplateRef<HTMLElement>('stage')
+const counterBlock = useTemplateRef<InstanceType<typeof BarBeatCounter>>('counterBlock')
+const barOf = useTemplateRef<HTMLElement>('barOf')
+const leftColumn = useTemplateRef<HTMLElement>('leftColumn')
+const rightColumn = useTemplateRef<HTMLElement>('rightColumn')
+const stripBox = ref({ left: 0, right: 0, titleRoom: 0, room: 0 })
+let stripObserver: ResizeObserver | null = null
+
+function measureStrip(): void {
+  const stageEl = stage.value
+  const left = leftColumn.value
+  const right = rightColumn.value
+  if (stageEl === null || left === null || right === null) return
+  const counterEl = counterBlock.value?.$el as HTMLElement | undefined
+  const widest = Math.max(counterEl?.offsetWidth ?? 0, barOf.value?.offsetWidth ?? 0)
+  const next = {
+    left: left.offsetLeft + widest + STRIP_GAP,
+    right: stageEl.clientWidth - right.offsetLeft + STRIP_GAP,
+    // The title, composer and now-playing line stop just short of the strip.
+    titleRoom: widest + STRIP_GAP - 12,
+    room: 0,
+  }
+  next.room = stageEl.clientWidth - next.left - next.right
+  const box = stripBox.value
+  if (
+    next.left !== box.left ||
+    next.right !== box.right ||
+    next.titleRoom !== box.titleRoom ||
+    next.room !== box.room
+  ) {
+    stripBox.value = next
+  }
+}
+
+/** Measured whenever the HUD is shown, strip open or not: it decides whether the strip fits. */
+function watchStripRoom(still: boolean): void {
+  stripObserver?.disconnect()
+  stripObserver = null
+  if (still) return
+  measureStrip()
+  stripObserver = new ResizeObserver(measureStrip)
+  for (const el of [
+    stage.value,
+    rightColumn.value,
+    barOf.value,
+    counterBlock.value?.$el as HTMLElement | undefined,
+  ]) {
+    if (el instanceof HTMLElement) stripObserver.observe(el)
+  }
+}
+watch(frozen, watchStripRoom, { flush: 'post' })
 
 provide(playerActionsKey, {
   resume: () => void router.push({ name: 'player' }),
@@ -577,6 +715,8 @@ const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
   openPicker,
   openLibrary,
   togglePlayfield: toggleSidebar,
+  toggleOverview,
+  openLoopEditor,
   openSettings,
   tempoDown: () => stepTempo(-1),
   tempoUp: () => stepTempo(1),
@@ -599,6 +739,8 @@ function onKeyDown(event: KeyboardEvent): void {
   if (onWelcome.value) return
   if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return
   const command = commandForEvent(settingsStore.bindings, 'player', event)
+  // In the loop editor playback keeps its keys; the playfield panel and the strip aren't there.
+  if (onEditor.value && (command === 'togglePlayfield' || command === 'toggleOverview')) return
   const action = command === null ? undefined : PLAYER_ACTIONS[command]
   if (action === undefined) return
   event.preventDefault()
@@ -652,7 +794,7 @@ onMounted(() => {
   engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {
     engine.mount(canvas.value)
-    engine.setFrozen(onWelcome.value)
+    engine.setFrozen(frozen.value)
     resizeObserver = new ResizeObserver(() => engine?.resize())
     resizeObserver.observe(canvas.value)
   }
@@ -665,6 +807,9 @@ onMounted(() => {
   // later finds them ready.
   void loadPicker()
   void loadSettingsWindow()
+  watchStripRoom(frozen.value)
+  void loadOverviewStrip()
+  void loadLoopEditor()
   void openSong()
 })
 
@@ -676,6 +821,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onGesture)
   cancelAnimationFrame(hudFrame)
   resizeObserver?.disconnect()
+  stripObserver?.disconnect()
   stopProgress?.()
   engine?.dispose()
   if (session?.transport.state === 'playing') session.transport.pause()
@@ -689,9 +835,15 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="player"
-    :class="{ 'with-sidebar': ui.sidebarOpen && !onWelcome, welcome: onWelcome }"
+    :class="{
+      'with-sidebar': ui.sidebarOpen && !frozen,
+      welcome: onWelcome,
+      editor: onEditor,
+      overview: stripShown,
+    }"
+    :style="{ '--title-room': `${stripBox.titleRoom}px` }"
   >
-    <div class="stage" :class="{ idle: controlsHidden }">
+    <div ref="stage" class="stage" :class="{ idle: controlsHidden }">
       <canvas ref="canvas" class="canvas" data-testid="stage" />
       <div v-if="onWelcome" class="welcome-dim" aria-hidden="true" />
 
@@ -707,9 +859,48 @@ onBeforeUnmount(() => {
         :bar-at="barAt"
         @seek-bar="seekBar"
       />
+      <button
+        type="button"
+        class="overview-toggle"
+        :class="{ open: stripShown }"
+        :aria-label="overviewHint"
+        :title="overviewHint"
+        :aria-expanded="stripShown"
+        :data-room="stripFits ? 'yes' : 'no'"
+        data-testid="overview-toggle"
+        @click="toggleOverview"
+      >
+        <AppIcon :name="stripShown ? 'chevronUp' : 'chevronDown'" :size="16" />
+      </button>
+
+      <!-- Brief decision 105: the overview strip, under the timeline between the columns. -->
+      <OverviewStrip
+        v-if="stripShown && loaded"
+        class="overview-strip"
+        :style="{ left: `${stripBox.left}px`, right: `${stripBox.right}px` }"
+        :song="loaded"
+        :title="title"
+        :bookmarks="stripBookmarks"
+        :playing-id="playingBookmarkId"
+        :loop="shownLoop"
+        :tick="tick"
+        :playing="playing"
+        :controls-hidden="controlsHidden"
+        :save-key="shortcutLabel('saveBookmark')"
+        :editor-key="shortcutLabel('openLoopEditor')"
+        :close-key="shortcutLabel('toggleOverview')"
+        @seek-bar="seekBar"
+        @set-loop="setLoop"
+        @load-bookmark="loadBookmark"
+        @save-selection="saveSelection"
+        @open-editor="openLoopEditor"
+        @close="ui.overviewOpen = false"
+        @pointerenter="overStrip = true"
+        @pointerleave="overStrip = false"
+      />
 
       <!-- Left: what you're playing and where you are, then the app menu. -->
-      <div class="side left" data-testid="hud-left">
+      <div ref="leftColumn" class="side left" data-testid="hud-left">
         <section class="hud-text song" aria-label="Song">
           <h1 class="title" :title="title" data-testid="hud-title">
             {{ title }}
@@ -740,6 +931,7 @@ ${customHint}`
             <span v-else data-testid="hud-custom">{{ nowPlaying.label }}</span>
           </p>
           <BarBeatCounter
+            ref="counterBlock"
             :bar="hud.bar"
             :beat="hud.beat"
             :pre-roll="hud.preRoll"
@@ -748,7 +940,7 @@ ${customHint}`
             :bar-digits="barDigits"
             :beat-digits="beatDigits"
           />
-          <p class="sub">
+          <p ref="barOf" class="sub bar-of">
             bar {{ hud.bar }} of
             <span data-testid="hud-bars">{{ barCount }}</span>
           </p>
@@ -779,6 +971,14 @@ ${customHint}`
             :shortcut="shortcutLabel('openPicker')"
             data-testid="open-picker"
             @click="openPicker"
+          />
+          <HudMenuButton
+            icon="loopEditor"
+            label="Loop editor"
+            :shortcut="shortcutLabel('openLoopEditor')"
+            :active="onEditor"
+            data-testid="menu-loop-editor"
+            @click="router.push({ name: 'editor' })"
           />
           <HudMenuButton
             icon="library"
@@ -821,7 +1021,7 @@ ${customHint}`
       </div>
 
       <!-- Right: tempo and time, then playback. -->
-      <div class="side right">
+      <div ref="rightColumn" class="side right">
         <section class="hud-text tempo" aria-label="Tempo and time">
           <p class="bpm-line">
             <span class="bpm" data-testid="hud-bpm">{{ hud.currentBpm.toFixed(0) }}</span>
@@ -938,12 +1138,12 @@ ${customHint}`
       </div>
     </div>
 
-    <!-- Welcome, over the paused scene. -->
+    <!-- Welcome over the paused scene; the loop editor over the playing one. -->
     <RouterView />
 
     <Transition name="sidebar">
       <PlayfieldSidebar
-        v-if="ui.sidebarOpen && !onWelcome"
+        v-if="ui.sidebarOpen && !frozen"
         :render-status="renderStatus"
         @close="ui.sidebarOpen = false"
         @open-settings="openSettings"
@@ -1008,16 +1208,68 @@ ${customHint}`
 }
 
 .player.welcome .timeline-strip,
+.player.welcome .overview-toggle,
 .player.welcome .song,
 .player.welcome .side.right {
   visibility: hidden;
+}
+
+/* The loop editor (QGOverviewB): the frozen scene, blurred, under its page; no HUD. */
+.player.editor .canvas {
+  filter: blur(12px);
+  scale: 1.04;
+}
+
+.player.editor .stage > :not(.canvas) {
+  visibility: hidden;
+}
+
+/* The chevron at the timeline's right end that opens and closes the overview strip. */
+.overview-toggle {
+  position: absolute;
+  top: 2px;
+  right: 24px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(200 206 220 / 55%);
+  filter: var(--icon-shadow-hud);
+  cursor: pointer;
+}
+
+.overview-toggle:hover,
+.overview-toggle.open {
+  color: var(--text-1);
+}
+
+.overview-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* (More specific than the strip's own `position: relative`.) */
+.stage .overview-strip {
+  position: absolute;
+  z-index: 1;
+  top: 34px;
+}
+
+/* With the strip open the columns stay put; the long lines truncate at the strip's edge. */
+.player.overview .song .title,
+.player.overview .song .composer {
+  max-width: var(--title-room);
 }
 
 /* Decision 60: no panels, pills or scrims behind the HUD; text shadows keep it readable. */
 .timeline-strip {
   position: absolute;
   top: 0;
-  right: 28px;
+  right: 56px;
   left: 28px;
 }
 
@@ -1160,7 +1412,8 @@ ${customHint}`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  /* 2 px (4 before milestone 8's Loop editor item): the column clears the keyboard at 720. */
+  gap: 2px;
   margin-top: 44px;
 }
 
@@ -1235,8 +1488,12 @@ ${customHint}`
 
 @media (width < 900px) {
   .timeline-strip {
-    right: var(--space-4);
+    right: calc(var(--space-4) + 28px);
     left: var(--space-4);
+  }
+
+  .overview-toggle {
+    right: 12px;
   }
 
   .left {

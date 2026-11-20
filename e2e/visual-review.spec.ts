@@ -725,3 +725,97 @@ for (const viewport of M6_VIEWPORTS) {
     })
   }
 }
+
+// 12. Milestone 8: the overview strip (whole song with the bookmark lane in two rows; zoomed in
+// with a selection and its action bar) and the loop editor (32 bars, a bookmark selected), at
+// the milestone 7 fixed time with the B section loaded. Compare with
+// docs/design/m8/source/QGOverviewA and QGOverviewB.
+for (const viewport of M6_VIEWPORTS) {
+  for (const theme of M6_THEMES) {
+    const suffix = `${viewport.width}x${viewport.height}-${theme.name}`
+
+    test.describe(`m8 ${suffix}`, () => {
+      test.use({ viewport })
+
+      test.beforeEach(async ({ page }) => {
+        await page.clock.setFixedTime(M7_NOW)
+        await page.addInitScript(() => {
+          localStorage.setItem(
+            'pianomeister.ui',
+            JSON.stringify({
+              sidebarOpen: false,
+              sidebarSections: ['keyboard'],
+              overviewOpen: true,
+            }),
+          )
+        })
+        await seed(page, { appearance: theme.appearance })
+        await page.goto('./#/')
+        await expect(page.getByTestId('hud-bars')).toHaveText('64')
+        const history = practiceHistory(M7_NOW.getTime()) as Parameters<typeof seedPractice>[1]
+        await seedPractice(page, {
+          ...history,
+          bookmarks: [
+            ...(history.bookmarks ?? []),
+            {
+              id: 'bm-phrase',
+              profileId: 'default',
+              songId: SONG_IDS.minuet,
+              name: 'Opening phrase',
+              autoName: false,
+              config: {
+                loop: { startBar: 5, endBar: 12 },
+                tempoPercent: 100,
+                handAudio: { right: 'on', left: 'on' },
+                preRollBeats: 0,
+                preRollMode: 'muted',
+                metronomeMode: 'off',
+              },
+              createdAt: 5,
+              updatedAt: 5,
+            },
+          ],
+          appState: [
+            {
+              key: 'lastOpened:default',
+              value: JSON.stringify({ songId: SONG_IDS.minuet, bookmarkId: 'bm-b', bar: 26 }),
+            },
+          ],
+        })
+        await expect(page.getByTestId('hud-bookmark')).toHaveText('B section')
+      })
+
+      test(`@visual m8 strip ${suffix}`, async ({ page }) => {
+        const strip = page.getByTestId('overview-strip')
+        await expect(strip.getByTestId('lane-item')).toHaveCount(4)
+        await settle(page, 30)
+        await shoot(page, `m8-strip-whole-${suffix}`)
+
+        await page.getByTestId('overview-zoom').fill('0.45')
+        const box = await strip.getByTestId('roll').boundingBox()
+        expect(box).not.toBeNull()
+        const y = (box?.y ?? 0) + 120
+        await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) * 0.55, y)
+        await page.mouse.down()
+        await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) * 0.72, y, { steps: 6 })
+        await page.mouse.up()
+        await expect(page.getByTestId('selection-actions')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m8-strip-zoomed-selection-${suffix}`)
+      })
+
+      test(`@visual m8 editor ${suffix}`, async ({ page }) => {
+        await page.goto('./#/editor?bookmark=bm-b')
+        await expect(page.getByTestId('editor-name')).toHaveText('B section')
+        // 32 bars from bar 1 (the mockup shows 9–40): the B section's lane and loop in view.
+        await page.getByTestId('editor-zoom').locator('[data-value="32"]').click()
+        await expect(page.getByTestId('editor-zoom').locator('[data-value="32"]')).toHaveAttribute(
+          'data-state',
+          'on',
+        )
+        await settle(page, 30)
+        await shoot(page, `m8-editor-32-bars-${suffix}`)
+      })
+    })
+  }
+}

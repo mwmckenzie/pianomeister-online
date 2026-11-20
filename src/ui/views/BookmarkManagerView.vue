@@ -286,6 +286,21 @@ async function loadInPlayer(): Promise<void> {
   }
 }
 
+/**
+ * "Open in editor" (brief decision 106): the loop editor over the player, with this bookmark
+ * selected. If its song isn't the one loaded, that song loads first as Full song (nothing of
+ * the bookmark applied); if it is, what's loaded stays as it is.
+ */
+async function openInEditor(): Promise<void> {
+  const s = selection.value
+  if (s === null || isDraft(s.bookmark)) return
+  if (practice.songId !== s.song.songId) {
+    if (!(await library.setLastOpened(s.song.songId, null))) return
+    practice.requestFreshLoad()
+  }
+  await router.push({ name: 'editor', query: { bookmark: s.bookmark.id } })
+}
+
 /** A copy that's only kept once something about it changes. */
 function duplicate(): void {
   const source = selection.value?.bookmark
@@ -471,6 +486,7 @@ onMounted(async () => {
           :is-draft="isDraft(selection.bookmark)"
           @edit="edit"
           @load="loadInPlayer"
+          @open-editor="openInEditor"
           @duplicate="duplicate"
           @delete="remove"
         />

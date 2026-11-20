@@ -206,6 +206,21 @@ describe('practice store loop jumps (brief decision 8)', () => {
     expect(practice.loads).toBe(loads)
   })
 
+  it('follows a loop editor edit of the loaded bookmark with one jump, unless a temporary loop wins', () => {
+    const practice = loadBookmark()
+    const jumps = practice.loopJump
+    // Another bookmark edited: nothing moves.
+    practice.savedLoopChanged('other')
+    expect(practice.loopJump).toBe(jumps)
+    practice.savedLoopChanged('b1')
+    expect(practice.loopJump).toBe(jumps + 1)
+    // A temporary loop change wins: the edit doesn't move the playhead.
+    practice.setLoop({ startBar: 1, endBar: 2 })
+    const after = practice.loopJump
+    practice.savedLoopChanged('b1')
+    expect(practice.loopJump).toBe(after)
+  })
+
   it('restores a snapshot: what was loaded and its temporary changes', () => {
     const practice = usePracticeStore()
     practice.load('song', null, { first: 1, last: 64 })

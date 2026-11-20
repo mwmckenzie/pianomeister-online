@@ -40,7 +40,13 @@ const props = defineProps<{
   readonly sameAs: string | null
   readonly isDraft: boolean
 }>()
-const emit = defineEmits<{ edit: [edit: BookmarkEdit]; load: []; duplicate: []; delete: [] }>()
+const emit = defineEmits<{
+  edit: [edit: BookmarkEdit]
+  load: []
+  openEditor: []
+  duplicate: []
+  delete: []
+}>()
 
 const stats = useStatsStore()
 const settings = useSettingsStore()
@@ -382,10 +388,18 @@ const chart = computed(() => stats.chart({ entryId: props.bookmark.id }))
       <AppButton variant="primary" class="load" data-testid="bookmark-load" @click="emit('load')">
         Load in player
       </AppButton>
-      <AppButton :disabled="isDraft" data-testid="bookmark-duplicate" @click="emit('duplicate')"
+      <AppButton
+        class="open-editor"
+        :disabled="isDraft"
+        title="Open the loop editor with this bookmark selected"
+        data-testid="bookmark-open-editor"
+        @click="emit('openEditor')"
+        >Open in editor</AppButton
+      >
+      <AppButton class="small" :disabled="isDraft" data-testid="bookmark-duplicate" @click="emit('duplicate')"
         >Duplicate</AppButton
       >
-      <AppButton danger data-testid="bookmark-delete" @click="emit('delete')">Delete</AppButton>
+      <AppButton class="small" danger data-testid="bookmark-delete" @click="emit('delete')">Delete</AppButton>
     </footer>
   </aside>
 </template>
@@ -510,12 +524,16 @@ const chart = computed(() => stats.chart({ entryId: props.bookmark.id }))
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   padding: 14px 18px 18px;
   border-top: 1px solid var(--divider);
 }
 
-.load {
-  flex: 1;
+/* Two rows: Load in player and Open in editor (m8), then Duplicate and Delete. */
+.load,
+.open-editor,
+.small {
+  flex: 1 1 calc(50% - var(--space-2));
 }
 </style>

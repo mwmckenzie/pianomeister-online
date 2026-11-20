@@ -24,6 +24,8 @@ export const router = createRouter({
         { path: '', name: 'player', component: EmptyRoute },
         // Lazy: Welcome's cards and charts aren't needed to play.
         { path: 'welcome', name: 'welcome', component: () => import('../views/WelcomeView.vue') },
+        // The loop editor keeps the player playing underneath (brief decision 106).
+        { path: 'editor', name: 'editor', component: () => import('../views/LoopEditorView.vue') },
       ],
     },
     // Lazy: the library UI isn't needed to play.

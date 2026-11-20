@@ -138,6 +138,20 @@ export const COMMANDS = [
     scope: 'player',
   },
   {
+    id: 'toggleOverview',
+    label: 'Overview',
+    description: 'Show or hide the overview strip under the timeline',
+    keys: [charKey('v')],
+    scope: 'player',
+  },
+  {
+    id: 'openLoopEditor',
+    label: 'Loop editor',
+    description: 'Open the loop editor (again: back to the player)',
+    keys: [charKey('e')],
+    scope: 'player',
+  },
+  {
     id: 'openSettings',
     label: 'Settings',
     description: 'Open the settings',

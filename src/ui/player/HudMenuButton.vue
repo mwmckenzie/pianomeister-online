@@ -40,7 +40,8 @@ defineEmits<{ click: [] }>()
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 40px;
+  /* 36 px (40 before milestone 8): nine items still clear the keyboard at 720 px high. */
+  height: 36px;
   padding: 0 8px 0 0;
   border: 0;
   border-radius: 8px;
