@@ -25,6 +25,7 @@ import { formatPracticeTime } from '@/core/stats/formatPracticeTime'
 import AppButton from '../components/AppButton.vue'
 import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
+import HomeLink from '../components/HomeLink.vue'
 import RangeBar from '../components/RangeBar.vue'
 import SearchField from '../components/SearchField.vue'
 import BookmarkEditPanel from '../library/BookmarkEditPanel.vue'
@@ -366,6 +367,7 @@ onMounted(async () => {
         <RouterLink :to="{ name: 'player' }" class="back" data-testid="back-to-player">
           <AppIcon name="chevronLeft" :size="18" /> Player
         </RouterLink>
+        <HomeLink />
         <ManageTabs active="bookmarks" />
         <SearchField
           v-model="search"

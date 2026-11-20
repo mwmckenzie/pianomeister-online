@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { TooltipProvider } from 'reka-ui'
 import { defineAsyncComponent, onBeforeUnmount, ref, watchEffect } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import { commandForEvent } from '@/core/commands/shortcutBindings'
 
@@ -22,17 +22,26 @@ const ProfileCollisionDialog = defineAsyncComponent(
 const ShortcutsSheet = defineAsyncComponent(() => import('./shortcuts/ShortcutsSheet.vue'))
 const ui = useUiStateStore()
 const route = useRoute()
+const router = useRouter()
 
-/** Pages where "Show shortcuts" works (decision 89): not while typing or another dialog is open. */
-const SHEET_PAGES = new Set(['player', 'library', 'bookmarks'])
+/**
+ * Pages where the Everywhere keys work (decisions 86, 89): Show shortcuts, Home and Stats — not
+ * while typing, recording a key, or with a dialog open.
+ */
+const APP_PAGES = new Set(['player', 'welcome', 'library', 'bookmarks', 'stats'])
 
 function onKeyDown(event: KeyboardEvent): void {
   if (event.defaultPrevented || keyCapture.value || ui.shortcutsOpen) return
-  if (!SHEET_PAGES.has(String(route.name)) || isTypingTarget(event.target)) return
+  if (!APP_PAGES.has(String(route.name)) || isTypingTarget(event.target)) return
   if (document.querySelector('[role="dialog"][data-state="open"]') !== null) return
-  if (commandForEvent(settings.bindings, 'app', event) !== 'showShortcuts') return
+  const command = commandForEvent(settings.bindings, 'app', event)
+  if (command === 'showShortcuts') ui.shortcutsOpen = true
+  else if (command === 'goHome') {
+    if (route.name !== 'welcome') void router.push({ name: 'welcome' })
+  } else if (command === 'openStats') {
+    if (route.name !== 'stats') void router.push({ name: 'stats' })
+  } else return
   event.preventDefault()
-  ui.shortcutsOpen = true
 }
 
 window.addEventListener('keydown', onKeyDown)

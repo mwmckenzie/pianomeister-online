@@ -13,6 +13,10 @@ export const SHORTCUT_GROUPS: readonly {
     title: 'Tabs',
     where: 'Library and Bookmarks pages, song picker, settings window',
   },
-  { scope: 'app', title: 'Everywhere', where: 'Player, library and bookmark manager' },
+  {
+    scope: 'app',
+    title: 'Everywhere',
+    where: 'Welcome, player, library, bookmark manager and stats',
+  },
   { scope: 'dialogs', title: 'Dialogs', where: 'Any dialog or popup' },
 ]

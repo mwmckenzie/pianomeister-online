@@ -15,6 +15,7 @@ import type { UploadResult } from '@/data/UploadResult'
 
 import AppButton from '../components/AppButton.vue'
 import AppIcon from '../components/AppIcon.vue'
+import HomeLink from '../components/HomeLink.vue'
 import SearchField from '../components/SearchField.vue'
 import SelectField from '../components/SelectField.vue'
 import SongDetailsPanel from '../components/SongDetailsPanel.vue'
@@ -389,6 +390,7 @@ onBeforeUnmount(() => {
         <RouterLink :to="{ name: 'player' }" class="back" data-testid="back-to-player">
           <AppIcon name="chevronLeft" :size="18" /> Player
         </RouterLink>
+        <HomeLink />
         <ManageTabs active="library" />
         <SearchField
           v-model="search"

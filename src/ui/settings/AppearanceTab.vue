@@ -61,6 +61,9 @@ function applyPreset(preset: (typeof THEME_PRESETS)[number]): void {
     <SettingRow setting-key="appearance.hideControls" />
     <SettingRow setting-key="appearance.hideControlsAfter" />
   </SettingsSection>
+  <SettingsSection section-id="start" title="Start">
+    <SettingRow setting-key="appearance.startOn" />
+  </SettingsSection>
 </template>
 
 <style scoped>
