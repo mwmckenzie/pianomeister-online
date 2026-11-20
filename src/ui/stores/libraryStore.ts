@@ -192,6 +192,21 @@ export const useLibraryStore = defineStore('library', () => {
       library.setProfile(profiles.activeId)
       return library.startEntry()
     },
+    lastOpened: async (): Promise<LastOpened | null> => {
+      await profiles.load()
+      library.setProfile(profiles.activeId)
+      return library.lastOpened()
+    },
+    /** Remembers where playback stopped, for Welcome's Resume; never throws. */
+    setStoppedBar: async (bar: number): Promise<void> => {
+      try {
+        await profiles.load()
+        library.setProfile(profiles.activeId)
+        await library.setStoppedBar(bar)
+      } catch (e) {
+        console.error("[library] Couldn't remember where playback stopped:", e)
+      }
+    },
     /** Remembers what the profile opened (startup reopens it); never throws. */
     setLastOpened: async (songId: string, bookmarkId: string | null): Promise<boolean> => {
       try {
