@@ -78,6 +78,12 @@ test('E opens the loop editor and playback keeps running; Space, E and ‹ Playe
   await expect(page.getByTestId('loop-editor')).toBeVisible()
   await page.getByTestId('editor-back').click()
   await expect(page.getByTestId('loop-editor')).toHaveCount(0)
+
+  // A full page: no app menu over it, and Home beside ‹ Player.
+  await page.keyboard.press('KeyE')
+  await expect(page.getByTestId('app-menu')).toBeHidden()
+  await page.getByTestId('loop-editor').getByTestId('home-link').click()
+  await expect(page.getByTestId('welcome')).toBeVisible()
   expect(errors).toEqual([])
 })
 
