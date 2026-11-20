@@ -6,7 +6,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import AppIcon from './AppIcon.vue'
 
 /**
- * "Home" beside "‹ Player" in the Library, Bookmarks and Stats headers (m7-7 decision 2): the
+ * "Home" beside "‹ Player" in the Library, Bookmarks, Stats and loop editor headers (m7-7 decision 2): the
  * Welcome screen; its tooltip names the key in effect.
  */
 const settings = useSettingsStore()

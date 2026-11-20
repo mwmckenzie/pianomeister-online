@@ -14,6 +14,7 @@ import { formatPracticeTime } from '@/core/stats/formatPracticeTime'
 import type { LoopRange } from '@/core/transport/LoopRange'
 
 import AppIcon from '../components/AppIcon.vue'
+import HomeLink from '../components/HomeLink.vue'
 import SegmentedControl from '../components/SegmentedControl.vue'
 import StatsTriple from '../components/StatsTriple.vue'
 import BookmarkLanes from '../overview/BookmarkLanes.vue'
@@ -227,6 +228,7 @@ onMounted(() => {
       <button type="button" class="back" data-testid="editor-back" @click="host.backToPlayer()">
         ‹ Player
       </button>
+      <HomeLink class="home" />
       <h1 class="title">{{ host.title.value }} <span class="dim">· Overview</span></h1>
       <SegmentedControl
         v-model="preset"
@@ -440,6 +442,11 @@ onMounted(() => {
   color: var(--text-1);
   font-size: var(--text-md);
   cursor: pointer;
+}
+
+/* Home beside "‹ Player", as on the Library, Bookmarks and Stats pages (38 px like the back button). */
+.home {
+  height: 38px;
 }
 
 .back:hover {
@@ -663,7 +670,7 @@ button:focus-visible {
 }
 
 /* The panel is narrow: the columns fit their values ("1 h 13 min") instead of a third each. */
-.stats :deep(.stats-triple) {
+.panel .stats {
   grid-template-columns: auto auto auto;
   justify-content: space-between;
 }
