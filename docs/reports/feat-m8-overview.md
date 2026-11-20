@@ -114,3 +114,17 @@ Plan: `docs/milestones/m8.md`, with the answers agreed when planning (m8.md "Agr
 ### Known issues and open questions
 
 - The menu item is lit while the editor is open, but the editor page covers the player's menu (QGOverviewB has none), so the lit state isn't visible there. Show the app menu on the editor like on Welcome?
+
+## 2026-11-20 — Round 3: the editor is a full page
+
+### What changed
+
+- **Home in the loop editor header**, beside "‹ Player" (`HomeLink`, 38 px to match the back button), as on the Library, Bookmarks and Stats pages; the editor shows no app menu (it covers the player's). The round 2 question is settled by this.
+- **Brief:** decision 60 notes that the left menu is at its height limit at 1280×720 with two profiles — a further item needs the menu to move up or reflow (not tighter spacing); decision 106 calls the editor a full page with Home in its header. m8.md "agreed" 25.
+- **Fix found in the shots:** the editor panel's stats columns ("1 h 13 min") were still cut at 1280 — round 1's override targeted a descendant, but the class is on the stats list itself; it now applies.
+
+### Results
+
+- `npm run check`: pass (576). `npm run build`: pass.
+- Affected e2e on the preview, `--retries=0` (loopEditor, overview, welcome, stats): **30/30** — the editor test now also checks there's no app menu over it and that Home goes to Welcome.
+- Visual m8 block: **8/8**; the editor header and stats checked at 1280×720.
