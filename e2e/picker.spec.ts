@@ -11,7 +11,7 @@ test('the picker opens from the toolbar, shows details, and loads the chosen son
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   // A song picked while the ~230 samples download waits behind them (per-host request queue;
   // seconds on a busy dev server): this test is about the picker, so start once they're in.
@@ -38,7 +38,7 @@ test('O opens the picker; arrows move, Enter loads; typing in search triggers no
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await page.getByTestId('stage').click()
   await page.keyboard.press('KeyO')
@@ -64,7 +64,7 @@ test('O opens the picker; arrows move, Enter loads; typing in search triggers no
 })
 
 test('Esc closes the picker and returns focus; Library… opens the library', async ({ page }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await page.getByTestId('open-picker').click()
   await expect(page.getByTestId('song-picker')).toBeVisible()
@@ -171,7 +171,7 @@ test('uploads stored with old-shape facts are brought up to date in the backgrou
         }
       }),
   )
-  await page.goto('./')
+  await page.goto('./#/')
   await page.reload()
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await page.getByTestId('open-picker').click()
@@ -187,7 +187,7 @@ test('the picker sorts songs by last practiced by default, and by plays, time an
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await seedPractice(page, sortingHistory(Date.now()))
   await page.getByTestId('open-picker').click()

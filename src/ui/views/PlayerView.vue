@@ -4,12 +4,13 @@ import {
   defineAsyncComponent,
   onBeforeUnmount,
   onMounted,
+  provide,
   ref,
   shallowRef,
   useTemplateRef,
   watch,
 } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import type { CommandId } from '@/core/commands/CommandId'
 import { commandForEvent } from '@/core/commands/shortcutBindings'
@@ -37,6 +38,7 @@ import { sharedSession } from '../playback/sharedSession'
 import { toAudioSettings } from '../playback/toAudioSettings'
 import BarBeatCounter from '../player/BarBeatCounter.vue'
 import HudMenuButton from '../player/HudMenuButton.vue'
+import { playerActionsKey } from '../player/playerActionsKey'
 import HudToggle from '../player/HudToggle.vue'
 import LoopPopover from '../player/LoopPopover.vue'
 import PlayerTimeline from '../player/PlayerTimeline.vue'
@@ -81,6 +83,9 @@ let resizeObserver: ResizeObserver | null = null
 let stopProgress: (() => void) | null = null
 let hudFrame = 0
 let unmounted = false
+/** The stored bar to start at, read with the start entry. */
+let stoppedBar: number | null = null
+let stopBarWatch: (() => void) | null = null
 
 const entry = shallowRef<LibraryEntry | null>(null)
 const hands = shallowRef<HandAssignment | null>(null)
@@ -236,8 +241,10 @@ async function openSong(songId?: string, bookmarkId: string | null = null): Prom
   let chosen: string | null = bookmarkId
   try {
     await bookmarks.refresh()
-    const target = songId === undefined ? await library.startEntry() : { songId, bookmarkId }
+    const target: { songId: string; bookmarkId: string | null; bar?: number } =
+      songId === undefined ? await library.startEntry() : { songId, bookmarkId }
     chosen = target.bookmarkId
+    stoppedBar = target.bar ?? null
     opened = await library.openSong(target.songId)
   } catch (e) {
     showError(e instanceof Error ? e.message : String(e))
@@ -245,7 +252,14 @@ async function openSong(songId?: string, bookmarkId: string | null = null): Prom
   }
   if (unmounted) return
   const playback = session ?? attachSession()
-  if (opened !== null) showSong(playback, opened, chosen, fresh)
+  if (opened !== null) {
+    const kept = showSong(playback, opened, chosen, fresh)
+    // Starting up: back where playback last stopped (inside the loop, decision 8), so Welcome's
+    // backdrop and Resume are there (m7-7 decision 6). A song kept as it was keeps its place.
+    if (!kept && songId === undefined && stoppedBar !== null) {
+      playback.transport.seekToBar(stoppedBar)
+    }
+  }
   // The picker lists the whole library: load it now, so its keys work the moment it opens.
   if (!library.loaded) void library.refresh().catch(() => undefined)
 }
@@ -254,6 +268,12 @@ function attachSession(): PlaybackSession {
   const playback = sharedSession()
   session = playback
   attachPlayLog(playback)
+  // Remember where playback stopped, for Welcome's Resume (m7-7 decision 6).
+  stopBarWatch = playback.bus.on('timelineChange', ({ reason }) => {
+    if (reason === 'pause' || reason === 'stop' || reason === 'end') rememberBar()
+    // Behind Welcome the scene is frozen: a seek or a new song still needs its one frame.
+    engine?.invalidate()
+  })
   if (loop.value !== null) loopDraft.value = loop.value
   applyPractice()
   stopProgress = playback.onSampleProgress(
@@ -275,7 +295,7 @@ function showSong(
   opened: OpenedSong,
   requestedBookmarkId: string | null,
   fresh: boolean,
-): void {
+): boolean {
   const songId = opened.entry.songId
   // A bookmark that's gone (deleted, another profile's, another song's) loads Full song.
   const bookmarkId =
@@ -313,6 +333,7 @@ function showSong(
     pedalIntervals: prepared.pedalIntervals,
     endTick: opened.song.durationTicks,
   })
+  return sameEntry
 }
 
 function showError(message: string): void {
@@ -454,8 +475,62 @@ function updateHud(): void {
 }
 
 function toggleSidebar(): void {
+  if (onWelcome.value) {
+    ui.sidebarOpen = true
+    void router.push({ name: 'player' })
+    return
+  }
   ui.sidebarOpen = !ui.sidebarOpen
 }
+
+/** The bar the playhead is in now, for remembering where playback stopped. */
+function currentBar(): number | null {
+  const song = loaded.value
+  if (song === null || session === null) return null
+  const tick = song.tempoMap.secondsToTick(Math.max(0, session.transport.position))
+  return song.barMap.tickToPosition(tick).bar
+}
+
+function rememberBar(): void {
+  const bar = currentBar()
+  if (bar !== null) void library.setStoppedBar(bar)
+}
+
+function goHome(): void {
+  void router.push({ name: 'welcome' })
+}
+
+function openStats(): void {
+  void router.push({ name: 'stats' })
+}
+
+/** Welcome is shown over the player (m7-7 decision 12): the scene, paused, is its backdrop. */
+const onWelcome = computed(() => route.name === 'welcome')
+watch(onWelcome, (welcome) => {
+  // A still backdrop: no render loop while Welcome is shown (weak tablets; m7-7 round 2).
+  engine?.setFrozen(welcome)
+  if (!welcome) return
+  if (session?.transport.state === 'playing') session.transport.pause()
+  else rememberBar()
+})
+
+provide(playerActionsKey, {
+  resume: () => void router.push({ name: 'player' }),
+  play: async (songId, bookmarkId) => {
+    practice.requestFreshLoad()
+    await openSong(songId, bookmarkId)
+    await router.push({ name: 'player' })
+  },
+  choose: openPicker,
+  openPlayfield: () => {
+    ui.sidebarOpen = true
+    void router.push({ name: 'player' })
+  },
+  openSettings: (tab) => {
+    if (tab !== undefined) ui.settingsTabRequest = tab
+    openSettings()
+  },
+})
 
 function openPicker(): void {
   pickerLoaded.value = true
@@ -474,6 +549,8 @@ function openLibrary(): void {
 function onPicked(songId: string, bookmarkId: string | null): void {
   pickerOpen.value = false
   void openSong(songId, bookmarkId)
+  // Chosen from Welcome ("Choose another..."): straight to the player.
+  if (onWelcome.value) void router.push({ name: 'player' })
 }
 
 /** A command's key as written in hints ("B"), or "" without one (decision 87). */
@@ -518,6 +595,8 @@ const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
 /** Shortcuts (decision 60); ignored while typing, and while a dialog has the keyboard. */
 function onKeyDown(event: KeyboardEvent): void {
   if (session === null || event.defaultPrevented || isTypingTarget(event.target)) return
+  // Behind Welcome the player's keys rest; Welcome has its own (Enter resumes).
+  if (onWelcome.value) return
   if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return
   const command = commandForEvent(settingsStore.bindings, 'player', event)
   const action = command === null ? undefined : PLAYER_ACTIONS[command]
@@ -573,6 +652,7 @@ onMounted(() => {
   engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {
     engine.mount(canvas.value)
+    engine.setFrozen(onWelcome.value)
     resizeObserver = new ResizeObserver(() => engine?.resize())
     resizeObserver.observe(canvas.value)
   }
@@ -599,15 +679,21 @@ onBeforeUnmount(() => {
   stopProgress?.()
   engine?.dispose()
   if (session?.transport.state === 'playing') session.transport.pause()
+  else rememberBar()
+  stopBarWatch?.()
   engine = null
   session = null
 })
 </script>
 
 <template>
-  <main class="player" :class="{ 'with-sidebar': ui.sidebarOpen }">
+  <main
+    class="player"
+    :class="{ 'with-sidebar': ui.sidebarOpen && !onWelcome, welcome: onWelcome }"
+  >
     <div class="stage" :class="{ idle: controlsHidden }">
       <canvas ref="canvas" class="canvas" data-testid="stage" />
+      <div v-if="onWelcome" class="welcome-dim" aria-hidden="true" />
 
       <!-- Decision 60: the timeline runs along the top edge and never hides. -->
       <PlayerTimeline
@@ -680,6 +766,14 @@ ${customHint}`
           @pointerleave="overMenu = false"
         >
           <HudMenuButton
+            icon="home"
+            label="Home"
+            :shortcut="shortcutLabel('goHome')"
+            :active="onWelcome"
+            data-testid="menu-home"
+            @click="goHome"
+          />
+          <HudMenuButton
             icon="song"
             label="Change song"
             :shortcut="shortcutLabel('openPicker')"
@@ -692,6 +786,13 @@ ${customHint}`
             :shortcut="shortcutLabel('openLibrary')"
             data-testid="menu-library"
             @click="openLibrary"
+          />
+          <HudMenuButton
+            icon="stats"
+            label="Stats"
+            :shortcut="shortcutLabel('openStats')"
+            data-testid="menu-stats"
+            @click="openStats"
           />
           <HudMenuButton
             icon="sliders"
@@ -837,9 +938,12 @@ ${customHint}`
       </div>
     </div>
 
+    <!-- Welcome, over the paused scene. -->
+    <RouterView />
+
     <Transition name="sidebar">
       <PlayfieldSidebar
-        v-if="ui.sidebarOpen"
+        v-if="ui.sidebarOpen && !onWelcome"
         :render-status="renderStatus"
         @close="ui.sidebarOpen = false"
         @open-settings="openSettings"
@@ -886,6 +990,27 @@ ${customHint}`
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Welcome's backdrop (m7-7 decision 12, QGWelcomeA): the scene blurred and dimmed, scaled a
+   little so the blur shows no soft edges; of the HUD only the app menu stays. */
+.player.welcome .canvas {
+  filter: blur(9px) saturate(120%);
+  opacity: 0.9;
+  scale: 1.04;
+}
+
+.welcome-dim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 40%, rgb(5 7 15 / 45%), rgb(5 7 15 / 82%));
+  pointer-events: none;
+}
+
+.player.welcome .timeline-strip,
+.player.welcome .song,
+.player.welcome .side.right {
+  visibility: hidden;
 }
 
 /* Decision 60: no panels, pills or scrims behind the HUD; text shadows keep it readable. */

@@ -12,7 +12,7 @@ async function openWindow(page: Page, tab: string) {
 }
 
 async function openSettings(page: Page, tab: string) {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await openWindow(page, tab)
 }

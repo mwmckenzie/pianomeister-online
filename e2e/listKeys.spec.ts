@@ -8,7 +8,7 @@ import { seedBookmark, seedPractice, SONG_IDS, watchErrors } from './support'
  */
 
 async function openPlayer(page: Page): Promise<void> {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
 }
 

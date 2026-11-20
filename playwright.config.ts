@@ -28,8 +28,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /*
+   * Opt out of parallel tests on CI. Locally a quarter of the logical cores, not Playwright's
+   * half: every test runs a headless browser rendering WebGL in software (well over a core),
+   * and at half the machine saturates — the preview server then answers in ~300 ms per file,
+   * on-demand chunks and songs queue behind ~230 sample downloads, and tests time out.
+   */
+  workers: process.env.CI ? 1 : '25%',
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */

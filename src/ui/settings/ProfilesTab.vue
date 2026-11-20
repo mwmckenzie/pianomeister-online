@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import { PROFILE_COLORS } from '@/core/profiles/PROFILE_COLORS'
 import type { Profile } from '@/core/profiles/Profile'
@@ -276,6 +277,9 @@ onMounted(() => {
         <dd :data-testid="item.testid">{{ item.value }}</dd>
       </div>
     </dl>
+    <RouterLink :to="{ name: 'stats' }" class="all-stats" data-testid="profiles-see-all-stats"
+      >See all stats</RouterLink
+    >
   </section>
 
   <AppDialog
@@ -426,5 +430,13 @@ onMounted(() => {
   font-weight: 300;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.all-stats {
+  display: inline-block;
+  margin-top: var(--space-3);
+  color: var(--primary);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 </style>

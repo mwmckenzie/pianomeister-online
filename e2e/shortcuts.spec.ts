@@ -5,7 +5,7 @@ import { seedBookmark, seedPractice, watchErrors } from './support'
 const row = (page: Page, id: string) => page.getByTestId(`shortcut-${id}`)
 
 async function openPlayer(page: Page): Promise<void> {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
 }
 
@@ -63,13 +63,13 @@ test('a second key, removing keys, and a command with none', async ({ page }) =>
   const errors = watchErrors(page)
   await openPlayer(page)
   await openShortcutsTab(page)
-  await record(page, 'stop', 'Shift+KeyS', 1)
-  await expect(row(page, 'stop').getByTestId('shortcut-key')).toHaveText(['Home', 'S'])
+  await record(page, 'stop', 'Shift+KeyJ', 1)
+  await expect(row(page, 'stop').getByTestId('shortcut-key')).toHaveText(['Home', 'J'])
   // Two keys: no "+".
   await expect(row(page, 'stop').getByTestId('shortcut-add')).toHaveCount(0)
   await row(page, 'stop').getByTestId('shortcut-key').first().hover()
   await row(page, 'stop').getByTestId('shortcut-remove').first().click()
-  await expect(row(page, 'stop').getByTestId('shortcut-key')).toHaveText(['S'])
+  await expect(row(page, 'stop').getByTestId('shortcut-key')).toHaveText(['J'])
   await row(page, 'stop').getByTestId('shortcut-remove').first().click()
   await expect(row(page, 'stop').getByTestId('shortcut-none')).toHaveText('—')
   await expect(row(page, 'toggleLoop').getByTestId('shortcut-none')).toHaveText('—')

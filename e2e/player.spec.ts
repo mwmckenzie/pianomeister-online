@@ -15,7 +15,7 @@ const barOf = (barBeat: string | null) => Number.parseInt((barBeat ?? '').split(
 
 test('plays the Minuet and the HUD bar:beat advances, without console errors', async ({ page }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
@@ -34,7 +34,7 @@ test('plays the Minuet and the HUD bar:beat advances, without console errors', a
 test('Space plays and pauses; arrow keys step bars; Home goes back to the start', async ({
   page,
 }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
   await page.getByTestId('stage').click()
   await page.keyboard.press('ArrowRight')
@@ -51,7 +51,7 @@ test('Space plays and pauses; arrow keys step bars; Home goes back to the start'
 })
 
 test('the timeline seeks by bar, by keyboard and by clicking', async ({ page }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   const timeline = page.getByTestId('timeline')
   await timeline.focus()
@@ -70,7 +70,7 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   const stage = page.getByTestId('stage')
   const fullWidth = (await stage.boundingBox())?.width ?? 0
@@ -103,7 +103,7 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
 test('a changed setting lights its reset icon, and reset restores the default', async ({
   page,
 }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await openSidebarSection(page, 'camera')
   const reset = resetButton(page, 'camera.tiltDeg')
   await expect(reset).toHaveAttribute('data-changed', 'false')
@@ -123,7 +123,7 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await openSidebarSection(page, 'camera')
   await nudge(page, 'camera.tiltDeg', 'ArrowRight', 2)
   await nudge(page, 'camera.pan', 'ArrowRight', 4)
@@ -154,7 +154,7 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await openSidebarSection(page, 'render')
   await expect(page.getByTestId('render-readout')).toContainText(/\d+ × \d+ px/)
@@ -208,7 +208,7 @@ test('settings saved by milestone 4 (v1) are migrated, not discarded', async ({ 
       }),
     )
   })
-  await page.goto('./')
+  await page.goto('./#/')
   await openSidebarSection(page, 'camera')
   await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '62')
   await openSidebarSection(page, 'render')
@@ -233,7 +233,7 @@ test('keyboard limits: lowering the black keys clamps their press depth, and it 
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await openSidebarSection(page, 'keyboard')
   const height = thumb(page, 'keyboard.blackHeight')
   const depth = thumb(page, 'keyboard.pressDepthBlack')
@@ -264,7 +264,7 @@ test('tempo and loop popovers: tempo %, a bar loop on the timeline, pre-roll, ba
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
 
   await page.getByTestId('open-tempo').click()
@@ -312,7 +312,7 @@ test('while playing, idle controls fade out and any activity brings them back', 
   // A fake clock that runs in real time until the test jumps it past the idle delay, so the
   // test never depends on how long a slow (software-rendered) frame takes.
   await page.clock.install()
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
   await page.getByTestId('toggle-sidebar').click()
   await page.getByTestId('open-all-settings').click()
@@ -378,7 +378,7 @@ test('loop range: slider and fields stay in sync and never allow an invalid rang
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await page.getByTestId('open-loop').click()
   const from = page.getByTestId('loop-from')
@@ -450,7 +450,7 @@ test('the HUD: bar:beat with upward beat dots, tempo and time, values beside the
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   // The Minuet is in 3/4: three dots, beat 1 lit and at the bottom of the stack.
   const dots = page.getByTestId('beat-dots').locator('.dot')
@@ -483,7 +483,7 @@ test('the HUD: bar:beat with upward beat dots, tempo and time, values beside the
 })
 
 test('the bar:beat colon never moves as the numbers change', async ({ page }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   const timeline = page.getByTestId('timeline')
   const colonX = async (bar: number) => {
@@ -511,7 +511,7 @@ test('the app menu: icons name themselves on hover, L opens the library, comma t
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   const library = page.getByTestId('menu-library')
   await expect(library.locator('.name')).toHaveCSS('opacity', '0')
@@ -540,7 +540,7 @@ test('during a count-in the HUD shows the target bar dimmed and the dots count t
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
   await page.getByTestId('open-loop').click()
   await page.getByTestId('loop-from').fill('3')
@@ -562,7 +562,7 @@ test('during a count-in the HUD shows the target bar dimmed and the dots count t
 })
 
 test('loop range: a pointer drag into the other thumb pushes it along', async ({ page }) => {
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await page.getByTestId('open-loop').click()
   const shown = page.getByTestId('loop-range')
@@ -597,7 +597,7 @@ test('settings saved with the v3 idle choices migrate to the switch and seconds'
       JSON.stringify({ version: 3, settings: { appearance: { hideControls: 'off' } } }),
     )
   })
-  await page.goto('./')
+  await page.goto('./#/')
   await page.getByTestId('menu-settings').click()
   await page.getByTestId('tab-appearance').click()
   const toggle = setting(page, 'appearance.hideControls').getByRole('checkbox')
@@ -621,7 +621,7 @@ test('settings saved with the v3 idle choices migrate to the switch and seconds'
 
 test('the tempo step (Practice tab) sets how far the tempo slider moves', async ({ page }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await page.getByTestId('menu-settings').click()
   await page.getByTestId('tab-practice').click()
@@ -646,7 +646,7 @@ test('M toggles the metronome (Full song: the Audio setting), back to its last m
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   const toggle = page.getByTestId('toggle-metronome')
   await expect(toggle).toHaveAttribute('aria-pressed', 'false')

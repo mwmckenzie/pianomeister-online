@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { test, expect, type Page } from '@playwright/test'
 
 import { practiceHistory } from './practiceHistory'
-import { seedBookmark, seedPractice, SONG_IDS } from './support'
+import { choose, seedBookmark, seedPractice, SONG_IDS } from './support'
 
 /**
  * Screenshots for a human to review (npm run test:visual), saved under test-results/visual/ and
@@ -43,7 +43,7 @@ async function openUpload(page: Page, file: string, title: string) {
 
 /** Loads the player fresh (so ?guides and settings apply) and steps to the start of `bar`. */
 async function showBar(page: Page, bar: number, guides = false) {
-  await page.goto(guides ? './#/?guides=1' : './')
+  await page.goto(guides ? './#/?guides=1' : './#/')
   await page.reload()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
   for (let i = 1; i < bar; i++) await page.getByRole('button', { name: 'Next bar' }).click()
@@ -371,7 +371,7 @@ for (const viewport of M6_VIEWPORTS) {
           )
         })
         await seed(page, { appearance: theme.appearance })
-        await page.goto('./')
+        await page.goto('./#/')
         await expect(page.getByTestId('hud-bars')).toHaveText('64')
         await seedPractice(page, practiceHistory(M7_NOW.getTime()))
         await expect(page.getByTestId('hud-bookmark')).toHaveText('B section')
@@ -514,7 +514,7 @@ for (const viewport of M6_VIEWPORTS) {
         )
       })
       await seed(page, {})
-      await page.goto('./')
+      await page.goto('./#/')
       await expect(page.getByTestId('hud-bars')).toHaveText('64')
     })
 
@@ -580,7 +580,7 @@ test.describe('m7.5 800x600-glacier', () => {
 
   test.beforeEach(async ({ page }) => {
     await seed(page, {})
-    await page.goto('./')
+    await page.goto('./#/')
     await expect(page.getByTestId('hud-bars')).toHaveText('64')
   })
 
@@ -617,7 +617,7 @@ for (const viewport of M6_VIEWPORTS) {
         config: object
       }
       await seed(page, {})
-      await page.goto('./')
+      await page.goto('./#/')
       await expect(page.getByTestId('hud-bars')).not.toHaveText('')
       await seedPractice(page, {
         bookmarks: [
@@ -650,4 +650,78 @@ for (const viewport of M6_VIEWPORTS) {
       await shoot(page, `m7-6-loop-popover-long-name-${suffix}`)
     })
   })
+}
+
+// 11. Milestone 7.7: Welcome (with history, and empty) and the stats page (30 days, all songs;
+// 12 months, one song), at the milestone 7 fixed time. Compare with
+// docs/design/m7-7/source/QGWelcomeA and QGStats.
+for (const viewport of M6_VIEWPORTS) {
+  for (const theme of M6_THEMES) {
+    const suffix = `${viewport.width}x${viewport.height}-${theme.name}`
+
+    test.describe(`m7.7 ${suffix}`, () => {
+      test.use({ viewport })
+
+      test.beforeEach(async ({ page }) => {
+        await page.clock.setFixedTime(M7_NOW)
+        await page.addInitScript(() => {
+          localStorage.setItem(
+            'pianomeister.ui',
+            JSON.stringify({ sidebarOpen: false, sidebarSections: ['keyboard'] }),
+          )
+        })
+        await seed(page, { appearance: theme.appearance })
+        await page.goto('./#/')
+        await expect(page.getByTestId('hud-bars')).toHaveText('64')
+      })
+
+      /** The two-week history, the profile named Matt, the B section stopped at bar 26. */
+      async function seedMatt(page: Page): Promise<void> {
+        const history = practiceHistory(M7_NOW.getTime()) as Parameters<typeof seedPractice>[1]
+        await seedPractice(page, {
+          ...history,
+          profiles: [
+            ...(history.profiles ?? []),
+            { id: 'default', name: 'Matt', color: '#8AB4FF', createdAt: 0 },
+          ],
+          appState: [
+            {
+              key: 'lastOpened:default',
+              value: JSON.stringify({ songId: SONG_IDS.minuet, bookmarkId: 'bm-b', bar: 26 }),
+            },
+          ],
+        })
+      }
+
+      test(`@visual m7.7 welcome ${suffix}`, async ({ page }) => {
+        await seedMatt(page)
+        await page.goto('./')
+        await expect(page.getByTestId('greeting')).toContainText('Matt')
+        await expect(page.getByTestId('resume-details')).toContainText('stopped at bar 26')
+        await settle(page, 30)
+        await shoot(page, `m7-7-welcome-${suffix}`)
+      })
+
+      test(`@visual m7.7 welcome empty ${suffix}`, async ({ page }) => {
+        await page.goto('./')
+        await expect(page.getByTestId('resume-empty')).toBeVisible()
+        await settle(page, 30)
+        await shoot(page, `m7-7-welcome-empty-${suffix}`)
+      })
+
+      test(`@visual m7.7 stats ${suffix}`, async ({ page }) => {
+        await seedMatt(page)
+        await page.goto('./#/stats')
+        await expect(page.getByTestId('stats-title')).toHaveText('Stats · Matt')
+        await settle(page, 30)
+        await shoot(page, `m7-7-stats-30-days-${suffix}`)
+
+        await page.getByTestId('stats-range').getByText('12 months', { exact: true }).click()
+        await choose(page, page.getByTestId('stats-song'), 'Minuet in G')
+        await expect(page.getByTestId('top-card')).toContainText('Top bookmarks')
+        await settle(page, 30)
+        await shoot(page, `m7-7-stats-12-months-minuet-${suffix}`)
+      })
+    })
+  }
 }

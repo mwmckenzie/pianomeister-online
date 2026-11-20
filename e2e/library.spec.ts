@@ -259,7 +259,7 @@ test('a failed title or composer save shows the error and restores the field', a
 
 test('the player reopens the last opened song after a reload', async ({ page }) => {
   const errors = watchErrors(page)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await page.getByTestId('open-picker').click()
   await page.getByTestId('open-library').click()

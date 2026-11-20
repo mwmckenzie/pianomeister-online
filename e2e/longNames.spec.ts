@@ -87,7 +87,7 @@ async function openPlayer(page: Page, sidebar: boolean): Promise<void> {
       JSON.stringify({ sidebarOpen: open, sidebarSections: ['keyboard'] }),
     )
   }, sidebar)
-  await page.goto('./')
+  await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).not.toHaveText('')
   await seedPractice(page, {
     bookmarks: [longBookmark()],
@@ -158,10 +158,11 @@ for (const viewport of VIEWPORTS) {
       await page.getByTestId('filter-all').click()
       await expect(page.getByTestId('discard-duplicate')).toBeVisible()
       await expectContained(page.getByTestId('discard-duplicate'))
-      await page.getByTestId('discard-duplicate-keep').click()
+      // Discard it, so leaving the manager doesn't ask again.
+      await page.getByTestId('discard-duplicate-confirm').click()
 
       // The profile delete confirm (two profiles).
-      await page.goto('./')
+      await page.goto('./#/')
       await page.getByTestId('menu-settings').click()
       await page.getByTestId('tab-profiles').click()
       await page.getByTestId('profile-delete').last().click()

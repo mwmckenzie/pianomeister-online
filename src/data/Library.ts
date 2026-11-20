@@ -217,6 +217,25 @@ export class Library {
     await this.db.appState.put({ key: lastOpenedKey(this.profileId), value: JSON.stringify(value) })
   }
 
+  /** Where playback stopped in the last opened song (m7-7 decision 6); nothing without one. */
+  async setStoppedBar(bar: number): Promise<void> {
+    const key = lastOpenedKey(this.profileId)
+    const row = await this.db.appState.get(key)
+    const last = row === undefined ? null : parseLastOpened(row.value)
+    if (last === null || last.bar === bar) return
+    await this.db.appState.put({ key, value: JSON.stringify({ ...last, bar }) })
+  }
+
+  /** The profile's last opened entry as stored, or null (none, or its song is gone). */
+  async lastOpened(): Promise<LastOpened | null> {
+    const [row, entries] = await Promise.all([
+      this.db.appState.get(lastOpenedKey(this.profileId)),
+      this.entries(),
+    ])
+    const last = row === undefined ? null : parseLastOpened(row.value)
+    return last !== null && entries.some((e) => e.songId === last.songId) ? last : null
+  }
+
   /**
    * What the player opens on start (brief decision 27): the profile's last opened song (and
    * bookmark) if the song is still in the library, else the first bundled song.
@@ -399,9 +418,13 @@ function parseLastOpened(value: string): LastOpened | null {
   try {
     const parsed: unknown = JSON.parse(value)
     if (typeof parsed !== 'object' || parsed === null) return null
-    const { songId, bookmarkId } = parsed as Record<string, unknown>
+    const { songId, bookmarkId, bar } = parsed as Record<string, unknown>
     if (typeof songId !== 'string') return null
-    return { songId, bookmarkId: typeof bookmarkId === 'string' ? bookmarkId : null }
+    return {
+      songId,
+      bookmarkId: typeof bookmarkId === 'string' ? bookmarkId : null,
+      ...(Number.isInteger(bar) && (bar as number) >= 0 ? { bar: bar as number } : {}),
+    }
   } catch {
     return null
   }
