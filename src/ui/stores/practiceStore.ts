@@ -260,6 +260,16 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   /**
+   * A bookmark's saved range was edited in the loop editor while playback runs (brief decision
+   * 107): if it's the loaded one, the loop follows with one jump to its start — unless a
+   * temporary loop change is active, which wins (decision 69).
+   */
+  function savedLoopChanged(id: string): void {
+    if (bookmarkId.value !== id || temporary.value.loop !== undefined) return
+    loopJump.value++
+  }
+
+  /**
    * "Back to ⟨name⟩" (brief decision 69): the last loaded bookmark's saved setup, or Full song's
    * (loop off, 100%). A loop that changes jumps to its start, like any committed loop change.
    */
@@ -300,5 +310,6 @@ export const usePracticeStore = defineStore('practice', () => {
     setMetronomeMode,
     revertField,
     backToLoaded,
+    savedLoopChanged,
   }
 })
