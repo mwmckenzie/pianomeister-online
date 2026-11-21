@@ -20,6 +20,12 @@ describe('songClock', () => {
     expect(songClock(16, 5000, 1 / 60, PPQ, 960).rate).toBe(960)
   })
 
+  it('treats any move while not playing as a jump, keeping the rate', () => {
+    expect(songClock(100, 116, 1 / 60, PPQ, 960, false)).toEqual({ jumped: true, rate: 960 })
+    expect(songClock(100, 90, 1 / 60, PPQ, 960, false)).toEqual({ jumped: true, rate: 960 })
+    expect(songClock(100, 100, 1 / 60, PPQ, 960, false)).toEqual({ jumped: false, rate: 960 })
+  })
+
   it('follows a tempo change smoothly', () => {
     let rate = 960
     let tick = 0

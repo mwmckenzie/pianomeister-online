@@ -39,6 +39,8 @@ const STATS_WINDOW = 120
 const PRE_SONG_BARS = 4
 /** White-lane notes sit just above the highway surface and its lines. */
 const WHITE_LANE_Y = 0.01
+/** "Paused for ages": with a pinned animation clock, paused frames show every pulse settled. */
+const SETTLED_SECONDS = 1e3
 
 /**
  * Draw order of the scene's transparent layers (lower first). Black-lane notes draw after the
@@ -101,6 +103,14 @@ export class Engine {
   private guides = false
   private reducedMotion = false
   private fixedAnimationTime: number | null = null
+  /** The transport is playing (setPlaying); paused, the frame settles (brief decision 119). */
+  private playing = false
+  /** Playback resumed since the last frame: notes up to the paused position don't pulse. */
+  private resumed = false
+  /** Seconds of looping animation (advances only while playing). */
+  private loopClock = 0
+  /** Wall-clock seconds since playback paused. */
+  private pausedFor = 0
   private frame = 0
   /** While frozen the loop stops; changes ask for a single frame instead (Welcome's backdrop). */
   private frozen = false
@@ -277,6 +287,17 @@ export class Engine {
   }
 
   /**
+   * Whether the transport is playing. Paused, pulses and particles in flight finish on the wall
+   * clock, looping animation and sustain spawning stop, and seeking starts no pulses, so the
+   * frame settles and then holds still (brief decision 119).
+   */
+  setPlaying(playing: boolean): void {
+    if (playing === this.playing) return
+    if (playing) this.resumed = true
+    this.playing = playing
+  }
+
+  /**
    * Test seam for the visual shots: pins the animation clock (seconds) so flicker, noise and
    * breathing render the same frame every run; null follows the frame timestamps again.
    */
@@ -410,21 +431,35 @@ export class Engine {
     this.lastFrameAt = now
 
     const tick = this.timeSource()
+    const playing = this.playing
+    if (playing) {
+      this.loopClock += dt
+      this.pausedFor = 0
+    } else {
+      this.pausedFor += dt
+    }
+    const fixed = this.fixedAnimationTime
     this.time.uTick.value = tick
-    this.time.uTime.value = this.fixedAnimationTime ?? now / 1000
+    this.time.uTime.value = fixed ?? now / 1000
+    this.time.uLoopTime.value = fixed ?? this.loopClock
+    this.time.uPausedFor.value = fixed === null || playing ? this.pausedFor : SETTLED_SECONDS
     const clock = songClock(
       this.lastTick,
       tick,
       dt,
       this.song?.ppq ?? 480,
       this.time.uTicksPerSecond.value,
+      playing,
     )
     this.time.uTicksPerSecond.value = clock.rate
     if (clock.jumped) this.time.uJumpTick.value = tick
+    else if (this.resumed) this.time.uJumpTick.value = this.lastTick ?? tick
+    this.resumed = false
     const song = this.song
     if (song !== null) {
       const { keys, effects } = this.settings
-      for (const onset of this.crossedOnsets(song, tick)) {
+      const crossed = playing ? this.crossedOnsets(song, tick) : []
+      for (const onset of crossed) {
         this.keyboard.restrike(onset.midi, velocityScale(onset.velocity, effects))
         if (effects.enabled) {
           this.effects.onset(
@@ -444,6 +479,7 @@ export class Engine {
           effects,
           (v) => velocityScale(v, effects),
           this.reducedMotion,
+          playing,
         )
       }
     }

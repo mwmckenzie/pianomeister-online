@@ -108,18 +108,23 @@ export class NowLineEffects {
     this.particles.emit(out)
   }
 
-  /** Sustain particles and the held glow for this frame. */
+  /**
+   * Sustain particles and the held glow for this frame. `moving` is false while paused: held
+   * keys stop spawning and the held glow stops pulsing, so a paused frame settles (brief
+   * decision 119); particles already in flight finish on the wall clock.
+   */
   update(
     dt: number,
     states: readonly KeyState[],
     effects: Effects,
     scaleOf: (velocity: number) => number,
     reducedMotion: boolean,
+    moving = true,
   ): void {
     const sustain = effects.sustain
     this.held.points.visible = sustain === 'glow'
-    if (sustain === 'glow') this.held.update(dt, states, scaleOf, reducedMotion)
-    if (sustain === 'glow' || sustain === 'none' || reducedMotion) {
+    if (sustain === 'glow') this.held.update(dt, states, scaleOf, reducedMotion, moving)
+    if (sustain === 'glow' || sustain === 'none' || reducedMotion || !moving) {
       this.owed.fill(0)
       return
     }

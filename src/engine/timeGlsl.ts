@@ -9,6 +9,8 @@ uniform float uUnitsPerTick;
 uniform float uNowZ;
 uniform float uLookAheadTicks;
 uniform float uTime;
+uniform float uLoopTime;
+uniform float uPausedFor;
 uniform float uTicksPerSecond;
 uniform float uJumpTick;
 uniform float uReducedMotion;
@@ -26,8 +28,8 @@ float hazeAlpha(float tick) {
   return 1.0 - smoothstep(uLookAheadTicks, 1.5 * uLookAheadTicks, ahead);
 }
 
-/** The animation clock: frozen under reduced motion. */
+/** The looping animation clock: still while paused and under reduced motion. */
 float animTime() {
-  return uTime * (1.0 - uReducedMotion);
+  return uLoopTime * (1.0 - uReducedMotion);
 }
 `

@@ -100,8 +100,10 @@ export class HeldGlow {
     states: readonly KeyState[],
     scaleOf: (velocity: number) => number,
     reducedMotion: boolean,
+    moving = true,
   ): void {
-    this.elapsed += dt
+    // Paused, the pulse holds its phase (no snap), so the glow settles where it is.
+    if (moving) this.elapsed += dt
     const step = Math.min(dt, 0.05)
     states.forEach((state, i) => {
       // Held: a mild steady pulse. Released: fade out quickly.

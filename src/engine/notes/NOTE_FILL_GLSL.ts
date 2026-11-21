@@ -136,10 +136,13 @@ float velocityFactor(float velocity) {
   return uVelScaling > 0.5 ? mix(uVelMin, uVelMax, velocity / 127.0) : 1.0;
 }
 
-/** Note-on flash: 1 at the onset, fading over the decay; none for notes before the last jump. */
+/**
+ * Note-on flash: 1 at the onset, fading over the decay; none for notes before the last jump.
+ * Paused, the fade carries on in wall-clock time (uPausedFor), so the frame settles.
+ */
 float notePulse(float startTick, float velocity) {
   if (uPulseOn < 0.5 || startTick <= uJumpTick || uTick < startTick) return 0.0;
-  float age = (uTick - startTick) / max(uTicksPerSecond, 1.0);
+  float age = (uTick - startTick) / max(uTicksPerSecond, 1.0) + uPausedFor;
   float p = max(0.0, 1.0 - age / max(uPulseDecay, 1e-3));
   return p * p * uPulseAmount * velocityFactor(velocity);
 }

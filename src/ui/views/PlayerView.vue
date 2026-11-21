@@ -759,6 +759,8 @@ function renderStatus(): RenderStatus | null {
 
 watch(() => [practice.current, practice.loopJump], applyPractice)
 watch(reducedMotion, (reduced) => engine?.setReducedMotion(reduced))
+// Paused, the scene settles and holds still (brief decision 119).
+watch(playing, (now) => engine?.setPlaying(now))
 watch(
   () => settingsStore.settings,
   (settings, previous) => {
@@ -789,6 +791,7 @@ onMounted(() => {
   engine.applySettings(settingsStore.snapshot())
   engine.setGuides(route.query.guides === '1')
   engine.setReducedMotion(reducedMotion.value)
+  engine.setPlaying(playing.value)
   // Debug-only (like ?guides=1): pins the animation clock so visual shots are repeatable.
   const animTime = Number(route.query.animTime)
   if (route.query.animTime !== undefined && Number.isFinite(animTime)) {
