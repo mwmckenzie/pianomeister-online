@@ -9,11 +9,14 @@ import {
 } from 'three'
 
 import { buildBevelTemplate } from '../geometry/buildBevelTemplate'
+import { GlowTwin } from '../GlowTwin'
 import type { NoteInstance } from '../model/NoteInstance'
 import { LIGHT_GLSL } from '../sceneLight'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
+import { NOTE_FILL_GLSL } from './NOTE_FILL_GLSL'
 import { noteGeometry } from './noteGeometry'
+import type { NoteStyleUniforms } from './NoteStyleUniforms'
 
 /** Rounded-edge radius of 3D heads, in world units (brief decision 39). */
 const HEAD_EDGE_RADIUS = 0.06
@@ -27,11 +30,19 @@ attribute vec3 aOffset;  // bevel template: position holds the ±1 corner
 attribute vec2 aLane;
 attribute vec3 aTicks;
 attribute vec3 aColor;
+attribute float aVelocity;
 
 varying vec3 vNormal;
 varying vec3 vWorld;
 varying vec3 vColor;
 varying float vTick;
+varying vec3 vLocal;
+varying vec3 vHalf;
+varying float vStart;
+varying float vEnd;
+varying float vVelocity;
+varying float vClipped;
+varying float vSeed;
 
 void main() {
   // The head spans its visible ticks: clipped at the now line, so it sinks into the key.
@@ -51,6 +62,13 @@ void main() {
   vWorld = world;
   vColor = aColor;
   vTick = zToTick(world.z);
+  vLocal = world - center;
+  vHalf = halfSize;
+  vStart = aTicks.x;
+  vEnd = aTicks.y;
+  vVelocity = aVelocity;
+  vClipped = step(aTicks.x, uTick - 1e-3);
+  vSeed = fract(aLane.x * 0.137 + aTicks.x * 0.00071);
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `
@@ -58,29 +76,70 @@ void main() {
 const FRAGMENT = /* glsl */ `
 ${TIME_GLSL}
 ${LIGHT_GLSL}
+${NOTE_FILL_GLSL}
 varying vec3 vNormal;
 varying vec3 vWorld;
 varying vec3 vColor;
 varying float vTick;
+varying vec3 vLocal;
+varying vec3 vHalf;
+varying float vStart;
+varying float vEnd;
+varying float vVelocity;
+varying float vClipped;
+varying float vSeed;
 
 void main() {
-  float alpha = hazeAlpha(vTick);
-  if (alpha <= 0.002) discard;
-  vec3 color = shade(vColor, normalize(vNormal), normalize(cameraPosition - vWorld));
-  gl_FragColor = vec4(color, alpha);
+  float haze = hazeAlpha(vTick);
+  if (haze <= 0.002) discard;
+  float style = uHeadFill;
+  float along = (vTick - vStart) * uUnitsPerTick;
+  float len = (vEnd - vStart) * uUnitsPerTick;
+  float u = vLocal.x / max(vHalf.x, 1e-4);
+  Fill f = noteFill(style, vColor, u, vHalf.x, along, len, vSeed);
+  // Edges of the block: where two of the three faces are close. The near face is no edge while
+  // the head is cut at the now line.
+  vec3 d = vHalf - abs(vLocal);
+  if (vClipped > 0.5 && vLocal.z > 0.0) d.z = 1e3;
+  float lo = min(d.x, min(d.y, d.z));
+  float hi = max(d.x, max(d.y, d.z));
+  float second = d.x + d.y + d.z - lo - hi;
+  float rim = noteEdge(second, style);
+  float pulse = notePulse(vStart, vVelocity);
+  float sounding = noteSounding(vStart, vEnd);
+  vec3 rimColor = mix(vColor, vec3(1.0), 0.35);
+#ifdef GLOW_PASS
+  // An occluder on the glow layer: black, except what glows.
+  float glow = (rim * edgeIntensity(style) + f.emission + sounding + pulse) * haze;
+  gl_FragColor = vec4(mix(f.color, rimColor, rim) * glow, 1.0);
+#else
+  vec3 color = shade(f.color, normalize(vNormal), normalize(cameraPosition - vWorld));
+  if (rim > 0.0) color = mix(color, rimColor, rim);
+  if (sounding > 0.0) color += vColor * sounding;
+  if (pulse > 0.0) color += mix(vColor, vec3(1.0), 0.5) * pulse;
+  gl_FragColor = vec4(color, haze * f.alpha);
+#endif
 }
 `
 
 /**
  * 3D note heads (brief decision 39): raised blocks with the head's footprint, lit by the scene
- * light, rounded or square edges from a bevel template. Transparent only for the haze; they
+ * light, rounded or square edges from a bevel template, with the milestone 9 head fill, rims,
+ * pulse and sounding glow. Transparent only for the haze (and the Glass and Neon fills); they
  * write depth and cull back faces, so each convex block draws correctly in one pass.
  */
 export class HeadLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
+  /** On the glow layer the blocks occlude what's behind them. */
+  readonly twin: GlowTwin<InstancedBufferGeometry>
   private readonly notes: readonly NoteInstance[]
 
-  constructor(notes: readonly NoteInstance[], time: TimeUniforms, renderOrder: number) {
+  constructor(
+    notes: readonly NoteInstance[],
+    time: TimeUniforms,
+    style: NoteStyleUniforms,
+    renderOrder: number,
+  ) {
     // Far to near: when drawn on top without depth testing (see setLift), nearer heads must
     // land last to overlap farther ones correctly.
     this.notes = [...notes].sort((a, b) => b.startTick - a.startTick)
@@ -91,6 +150,7 @@ export class HeadLayer {
         fragmentShader: FRAGMENT,
         uniforms: {
           ...time,
+          ...style,
           uLift: { value: 0.01 },
           uHeight: { value: 0.35 },
           uRadius: { value: HEAD_EDGE_RADIUS },
@@ -102,6 +162,7 @@ export class HeadLayer {
     )
     this.mesh.frustumCulled = false
     this.mesh.renderOrder = renderOrder
+    this.twin = new GlowTwin(this.mesh, 'occluder')
   }
 
   /**
@@ -128,6 +189,7 @@ export class HeadLayer {
   dispose(): void {
     this.mesh.geometry.dispose()
     this.mesh.material.dispose()
+    this.twin.dispose()
   }
 
   private uniform(name: string, value: number): void {

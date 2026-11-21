@@ -3,6 +3,7 @@ import { PerspectiveCamera, Scene } from 'three'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
+import { CageLayer } from './cages/CageLayer'
 import { createTimeUniforms } from './createTimeUniforms'
 import { Effects } from './Effects'
 import type { EngineSong } from './EngineSong'
@@ -12,14 +13,17 @@ import { blackLaneLift } from './model/blackLaneLift'
 import type { CameraPlacement } from './model/CameraPlacement'
 import { cameraFit } from './model/cameraFit'
 import { KeyStates } from './model/KeyStates'
+import { lineColor } from './model/lineColor'
+import { mergeSpans } from './model/mergeSpans'
 import type { NoteInstance } from './model/NoteInstance'
 import { noteInstances } from './model/noteInstances'
+import { songClock } from './model/songClock'
 import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
 import { ContactShadow } from './notes/ContactShadow'
 import { HeadLayer } from './notes/HeadLayer'
+import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/noteStyle'
 import { SustainLayer } from './notes/SustainLayer'
-import { PedalBands } from './PedalBands'
 import type { RenderInfo } from './RenderInfo'
 import { RenderPipeline } from './RenderPipeline'
 import { srgb } from './srgb'
@@ -38,6 +42,7 @@ const WHITE_LANE_Y = 0.01
  * contact shadow, which draws after the white-lane notes.
  */
 const ORDER = {
+  cages: 1,
   whiteSustains: 3,
   whiteHeads: 3.1,
   shadow: 3.5,
@@ -54,7 +59,7 @@ interface Onset {
 interface SongParts {
   readonly ppq: number
   readonly highway: Highway
-  readonly pedals: PedalBands
+  readonly pedals: CageLayer
   readonly sustains: { readonly white: SustainLayer; readonly black: SustainLayer }
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
   readonly shadow: ContactShadow
@@ -74,6 +79,7 @@ export class Engine {
   private readonly scene = new Scene()
   private readonly camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 1000)
   private readonly time = createTimeUniforms()
+  private readonly noteStyle = createNoteStyleUniforms()
   private readonly keyboard = new Keyboard()
   private readonly effects = new Effects()
   private song: SongParts | null = null
@@ -82,6 +88,8 @@ export class Engine {
   private placement: CameraPlacement | null = null
   private timeSource: () => number = () => 0
   private guides = false
+  private reducedMotion = false
+  private fixedAnimationTime: number | null = null
   private frame = 0
   /** While frozen the loop stops; changes ask for a single frame instead (Welcome's backdrop). */
   private frozen = false
@@ -133,14 +141,25 @@ export class Engine {
     this.song = {
       ppq: song.ppq,
       highway: new Highway(beats, this.time),
-      pedals: new PedalBands(song.pedalIntervals, this.time),
+      // The pedal cage (brief decision 116): full width while the pedal is down.
+      pedals: new CageLayer(
+        mergeSpans(song.pedalIntervals).map((s) => ({
+          startTick: s.startTick,
+          endTick: s.endTick,
+          lowMidi: null,
+          highMidi: null,
+        })),
+        this.time,
+        this.noteStyle,
+        { y: 0.003, renderOrder: ORDER.cages },
+      ),
       sustains: {
-        white: new SustainLayer(white, this.time, ORDER.whiteSustains),
-        black: new SustainLayer(black, this.time, ORDER.blackSustains),
+        white: new SustainLayer(white, this.time, this.noteStyle, ORDER.whiteSustains),
+        black: new SustainLayer(black, this.time, this.noteStyle, ORDER.blackSustains),
       },
       heads: {
-        white: new HeadLayer(white, this.time, ORDER.whiteHeads),
-        black: new HeadLayer(black, this.time, ORDER.blackHeads),
+        white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads),
+        black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
       },
       shadow: new ContactShadow(black, this.time, ORDER.shadow),
       keyStates: new KeyStates(instances),
@@ -150,11 +169,16 @@ export class Engine {
     this.scene.add(
       s.highway.group,
       s.pedals.mesh,
+      s.pedals.twin.mesh,
       s.sustains.white.mesh,
+      s.sustains.white.twin.mesh,
       s.heads.white.mesh,
+      s.heads.white.twin.mesh,
       s.shadow.mesh,
       s.sustains.black.mesh,
+      s.sustains.black.twin.mesh,
       s.heads.black.mesh,
+      s.heads.black.twin.mesh,
     )
     this.lastTick = null
     this.effects.clear()
@@ -165,6 +189,7 @@ export class Engine {
   applySettings(settings: PlayerSettings): void {
     this.settings = settings
     this.scene.background = srgb(settings.colors.background)
+    applyNoteStyle(this.noteStyle, settings)
     this.effects.group.visible = settings.effects.enabled
     const keyboardKey = JSON.stringify(settings.keyboard)
     if (keyboardKey !== this.keyboardKey) {
@@ -177,10 +202,20 @@ export class Engine {
       const { notes } = settings
       const lift = blackLaneLift(notes, settings.keyboard)
       song.highway.applySettings(settings)
-      song.pedals.setStyle(
-        settings.pedal.fillColor,
-        settings.pedal.show ? settings.pedal.fillOpacity : 0,
-      )
+      const { pedal, appearance } = settings
+      song.pedals.mesh.visible = pedal.show
+      song.pedals.setStyle({
+        fill: pedal.fill,
+        fillColor: pedal.fillColor,
+        fillOpacity: pedal.fillOpacity,
+        border: pedal.border,
+        borderColor: lineColor(pedal.borderColor, pedal.borderCustom, appearance),
+        borderWidth: pedal.borderWidth,
+        borderGlow: pedal.borderGlow,
+        cornerRadius: pedal.cornerRadius,
+      })
+      const emit = notesEmit(settings)
+      for (const layer of [song.sustains.white, song.sustains.black]) layer.twin.enabled = emit
       // Floating below the white heads' tops, black-lane notes would intersect them: draw them on
       // top instead, so black-lane notes always win (brief decision 39).
       const onTop = lift < WHITE_LANE_Y + (notes.heads3d ? notes.headHeight : 0.01)
@@ -203,10 +238,26 @@ export class Engine {
       song.shadow.set(notes.contactShadow, notes.shadowStrength, lift)
     }
     if (this.pipeline !== null) {
-      this.pipeline.configure(settings.render)
+      this.pipeline.configure(settings.render, settings.highway.vignette)
       this.resize()
     }
     this.placeCamera()
+    this.invalidate()
+  }
+
+  /** Reduced motion (brief decision 54): no flicker, breathing, drift or moving particles. */
+  setReducedMotion(reduced: boolean): void {
+    this.reducedMotion = reduced
+    this.time.uReducedMotion.value = reduced ? 1 : 0
+    this.invalidate()
+  }
+
+  /**
+   * Test seam for the visual shots: pins the animation clock (seconds) so flicker, noise and
+   * breathing render the same frame every run; null follows the frame timestamps again.
+   */
+  setFixedAnimationTime(seconds: number | null): void {
+    this.fixedAnimationTime = seconds
     this.invalidate()
   }
 
@@ -332,6 +383,16 @@ export class Engine {
 
     const tick = this.timeSource()
     this.time.uTick.value = tick
+    this.time.uTime.value = this.fixedAnimationTime ?? now / 1000
+    const clock = songClock(
+      this.lastTick,
+      tick,
+      dt,
+      this.song?.ppq ?? 480,
+      this.time.uTicksPerSecond.value,
+    )
+    this.time.uTicksPerSecond.value = clock.rate
+    if (clock.jumped) this.time.uJumpTick.value = tick
     const song = this.song
     if (song !== null) {
       const { keys, effects } = this.settings
@@ -344,6 +405,7 @@ export class Engine {
       if (effects.enabled) this.effects.update(dt, states, (v) => velocityScale(v, effects))
     }
     this.lastTick = tick
+    this.syncGlow(pipeline.bloomActive)
     pipeline.render()
     this.rendered++
     this.record(this.frameMs, performance.now() - started)
@@ -395,6 +457,22 @@ export class Engine {
     )
   }
 
+  /** Glow twins follow their meshes and are drawn only while bloom runs (brief decision 109). */
+  private syncGlow(bloomActive: boolean): void {
+    const song = this.song
+    if (song === null) return
+    song.highway.syncGlow(bloomActive)
+    song.pedals.twin.sync(bloomActive)
+    for (const layer of [
+      song.sustains.white,
+      song.sustains.black,
+      song.heads.white,
+      song.heads.black,
+    ]) {
+      layer.twin.sync(bloomActive)
+    }
+  }
+
   private disposeSong(): void {
     const song = this.song
     if (song === null) return
@@ -406,7 +484,13 @@ export class Engine {
       song.shadow,
       song.pedals,
     ]
-    this.scene.remove(song.highway.group, ...parts.map((p) => p.mesh))
+    this.scene.remove(
+      song.highway.group,
+      ...parts.map((p) => p.mesh),
+      ...[song.pedals, ...Object.values(song.sustains), ...Object.values(song.heads)].map(
+        (p) => p.twin.mesh,
+      ),
+    )
     song.highway.dispose()
     for (const part of parts) part.dispose()
     this.song = null
