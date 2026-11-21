@@ -17,6 +17,21 @@ async function openPlayer(page: Page, query = '') {
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
 }
 
+/**
+ * A frame once the scene has settled (samples loaded, layout and fonts done): two consecutive
+ * frames the same. Under parallel load the first frames can still change.
+ */
+async function stableFrame(page: Page): Promise<string> {
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  let previous = await frame(page)
+  for (let i = 0; i < 10; i++) {
+    const next = await frame(page)
+    if (next === previous) return next
+    previous = next
+  }
+  return previous
+}
+
 /** Lets real time pass in the page (frames keep rendering meanwhile). */
 const pause = (page: Page, ms: number) =>
   page.evaluate((delay) => new Promise<void>((resolve) => setTimeout(resolve, delay)), ms)
@@ -217,12 +232,12 @@ test('note names on and off', async ({ page }) => {
   await seed(page, { highway: { lookAheadBeats: 4 }, appearance: { motion: 'reduced' } })
   await openPlayer(page)
   await openSidebarSection(page, 'names')
-  const off = await frame(page)
+  const off = await stableFrame(page)
   await segment(page, 'names.mode', 'Both')
   const on = await frame(page)
   expect(on).not.toEqual(off)
   await segment(page, 'names.mode', 'Off')
-  expect(await frame(page)).toEqual(off)
+  expect(await stableFrame(page)).toEqual(off)
   expect(errors).toEqual([])
 })
 
@@ -242,7 +257,7 @@ test('reduced motion stops animated fills', async ({ page }) => {
   const errors = watchErrors(page)
   await seed(page, { ...ANIMATED, appearance: { motion: 'reduced' } })
   await openPlayer(page)
-  const a = await frame(page)
+  const a = await stableFrame(page)
   await pause(page, 400)
   expect(await frame(page)).toEqual(a)
   expect(errors).toEqual([])
