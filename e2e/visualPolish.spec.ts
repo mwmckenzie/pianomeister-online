@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 import { SETTINGS_VERSION } from '../src/core/settings/loadSettings'
 
@@ -288,10 +289,8 @@ test('note names on and off', async ({ page }) => {
   // Note-label rows stay in view, greyed out; the shared reason is said once, at the top.
   await expect(setting(page, 'names.offset')).toHaveAttribute('data-disabled', 'true')
   const sectionHints = page.getByTestId('section-names-hint')
-  await expect(sectionHints).toHaveText([
-    'Needs note names on',
-    'Needs note names on notes (Notes or Both)',
-  ])
+  // Only the root cause: names off implies "not on notes" (and "not on keys").
+  await expect(sectionHints).toHaveText(['Needs note names on'])
   await expect(page.getByTestId('setting-names-offset-hint')).toBeHidden()
   expect(errors).toEqual([])
 })

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { test, expect, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { strFromU8, unzipSync } from 'fflate'
 
 import { buildSmf, ev } from '../src/core/testing/buildSmf'

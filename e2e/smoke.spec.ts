@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('opens the player as the home page', async ({ page }) => {
   // Relative path so navigation stays under the /pianomeister-online/ base in baseURL.

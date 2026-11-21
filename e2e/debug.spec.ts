@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('debug page loads self-hosted samples and plays the Minuet', async ({ page, baseURL }) => {
   const appOrigin = new URL(baseURL ?? 'http://localhost').origin

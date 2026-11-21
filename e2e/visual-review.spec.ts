@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
-import { test, expect, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 import { practiceHistory } from './practiceHistory'
 import { choose, seedBookmark, seedPractice, SONG_IDS } from './support'
