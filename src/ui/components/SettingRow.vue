@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, useId, watchEffect } from 'vue'
 
+import { disabledHintOf } from '@/core/settings/disabledHintOf'
 import { formatSettingValue } from '@/core/settings/formatSettingValue'
 import type { SettingKey } from '@/core/settings/SettingKey'
 
@@ -43,7 +44,7 @@ const visible = computed(() => def.value.visible?.(store.settings) ?? true)
 const enabled = computed(() => def.value.enabled?.(store.settings) ?? true)
 /** Why the control is greyed out (e.g. "Needs shader detail Medium or High"). */
 const reason = computed(() =>
-  enabled.value || !visible.value ? null : (def.value.disabledHint ?? null),
+  enabled.value || !visible.value ? null : disabledHintOf(def.value, store.settings),
 )
 // The section shows a reason that three or more rows share once, at its top.
 const section = inject(sectionHintsKey, null)

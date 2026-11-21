@@ -179,6 +179,10 @@ export interface PlayerSettings {
     /** The farther of two overlapping labels fades out. */
     readonly avoidOverlaps: boolean
     readonly glow: 'off' | 'subtle'
+    /** Repeated notes: label only the first of a run, or every note. */
+    readonly repeats: 'first' | 'all'
+    /** Key-top label text size on screen, in CSS pixels (shrinks to fit the key). */
+    readonly keySize: number
   }
   /** The pedal cage (brief decisions 115–116). */
   readonly pedal: {

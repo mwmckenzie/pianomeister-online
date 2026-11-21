@@ -140,7 +140,10 @@ const pedalStripes = stripeShape('Stripes', sidebar('cages'), 1, pedalStriped)
 
 const namesShown = (s: PlayerSettings) => s.names.mode !== 'off'
 const namesOnNotes = (s: PlayerSettings) => s.names.mode === 'notes' || s.names.mode === 'both'
-const NAMES_HINT = 'Needs note names on notes (Notes or Both)'
+const namesOnKeys = (s: PlayerSettings) => s.names.mode === 'keys' || s.names.mode === 'both'
+/** The root cause first: with names off, "not on notes" is implied (brief decision 110). */
+const NAMES_HINT = (s: PlayerSettings) =>
+  s.names.mode === 'off' ? 'Needs note names on' : 'Needs note names on notes (Notes or Both)'
 /** A note-label row: shown while names are on, enabled while they're on notes. */
 const onNotes = {
   group: 'On notes',
@@ -591,11 +594,23 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...num('Height above note', 6, sidebar('names'), [0, 24, 1], 'px', 0),
       group: 'On notes',
       enabled: (s) => namesOnNotes(s) && s.names.style === 'facing',
-      disabledHint: 'Needs note names on notes, facing the camera',
+      disabledHint: (s) => (namesOnNotes(s) ? 'Needs labels facing the camera' : NAMES_HINT(s)),
     },
     'names.avoidOverlaps': {
       ...bool('Avoid overlaps', true, sidebar('names')),
       ...onNotes,
+    },
+    'names.repeats': {
+      kind: 'choice',
+      label: 'Label repeated notes',
+      default: 'first',
+      home: sidebar('names'),
+      control: 'select',
+      ...onNotes,
+      options: [
+        { value: 'first', label: 'First of a run' },
+        { value: 'all', label: 'All' },
+      ],
     },
     'names.glow': {
       kind: 'choice',
@@ -607,6 +622,13 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
         { value: 'off', label: 'Off' },
         { value: 'subtle', label: 'Subtle' },
       ],
+    },
+    'names.keySize': {
+      ...num('Key label size', 11, sidebar('names'), [8, 16, 1], 'px', 0),
+      group: 'On keys',
+      enabled: namesOnKeys,
+      disabledHint: (s) =>
+        s.names.mode === 'off' ? 'Needs note names on' : 'Needs note names on keys (Keys or Both)',
     },
 
     // Pedal & cages (decisions 115–116); the defaults are the pre-milestone-9 pedal band.
