@@ -11,6 +11,7 @@ import {
   isLookModified,
   nextLookName,
 } from '@/core/looks/lookValues'
+import { toLookFile } from '@/core/looks/toLookFile'
 
 import AppButton from '../components/AppButton.vue'
 import SelectField from '../components/SelectField.vue'
@@ -20,7 +21,8 @@ import { useToastStore } from '../stores/toastStore'
 /**
  * Looks (brief decision 121): pick a built-in or saved look (applies all its values, with
  * Undo), see when the settings were changed since ("Classic · modified"), save over a saved
- * look, save the current settings as a new one, or delete a saved one.
+ * look, save the current settings as a new one, delete a saved one, or copy the current look to
+ * the clipboard as a .pmlook.json file (milestone 9.1, section A).
  */
 const settings = useSettingsStore()
 const toasts = useToastStore()
@@ -87,6 +89,24 @@ function saveNew(): void {
   toasts.show(`Saved look "${trimmed}"`)
 }
 
+/**
+ * The current look on the clipboard. Unchanged, it keeps the picked look's id and name; changed
+ * (or none picked) it's a new look, so pasting it never clashes with the original.
+ */
+async function copy(): Promise<void> {
+  const picked = active.value
+  const same = picked !== null && !modified.value
+  const name = picked === null ? 'My look' : same ? picked.name : `${picked.name} (modified)`
+  const look = captureLook(settings.settings, same ? picked.id : crypto.randomUUID(), name)
+  const text = JSON.stringify(toLookFile([{ look, createdAt: new Date().toISOString() }]), null, 2)
+  try {
+    await navigator.clipboard.writeText(text)
+    toasts.show(`Copied look "${name}"`)
+  } catch {
+    toasts.show("Couldn't copy to the clipboard", 'error')
+  }
+}
+
 function remove(): void {
   const look = active.value
   if (look === null || look.builtIn) return
@@ -133,6 +153,9 @@ function remove(): void {
       </AppButton>
       <AppButton size="sm" variant="text" data-testid="look-save-new" @click="startNaming">
         {{ active !== null && modified ? 'Save as new…' : 'Save current look…' }}
+      </AppButton>
+      <AppButton size="sm" variant="text" data-testid="look-copy" @click="copy">
+        Copy look
       </AppButton>
       <AppButton
         v-if="active !== null && !active.builtIn"
