@@ -25,6 +25,10 @@ type NameOptions = Pick<PlayerSettings['names'], 'octave' | 'accidentals'>
  */
 export class NoteLabelAtlas {
   readonly texture: CanvasTexture
+  /** Each name's width in ems, by key index (for sizing key-top labels to fit). */
+  readonly glyphEms = new Float32Array(88).fill(1)
+  /** Called after each redraw (the font loading changes widths). */
+  onDraw: (() => void) | null = null
   private readonly canvas: HTMLCanvasElement
   private key = ''
   private options: NameOptions = { octave: 'c', accidentals: 'sharps' }
@@ -64,6 +68,11 @@ export class NoteLabelAtlas {
     }
     ctx.putImageData(out, 0, 0)
     this.texture.needsUpdate = true
+    ctx.font = FONT
+    for (let i = 0; i < 88; i++) {
+      this.glyphEms[i] = ctx.measureText(noteLabel(KEYBOARD.lowest + i, options)).width / ATLAS_FONT_PX
+    }
+    this.onDraw?.()
   }
 
   dispose(): void {

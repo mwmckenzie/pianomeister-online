@@ -20,6 +20,7 @@ import type { NoteInstance } from '../model/NoteInstance'
 import { srgb } from '../srgb'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
+import type { LabelSlots } from './LabelSlots'
 import type { LabelSnapshot } from './LabelSnapshot'
 import { ATLAS_FONT_PX, atlasCell, CELL_H, CELL_W } from './NoteLabelAtlas'
 
@@ -58,6 +59,7 @@ uniform float uHeightPx;    // CSS px
 uniform float uShowWithin;
 uniform float uFadeLength;
 uniform float uStack;       // 1: labels take their stack slots (Avoid overlaps)
+uniform float uAllRepeats;  // 1: label every repeated note, 0: the first of a run only
 
 /** The tick a label sits at, per the anchor (short notes fall back from behind to on). */
 float anchorTick(vec3 ticks, float laneWidth) {
@@ -82,6 +84,7 @@ attribute vec4 aCell;   // atlas u0, v0, u1, v1
 attribute vec3 aColor;
 attribute float aShown; // 0..1: hidden by an overlap
 attribute float aSlot;  // stack slot, fixed per song
+attribute float aFirst; // 1: first of a run of repeated notes
 varying vec2 vUv;
 varying vec3 vColor;
 varying float vFade;
@@ -93,6 +96,7 @@ void main() {
   // Distance fade (a ramp, no hard cut), the handover before the now line, overlaps.
   float fade = 1.0 - smoothstep(uShowWithin, uShowWithin + max(uFadeLength, 1e-3), ahead);
   fade *= smoothstep(0.0, ${HANDOVER.toFixed(2)}, ahead) * aShown * hazeAlpha(tick);
+  fade *= max(aFirst, uAllRepeats);
   float heightPx = uTextPx * ${(CELL_H / ATLAS_FONT_PX).toFixed(4)} * uPixelRatio;
   vec2 corner = uv - 0.5;
   float slot = aSlot * uStack;
@@ -140,13 +144,16 @@ void main() {
   if (glow <= 0.002) discard;
   gl_FragColor = vec4(vColor * glow, 1.0);
 #else
+  // Note colour is lifted a little toward white so it separates from its own note.
   vec3 color = uColorMode < 0.5 ? mix(vColor, vec3(1.0), 0.75)
-    : uColorMode < 1.5 ? vColor
+    : uColorMode < 1.5 ? mix(vColor, vec3(1.0), 0.3)
     : uColorMode < 2.5 ? vec3(1.0)
     : vec3(0.06, 0.07, 0.1);
-  // A soft halo for readability: dark behind light text, light behind dark text. Never a box.
-  vec3 haloColor = uColorMode > 2.5 ? vec3(0.95) : vec3(0.02, 0.03, 0.06);
-  float halo = t.g * uShadow * (1.0 - text);
+  // A soft halo for readability: dark behind light text, light behind dark text (at least 85 %,
+  // so dark text never sits dark-on-dark). Never a box.
+  bool dark = uColorMode > 2.5;
+  vec3 haloColor = dark ? vec3(0.95) : vec3(0.02, 0.03, 0.06);
+  float halo = t.g * (dark ? max(uShadow, 0.85) : uShadow) * (1.0 - text);
   float alpha = text + halo;
   if (alpha * vFade <= 0.004) discard;
   gl_FragColor = vec4((color * text + haloColor * halo) / max(alpha, 1e-4), alpha * vFade);
@@ -198,7 +205,10 @@ export class NoteNameLayer {
   private readonly byStart: Int32Array
   private readonly shown: Float32Array
   private readonly target: Float32Array
-  private readonly slots: Uint8Array
+  /** Stack slots for each "Label repeated notes" choice; `slots` is the one in use. */
+  private readonly slotSets: LabelSlots
+  private slots: Uint8Array
+  private readonly runStarts: Uint8Array
   private readonly state: Uint8Array
   private readonly placedAt: Int32Array
   private settings: PlayerSettings['names'] | null = null
@@ -209,7 +219,8 @@ export class NoteNameLayer {
     time: TimeUniforms,
     atlas: Texture,
     renderOrder: number,
-    slots: Uint8Array,
+    slots: LabelSlots,
+    runStarts: Uint8Array,
   ) {
     this.notes = notes
     this.byStart = Int32Array.from(notes.keys()).sort(
@@ -217,7 +228,9 @@ export class NoteNameLayer {
     )
     this.shown = new Float32Array(notes.length).fill(1)
     this.target = new Float32Array(notes.length).fill(1)
-    this.slots = slots
+    this.slotSets = slots
+    this.slots = slots.first
+    this.runStarts = runStarts
     this.state = new Uint8Array(notes.length)
     this.placedAt = new Int32Array(notes.length).fill(-2)
     const g = new InstancedBufferGeometry()
@@ -258,7 +271,8 @@ export class NoteNameLayer {
       ),
     )
     g.setAttribute('aShown', new InstancedBufferAttribute(this.shown, 1))
-    g.setAttribute('aSlot', new InstancedBufferAttribute(Float32Array.from(slots), 1))
+    g.setAttribute('aSlot', new InstancedBufferAttribute(Float32Array.from(slots.first), 1))
+    g.setAttribute('aFirst', new InstancedBufferAttribute(Float32Array.from(runStarts), 1))
     g.instanceCount = notes.length
     this.mesh = new Mesh(
       g,
@@ -279,6 +293,7 @@ export class NoteNameLayer {
           uShowWithin: { value: 0.4 },
           uFadeLength: { value: 0.15 },
           uStack: { value: 1 },
+          uAllRepeats: { value: 0 },
           uColorMode: { value: 0 },
           uShadow: { value: 0.6 },
           uAtlas: { value: atlas },
@@ -307,6 +322,15 @@ export class NoteNameLayer {
     this.uniform('uColorMode', COLOR[names.textColor])
     this.uniform('uShadow', names.shadow)
     this.uniform('uStack', names.avoidOverlaps ? 1 : 0)
+    this.uniform('uAllRepeats', names.repeats === 'all' ? 1 : 0)
+    const slots = names.repeats === 'all' ? this.slotSets.all : this.slotSets.first
+    if (slots !== this.slots) {
+      this.slots = slots
+      const attribute = this.mesh.geometry.getAttribute('aSlot') as InstancedBufferAttribute
+      ;(attribute.array as Float32Array).set(slots)
+      attribute.clearUpdateRanges()
+      attribute.needsUpdate = true
+    }
     this.twin.enabled = names.glow === 'subtle'
     if (!names.avoidOverlaps) {
       this.target.fill(1)
@@ -342,6 +366,7 @@ export class NoteNameLayer {
       const index = this.byStart[k] as number
       const n = this.notes[index]
       if (n === undefined || n.startTick > view.tick + range + margin) break
+      if (s.repeats === 'first' && this.runStarts[index] === 0) continue
       const tick = anchorTick(n, s, view.unitsPerTick)
       const ahead = (tick - view.tick) / view.lookAheadTicks
       if (ahead <= 0 || ahead >= s.showWithin + s.fadeLength) continue

@@ -231,6 +231,8 @@ const NAMES_CASES: readonly { readonly label: string; readonly names: Record<str
     { label: 'show within 100 %', names: { showWithin: 1 } },
     { label: 'text 18 px, glow subtle', names: { textSize: 18, glow: 'subtle' } },
     { label: 'Both (handover at the keys)', names: { mode: 'both' } },
+    { label: 'Both, key labels 16 px', names: { mode: 'both', keySize: 16 } },
+    { label: 'label repeated notes: all', names: { repeats: 'all' } },
   ]
 
 for (const song of [

@@ -26,7 +26,7 @@ import { keyBodies } from './model/keyBodies'
 import { KEYBOARD } from './model/KEYBOARD'
 import { KEY_RESTRIKE_PROGRESS, keyPressAngle, keyPressStep } from './model/keyPress'
 import type { KeyState } from './model/KeyState'
-import { atlasCell } from './names/NoteLabelAtlas'
+import { ATLAS_FONT_PX, atlasCell, CELL_H, CELL_W } from './names/NoteLabelAtlas'
 import { LIGHT_GLSL } from './sceneLight'
 import { srgb } from './srgb'
 
@@ -137,17 +137,43 @@ void main() {
 `
 
 const LABEL_VERTEX = /* glsl */ `
+uniform float uKeyTextPx;   // CSS px
+uniform vec2 uViewport;     // drawing buffer, px
+uniform float uPixelRatio;
 attribute vec4 aCell; // atlas u0, v0, u1, v1
 attribute vec4 aOverlay; // the key's lit colour and alpha (shared with the key mesh)
 attribute float aBlack;
+attribute vec4 aDims;   // key top y, label front z, key width, share of the width text may use
+attribute float aGlyph; // the name's width in ems (from the atlas)
 varying vec2 vUv;
 varying vec4 vOverlay;
 varying float vBlack;
+varying float vFade;
+
+vec2 toPx(mat4 m, vec3 p) {
+  vec4 c = projectionMatrix * viewMatrix * m * vec4(p, 1.0);
+  return (c.xy / c.w * 0.5 + 0.5) * uViewport;
+}
+
 void main() {
+  // "Key label size" on screen (brief decision 114), shrunk to fit the key; under ~7 px a label
+  // fades out rather than render a smudge. Sized upright on screen, not stretched by the tilt.
+  mat4 m = modelMatrix * instanceMatrix;
+  vec3 front = vec3(0.0, aDims.x, aDims.y);
+  vec2 p = toPx(m, front);
+  float pxX = max(distance(p, toPx(m, front + vec3(1.0, 0.0, 0.0))), 1e-3);
+  float pxZ = max(distance(p, toPx(m, front - vec3(0.0, 0.0, 1.0))), 1e-3);
+  float fitPx = aDims.z * aDims.w * pxX / max(aGlyph, 0.3) / uPixelRatio;
+  float size = min(uKeyTextPx, fitPx);
+  vFade = smoothstep(6.0, 8.0, size);
+  float cellH = size * uPixelRatio * ${(CELL_H / ATLAS_FONT_PX).toFixed(4)};
+  float width = cellH * ${(CELL_W / CELL_H).toFixed(4)} / pxX;
+  float depth = min(cellH / pxZ, 2.0 * aDims.z);
+  vec3 local = vec3(position.x * width, aDims.x, aDims.y - 0.5 * depth + position.z * depth);
   vUv = mix(aCell.xy, aCell.zw, uv);
   vOverlay = aOverlay;
   vBlack = aBlack;
-  gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * m * vec4(local, 1.0);
 }
 `
 
@@ -157,7 +183,9 @@ uniform float uShadow;
 varying vec2 vUv;
 varying vec4 vOverlay;
 varying float vBlack;
+varying float vFade;
 void main() {
+  if (vFade <= 0.01) discard;
   // The note-label atlas: red = text, green = halo (brief decision 114). Neutral while the key
   // rests (dark on white keys, light on black), the note's colour tinted light while it's held.
   vec4 t = texture2D(uAtlas, vUv);
@@ -169,8 +197,8 @@ void main() {
   vec3 haloColor = light ? vec3(0.02, 0.03, 0.06) : vec3(0.95);
   float halo = t.g * uShadow * (1.0 - text);
   float alpha = text + halo;
-  if (alpha <= 0.01) discard;
-  gl_FragColor = vec4((color * text + haloColor * halo) / alpha, alpha);
+  if (alpha * vFade <= 0.01) discard;
+  gl_FragColor = vec4((color * text + haloColor * halo) / alpha, alpha * vFade);
 }
 `
 
@@ -213,6 +241,7 @@ export class Keyboard {
   private readonly lightData = new Float32Array(88 * 2 * 4)
   private effects: PlayerSettings['effects'] = DEFAULT_SETTINGS.effects
   private namesOnKeys = false
+  private glyphEms: Float32Array = new Float32Array(88).fill(1)
   /** Light cones need medium shader detail or more (brief decision 110). */
   private coneOn = false
 
@@ -233,7 +262,13 @@ export class Keyboard {
     this.labelMaterial = new ShaderMaterial({
       vertexShader: LABEL_VERTEX,
       fragmentShader: LABEL_FRAGMENT,
-      uniforms: { uAtlas: { value: atlas }, uShadow: { value: 0.6 } },
+      uniforms: {
+        uAtlas: { value: atlas },
+        uShadow: { value: 0.6 },
+        uKeyTextPx: { value: 11 },
+        uViewport: { value: [1280, 720] },
+        uPixelRatio: { value: 1 },
+      },
       transparent: true,
       depthWrite: false,
       side: DoubleSide,
@@ -284,7 +319,26 @@ export class Keyboard {
     this.coneOn = e.keyCone && taps >= SPILL_TAPS.medium
     this.namesOnKeys = settings.names.mode === 'keys' || settings.names.mode === 'both'
     setUniform(this.labelMaterial, 'uShadow', settings.names.shadow)
+    setUniform(this.labelMaterial, 'uKeyTextPx', settings.names.keySize)
     this.applyVisibility()
+  }
+
+  /** Drawing-buffer size and device pixel ratio, for key labels sized on screen. */
+  setViewport(bufferWidth: number, bufferHeight: number, pixelRatio: number): void {
+    const u = this.labelMaterial.uniforms
+    if (u.uViewport) u.uViewport.value = [bufferWidth, bufferHeight]
+    setUniform(this.labelMaterial, 'uPixelRatio', pixelRatio)
+  }
+
+  /** Each name's width in ems (NoteLabelAtlas), so key labels shrink to fit their key. */
+  setGlyphWidths(ems: Float32Array): void {
+    this.glyphEms = ems
+    for (const g of [this.white, this.black]) {
+      if (g === null) continue
+      const attribute = g.labels.geometry.getAttribute('aGlyph') as InstancedBufferAttribute
+      ;(attribute.array as Float32Array).set(g.keys.map((k) => ems[k] ?? 1))
+      attribute.needsUpdate = true
+    }
   }
 
   /** A new onset on a key: a key still down lifts part-way and presses again; it pulses. */
@@ -374,11 +428,21 @@ export class Keyboard {
     cones.frustumCulled = false
     cones.renderOrder = 6.4
 
-    const labelWidth = first.width * (first.isBlack ? 0.98 : 0.9)
-    // Longer than the cell's 2:1 so it reads at the camera's tilt.
-    const labelDepth = labelWidth * 0.9
-    const labelZ = first.length / 2 - labelDepth / 2 - first.width * (first.isBlack ? 0.15 : 0.25)
-    const labelGeometry = plane(labelWidth, labelDepth, top + 0.003, labelZ)
+    // A unit quad: the shader sizes it on screen and places its front edge near the key's front.
+    const labelGeometry = plane(1, 1, 0, 0)
+    const labelFront = first.length / 2 - first.width * (first.isBlack ? 0.15 : 0.2)
+    const textShare = first.isBlack ? 0.95 : 0.85
+    labelGeometry.setAttribute(
+      'aDims',
+      new InstancedBufferAttribute(
+        new Float32Array(keys.flatMap(() => [top + 0.003, labelFront, first.width, textShare])),
+        4,
+      ),
+    )
+    labelGeometry.setAttribute(
+      'aGlyph',
+      new InstancedBufferAttribute(Float32Array.from(keys.map((k) => this.glyphEms[k] ?? 1)), 1),
+    )
     labelGeometry.setAttribute(
       'aCell',
       new InstancedBufferAttribute(new Float32Array(keys.flatMap((k) => atlasCell(k))), 4),

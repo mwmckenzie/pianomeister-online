@@ -25,6 +25,7 @@ import { NoteMask } from './notes/NoteMask'
 import { ContactShadow } from './notes/ContactShadow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
+import { labelRunStarts } from './model/labelRunStarts'
 import { labelStackSlots } from './model/labelStackSlots'
 import { placeLabels } from './model/placeLabels'
 import type { LabelSnapshot } from './names/LabelSnapshot'
@@ -137,6 +138,9 @@ export class Engine {
   constructor() {
     this.scene.add(this.keyboard.group, this.effects.group)
     this.effects.setKeyTops(this.keyboard.keyBodies)
+    // Key labels fit their key by the names' widths, which change once the font has loaded.
+    this.atlas.onDraw = () => this.keyboard.setGlyphWidths(this.atlas.glyphEms)
+    this.keyboard.setGlyphWidths(this.atlas.glyphEms)
   }
 
   mount(canvas: HTMLCanvasElement): void {
@@ -164,12 +168,24 @@ export class Engine {
     const instances = noteInstances(song.notes, song.ppq)
     const white = instances.filter((n) => !n.isBlack)
     const black = instances.filter((n) => n.isBlack)
-    // Label stack slots come from the music, across both lane colours (brief decision 114).
-    const slots = labelStackSlots(
-      instances.map((n) => ({ startTick: n.startTick, centre: n.x + n.width / 2 })),
+    // Label stack slots and runs of repeated notes come from the music, across both lane
+    // colours (brief decision 114); only the first of a run is labelled by default.
+    const runStarts = labelRunStarts(instances, song.ppq)
+    const lanes = instances.map((n) => ({ startTick: n.startTick, centre: n.x + n.width / 2 }))
+    const allSlots = labelStackSlots(lanes)
+    const firsts = instances.flatMap((_, i) => (runStarts[i] === 1 ? [i] : []))
+    const firstSlots = new Uint8Array(instances.length)
+    labelStackSlots(firsts.map((i) => lanes[i] ?? { startTick: 0, centre: 0 })).forEach(
+      (slot, k) => (firstSlots[firsts[k] ?? 0] = slot),
     )
-    const slotsOf = (black: boolean) =>
+    const pick = (slots: Uint8Array, black: boolean) =>
       Uint8Array.from(slots.filter((_, i) => instances[i]?.isBlack === black))
+    const slotsOf = (black: boolean) => ({
+      first: pick(firstSlots, black),
+      all: pick(allSlots, black),
+    })
+    const runStartsOf = (black: boolean) =>
+      Uint8Array.from(runStarts.filter((_, i) => instances[i]?.isBlack === black))
     const { barMap } = song
     const barTicks = song.ppq * 4
     const beats = barMap
@@ -211,6 +227,7 @@ export class Engine {
           this.atlas.texture,
           ORDER.whiteNames,
           slotsOf(false),
+          runStartsOf(false),
         ),
         black: new NoteNameLayer(
           black,
@@ -218,6 +235,7 @@ export class Engine {
           this.atlas.texture,
           ORDER.blackNames,
           slotsOf(true),
+          runStartsOf(true),
         ),
       },
       keyStates: new KeyStates(instances),
@@ -400,13 +418,9 @@ export class Engine {
     this.placeCamera()
     const bufferHeight = height * pipeline.renderer.getPixelRatio()
     this.effects.setScale(bufferHeight / (2 * Math.tan(((FOV_DEG / 2) * Math.PI) / 180)))
-    for (const layer of this.song === null ? [] : Object.values(this.song.names)) {
-      layer.setViewport(
-        width * pipeline.renderer.getPixelRatio(),
-        bufferHeight,
-        pipeline.renderer.getPixelRatio(),
-      )
-    }
+    const ratio = pipeline.renderer.getPixelRatio()
+    const sized = [this.keyboard, ...(this.song === null ? [] : Object.values(this.song.names))]
+    for (const layer of sized) layer.setViewport(width * ratio, bufferHeight, ratio)
     this.invalidate()
   }
 
@@ -569,6 +583,7 @@ export class Engine {
       names.height,
       names.showWithin,
       names.fadeLength,
+      names.repeats,
       this.settings.notes.heads3d,
       this.settings.notes.headHeight,
     ])
