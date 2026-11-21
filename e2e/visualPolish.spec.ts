@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 
+import { SETTINGS_VERSION } from '../src/core/settings/loadSettings'
+
+import { CLARITY_DEMO, LONG_DEMO, openSong } from './contactSheet'
 import { choose, nudge, openSidebarSection, segment, setting, watchErrors } from './support'
 
 type Settings = Record<string, Record<string, unknown>>
@@ -217,9 +220,10 @@ test('quality presets set their cost settings; a tweak shows "modified"', async 
   await segment(page, 'render.quality', 'Off')
   await expect(setting(page, 'render.bloomStrength')).toHaveAttribute('data-disabled', 'true')
   // …and say why.
-  await expect(page.getByTestId('setting-render-bloomStrength-hint')).toHaveText(
+  await expect(page.getByTestId('section-render-hint')).toHaveText(
     'Needs bloom (quality Low or higher)',
   )
+  await expect(page.getByTestId('setting-render-bloomStrength-hint')).toBeHidden()
   await openSidebarSection(page, 'effects')
   await expect(page.getByTestId('setting-effects-keyCone-hint')).toHaveText(
     'Needs shader detail Medium or High',
@@ -281,10 +285,14 @@ test('note names on and off', async ({ page }) => {
   expect(on).not.toEqual(off)
   await segment(page, 'names.mode', 'Off')
   expect(await stableFrame(page)).toEqual(off)
-  // Note-label rows stay in view, greyed out, and say why.
-  await expect(page.getByTestId('setting-names-offset-hint')).toHaveText(
+  // Note-label rows stay in view, greyed out; the shared reason is said once, at the top.
+  await expect(setting(page, 'names.offset')).toHaveAttribute('data-disabled', 'true')
+  const sectionHints = page.getByTestId('section-names-hint')
+  await expect(sectionHints).toHaveText([
+    'Needs note names on',
     'Needs note names on notes (Notes or Both)',
-  )
+  ])
+  await expect(page.getByTestId('setting-names-offset-hint')).toBeHidden()
   expect(errors).toEqual([])
 })
 
@@ -375,6 +383,103 @@ test('seeking while paused starts no pulse', async ({ page }) => {
     const now = await frame(page)
     await pause(page, 1000)
     expect(await changedPixels(page, now, await frame(page))).toBeLessThan(50)
+  }
+  expect(errors).toEqual([])
+})
+
+interface LabelSnapshot {
+  readonly id: string
+  readonly state: 'new' | 'hidden' | 'shown'
+  readonly shown: number
+  readonly slot: number
+}
+
+/** The overlap pass's labels on each animation frame, for `ms`. */
+function sampleLabels(page: Page, ms: number): Promise<LabelSnapshot[][]> {
+  return page.evaluate(
+    (duration) =>
+      new Promise<LabelSnapshot[][]>((resolve) => {
+        const read = (window as unknown as { pianomeisterLabels: () => LabelSnapshot[] })
+          .pianomeisterLabels
+        const frames: LabelSnapshot[][] = []
+        const end = performance.now() + duration
+        const tick = () => {
+          frames.push(read())
+          if (performance.now() < end) requestAnimationFrame(tick)
+          else resolve(frames)
+        }
+        requestAnimationFrame(tick)
+      }),
+    ms,
+  )
+}
+
+/**
+ * Changes between consecutive frames that would read as a blink or a jump: a shown label hiding,
+ * a label fading out (other than its distance and handover fades, which aren't in `shown`), or a
+ * stack slot changing.
+ */
+function labelFlips(frames: readonly LabelSnapshot[][]): string[] {
+  const flips: string[] = []
+  for (let f = 1; f < frames.length; f++) {
+    const before = new Map((frames[f - 1] ?? []).map((l) => [l.id, l]))
+    for (const label of frames[f] ?? []) {
+      const prev = before.get(label.id)
+      if (prev === undefined) continue
+      if (prev.state === 'shown' && label.state !== 'shown') flips.push(`${label.id} hid @${f}`)
+      if (label.shown < prev.shown) flips.push(`${label.id} faded out @${f}`)
+      if (label.slot !== prev.slot) flips.push(`${label.id} moved slot @${f}`)
+    }
+  }
+  return flips
+}
+
+/** Opens a song with note names on notes and the test hook. */
+async function openWithLabels(page: Page, file = LONG_DEMO, title = 'Long demo') {
+  await openSong(page, file, title)
+  await page.evaluate(
+    (value) => localStorage.setItem('pianomeister.settings', value),
+    JSON.stringify({ version: SETTINGS_VERSION, settings: { names: { mode: 'notes' } } }),
+  )
+  await page.goto('./#/?stats=1')
+  await page.reload()
+  await expect(page.getByTestId('hud-title')).toHaveText(title)
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+}
+
+for (const song of [
+  // Ten-note chords: labels wait for room, then show for good.
+  { title: 'Long demo', file: LONG_DEMO, check: (l: LabelSnapshot) => l.state === 'hidden' },
+  // Chords in neighbouring lanes: stacked labels.
+  { title: 'Clarity demo', file: CLARITY_DEMO, check: (l: LabelSnapshot) => l.slot > 0 },
+] as const) {
+  test(`note labels never blink or jump while playing (${song.title})`, async ({ page }) => {
+    test.setTimeout(120_000)
+    const errors = watchErrors(page)
+    await openWithLabels(page, song.file, song.title)
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+    const frames = await sampleLabels(page, 5000)
+    await page.getByRole('button', { name: 'Pause', exact: true }).click()
+    expect(labelFlips(frames)).toEqual([])
+    const all = frames.flat()
+    expect(all.length).toBeGreaterThan(0)
+    // The passage really exercises the rule (hidden labels, or stacked ones).
+    expect(all.some(song.check)).toBe(true)
+    expect(errors).toEqual([])
+  })
+}
+
+test('a seek places note labels at once (no fades)', async ({ page }) => {
+  test.setTimeout(120_000)
+  const errors = watchErrors(page)
+  await openWithLabels(page)
+  for (let bar = 0; bar < 3; bar++) {
+    await page.getByRole('button', { name: 'Next bar' }).click()
+    const [first] = await sampleLabels(page, 0)
+    expect(first?.length ?? 0).toBeGreaterThan(0)
+    // Paused, nothing moves: every label is fully in or out straight away.
+    expect((first ?? []).filter((l) => l.shown !== 0 && l.shown !== 1)).toEqual([])
   }
   expect(errors).toEqual([])
 })

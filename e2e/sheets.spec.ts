@@ -4,6 +4,7 @@ import {
   type Cell,
   type Crop,
   frameWith,
+  CLARITY_DEMO,
   LONG_DEMO,
   openSong,
   PEDAL_DEMO,
@@ -235,6 +236,7 @@ const NAMES_CASES: readonly { readonly label: string; readonly names: Record<str
 for (const song of [
   { title: 'Pedal demo', file: PEDAL_DEMO, name: 'names-pedal' },
   { title: 'Long demo', file: LONG_DEMO, name: 'names-dense' },
+  { title: 'Clarity demo', file: CLARITY_DEMO, name: 'names-stacked' },
 ] as const) {
   test(`@visual sheet names: ${song.title}`, async ({ page, browser }) => {
     test.setTimeout(300_000)

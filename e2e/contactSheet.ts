@@ -19,6 +19,10 @@ export const PEDAL_DEMO = fileURLToPath(
 export const LONG_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/long-demo.mid', import.meta.url),
 )
+/** Neighbouring-lane chords from bar 1: stacked labels. */
+export const CLARITY_DEMO = fileURLToPath(
+  new URL('../test-fixtures/midi/clarity-demo.mid', import.meta.url),
+)
 
 /** A frame region in CSS pixels; the whole canvas when omitted. */
 export interface Crop {
