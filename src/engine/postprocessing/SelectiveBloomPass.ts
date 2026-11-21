@@ -4,25 +4,25 @@ import {
   HalfFloatType,
   type Scene,
   type Texture,
-  Vector2,
   type WebGLRenderer,
   WebGLRenderTarget,
 } from 'three'
 import { Pass } from 'three/addons/postprocessing/Pass.js'
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+
+import { BloomChain } from './BloomChain'
 
 const BLACK = new Color(0, 0, 0)
 
 /**
  * Selective bloom (brief decision 109): draws the glow scene (glow twins only: emitters, plus
  * keys and heads as black occluders) into its own half-float target at `scale` × the drawing
- * buffer, then blurs it with three's UnrealBloomPass. It leaves the composer's buffers alone;
- * the mix pass adds `bloomTexture` — the blur only, never the glow scene itself, so an element
- * keeps its own brightness and gains a halo.
+ * buffer, then blurs it (BloomChain: UnrealBloomPass's blur, with fewer mips at lower scales).
+ * It leaves the composer's buffers alone; the mix pass adds `bloomTexture` — the blur only,
+ * never the glow scene itself, so an element keeps its own brightness and gains a halo.
  */
 export class SelectiveBloomPass extends Pass {
   private readonly glowTarget: WebGLRenderTarget
-  private readonly bloom: UnrealBloomPass
+  private readonly bloom = new BloomChain()
   private width = 1
   private height = 1
   private scale = 0.5
@@ -35,12 +35,12 @@ export class SelectiveBloomPass extends Pass {
     super()
     this.needsSwap = false
     this.glowTarget = new WebGLRenderTarget(1, 1, { type: HalfFloatType })
-    this.bloom = new UnrealBloomPass(new Vector2(1, 1), 0.8, 0.4, 0.1)
+    this.bloom.setSkip(skipFor(this.scale))
   }
 
   /** The blurred glow, for the mix pass. */
   get bloomTexture(): Texture {
-    return this.bloom.renderTargetsHorizontal[0]?.texture ?? this.glowTarget.texture
+    return this.bloom.texture
   }
 
   configure(scale: number, strength: number, radius: number, threshold: number): void {
@@ -49,6 +49,7 @@ export class SelectiveBloomPass extends Pass {
     this.bloom.threshold = threshold
     if (scale !== this.scale) {
       this.scale = scale
+      this.bloom.setSkip(skipFor(scale))
       this.setSize(this.width, this.height)
     }
   }
@@ -72,13 +73,19 @@ export class SelectiveBloomPass extends Pass {
     renderer.render(this.glowScene, this.camera)
     renderer.setClearColor(clearColor, clearAlpha)
     renderer.autoClear = autoClear
-    // UnrealBloomPass reads `readBuffer` and finally blends onto it; the target is ours, so that
-    // last blend is harmless (and cheap at this size).
-    this.bloom.render(renderer, this.glowTarget, this.glowTarget, 0, false)
+    this.bloom.render(renderer, this.glowTarget.texture)
   }
 
   override dispose(): void {
     this.glowTarget.dispose()
     this.bloom.dispose()
   }
+}
+
+/**
+ * Mips to drop so the blur keeps the same on-screen sizes: none at full scale, the sharpest
+ * at ½ (its first mip is full scale's second), two at ¼.
+ */
+function skipFor(scale: number): number {
+  return scale >= 1 ? 0 : scale >= 0.5 ? 1 : 2
 }
