@@ -28,7 +28,7 @@ function update(): void {
   const gpu = info.gpuMs === null ? '' : `, ${info.gpuMs.toFixed(2)} ms GPU`
   text.value =
     `${info.width} × ${info.height} px (pixel ratio ${info.pixelRatio.toFixed(2)})${bloom} · ` +
-    `${frameMs.toFixed(2)} ms per frame (CPU)${gpu}`
+    `${frameMs.toFixed(2)} ms per frame (CPU)${gpu} · ${info.drawCalls} draw calls`
 }
 
 onMounted(() => {

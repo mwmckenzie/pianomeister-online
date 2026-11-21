@@ -80,6 +80,8 @@ export class RenderPipeline {
       powerPreference: 'high-performance',
     })
     this.renderer.outputColorSpace = LinearSRGBColorSpace
+    // Counted per frame (all passes), not per render() call.
+    this.renderer.info.autoReset = false
     const ext = this.renderer.extensions
     this.halfFloat = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float')
     this.gpu = new GpuTimer(this.renderer.getContext() as WebGL2RenderingContext)
@@ -129,6 +131,7 @@ export class RenderPipeline {
   }
 
   render(): void {
+    this.renderer.info.reset()
     this.gpu.begin()
     if (this.composer === null) this.renderer.render(this.scene, this.camera)
     else this.composer.render()
@@ -152,6 +155,7 @@ export class RenderPipeline {
       bloomWidth: Math.round(canvas.width * scale),
       bloomHeight: Math.round(canvas.height * scale),
       gpuMs: this.gpu.averageMs(),
+      drawCalls: this.renderer.info.render.calls,
     }
   }
 

@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url'
 
 import { test, expect, type Page } from '@playwright/test'
 
+import { openSidebarSection, segment } from './support'
+
 /**
  * Performance and render diagnostics (npm run test:perf, headed locally so a real GPU is used).
  * Results are printed and written to test-results/perf/; they are inputs for the review report.
@@ -390,3 +392,86 @@ for (const preset of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
     expect(result.samples).toBeGreaterThan(5)
   })
 }
+
+/**
+ * Milestone 9 round 2: the presets interleaved in one page (Off, Low, Medium, High, three
+ * rounds), each from the start of the song, so slow drift (clocks, heat, background work)
+ * hits every preset alike. Reports the median CPU per frame over the rounds and the draw
+ * calls per frame — exact, unlike timings near the browser's ~0.1 ms timer resolution.
+ */
+async function interleaved(page: Page, song: string, name: string) {
+  const labels = { off: 'Off', low: 'Low', medium: 'Medium', high: 'High' } as const
+  const rounds: Record<string, { cpu: number[]; gpu: number[]; calls: number[] }> = {}
+  for (let round = 0; round < 3; round++) {
+    for (const preset of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
+      await openSidebarSection(page, 'render')
+      await segment(page, 'render.quality', labels[preset])
+      // Closed again, so every preset draws the same canvas size.
+      await page.getByTestId('close-sidebar').click()
+      await page.getByRole('button', { name: 'Stop', exact: true }).click()
+      await page.getByTestId('play-pause').click()
+      await expect(page.getByTestId('transport-state')).toHaveText('playing')
+      const result = await sampleFrames(page, 4)
+      const calls = await page.evaluate(
+        () =>
+          (
+            window as { pianomeisterRenderInfo?: () => { drawCalls: number } | null }
+          ).pianomeisterRenderInfo?.()?.drawCalls ?? 0,
+      )
+      const entry = (rounds[preset] ??= { cpu: [], gpu: [], calls: [] })
+      entry.cpu.push(result.averageFrameMs)
+      if (result.gpuMs !== null) entry.gpu.push(result.gpuMs)
+      entry.calls.push(calls)
+    }
+  }
+  const median = (xs: readonly number[]) => {
+    const sorted = [...xs].sort((a, b) => a - b)
+    return sorted.length === 0 ? null : (sorted[Math.floor(sorted.length / 2)] ?? null)
+  }
+  const result = {
+    song,
+    presets: Object.fromEntries(
+      Object.entries(rounds).map(([preset, r]) => [
+        preset,
+        {
+          cpuMsMedian: median(r.cpu),
+          cpuMsRounds: r.cpu,
+          gpuMsMedian: median(r.gpu),
+          drawCalls: median(r.calls),
+        },
+      ]),
+    ),
+  }
+  save(name, result)
+  return result
+}
+
+test('@perf m9 presets interleaved: Canon, default look', async ({ page }) => {
+  test.setTimeout(300_000)
+  // Controls stay up while playing, so the preset can be switched between samples.
+  await seed(page, { version: 6, settings: { appearance: { hideControls: false } } })
+  await openCanon(page)
+  const result = await interleaved(page, 'Canon in D', 'm9-interleaved-canon')
+  expect(Object.keys(result.presets)).toHaveLength(4)
+})
+
+test('@perf m9 presets interleaved: dense chords, stress look', async ({ page }) => {
+  test.setTimeout(300_000)
+  await seed(page, {
+    version: 6,
+    settings: { effects: STRESS_EFFECTS, appearance: { hideControls: false } },
+  })
+  await page.goto('./#/library')
+  await page
+    .getByTestId('upload-input')
+    .setInputFiles(fileURLToPath(new URL('../test-fixtures/midi/long-demo.mid', import.meta.url)))
+  await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
+  await page.getByTestId('details-play').click()
+  await expect(page.getByTestId('hud-bars')).toHaveText('340')
+  await page.goto('./#/?stats=1')
+  await page.reload()
+  await expect(page.getByTestId('hud-bars')).toHaveText('340')
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  const result = await interleaved(page, 'long demo, dense opening', 'm9-interleaved-dense')
+  expect(Object.keys(result.presets)).toHaveLength(4)
+})

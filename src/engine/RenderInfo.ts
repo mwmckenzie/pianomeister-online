@@ -12,4 +12,6 @@ export interface RenderInfo {
   readonly bloomHeight: number
   /** Mean GPU time per frame, where the browser can measure it. */
   readonly gpuMs: number | null
+  /** Draw calls in the last frame, every pass included (the CPU's share of the work). */
+  readonly drawCalls: number
 }
