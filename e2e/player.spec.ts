@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 import {
+  EMPTY_STORAGE,
   nudge,
   openSidebarSection,
   resetButton,
@@ -197,36 +198,40 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   expect(errors).toEqual([])
 })
 
-test('settings saved by milestone 4 (v1) are migrated, not discarded', async ({ page }) => {
-  await page.addInitScript(() => {
-    if (localStorage.getItem('pianomeister.settings') !== null) return
-    localStorage.setItem(
-      'pianomeister.settings',
-      JSON.stringify({
-        version: 1,
-        settings: { camera: { tiltDeg: 62, distanceOffset: 0, pan: 0 } },
-      }),
-    )
-  })
-  await page.goto('./#/')
-  await openSidebarSection(page, 'camera')
-  await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '62')
-  await openSidebarSection(page, 'render')
-  await expect(
-    page.getByTestId('setting-render-antialias-control').getByText('MSAA', { exact: true }),
-  ).toHaveAttribute('data-state', 'on')
-  // The next change saves as the current version.
-  await nudge(page, 'camera.tiltDeg', 'ArrowRight')
-  await expect
-    .poll(async () =>
-      JSON.parse(
-        (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
-      ),
-    )
-    .toMatchObject({
-      version: 6,
-      settings: { camera: { tiltDeg: 63 }, appearance: { primary: '#8AB4FF' } },
+test.describe('stored v1 settings', () => {
+  test.use({ storageState: EMPTY_STORAGE })
+
+  test('settings saved by milestone 4 (v1) are migrated, not discarded', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (localStorage.getItem('pianomeister.settings') !== null) return
+      localStorage.setItem(
+        'pianomeister.settings',
+        JSON.stringify({
+          version: 1,
+          settings: { camera: { tiltDeg: 62, distanceOffset: 0, pan: 0 } },
+        }),
+      )
     })
+    await page.goto('./#/')
+    await openSidebarSection(page, 'camera')
+    await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '62')
+    await openSidebarSection(page, 'render')
+    await expect(
+      page.getByTestId('setting-render-antialias-control').getByText('MSAA', { exact: true }),
+    ).toHaveAttribute('data-state', 'on')
+    // The next change saves as the current version.
+    await nudge(page, 'camera.tiltDeg', 'ArrowRight')
+    await expect
+      .poll(async () =>
+        JSON.parse(
+          (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
+        ),
+      )
+      .toMatchObject({
+        version: 6,
+        settings: { camera: { tiltDeg: 63 }, appearance: { primary: '#8AB4FF' } },
+      })
+  })
 })
 
 test('keyboard limits: lowering the black keys clamps their press depth, and it persists', async ({
@@ -587,36 +592,44 @@ test('loop range: a pointer drag into the other thumb pushes it along', async ({
   await expect(slider.getByRole('slider').first()).toBeFocused()
 })
 
-test('settings saved with the v3 idle choices migrate to the switch and seconds', async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    if (localStorage.getItem('pianomeister.settings') !== null) return
-    localStorage.setItem(
-      'pianomeister.settings',
-      JSON.stringify({ version: 3, settings: { appearance: { hideControls: 'off' } } }),
+test.describe('stored v3 settings', () => {
+  test.use({ storageState: EMPTY_STORAGE })
+
+  test('settings saved with the v3 idle choices migrate to the switch and seconds', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      if (localStorage.getItem('pianomeister.settings') !== null) return
+      localStorage.setItem(
+        'pianomeister.settings',
+        JSON.stringify({ version: 3, settings: { appearance: { hideControls: 'off' } } }),
+      )
+    })
+    await page.goto('./#/')
+    await page.getByTestId('menu-settings').click()
+    await page.getByTestId('tab-appearance').click()
+    const toggle = setting(page, 'appearance.hideControls').getByRole('checkbox')
+    await expect(toggle).not.toBeChecked()
+    // Off: the delay is shown but can't be changed.
+    await expect(setting(page, 'appearance.hideControlsAfter')).toHaveAttribute(
+      'data-disabled',
+      'true',
     )
+    await expect(thumb(page, 'appearance.hideControlsAfter')).toHaveAttribute('data-disabled', '')
+    // A greyed-out control says what it needs.
+    await expect(page.getByTestId('setting-appearance-hideControlsAfter-hint')).toHaveText(
+      'Needs “Hide controls when idle”',
+    )
+    await toggle.click()
+    await expect(setting(page, 'appearance.hideControlsAfter')).not.toHaveAttribute(
+      'data-disabled',
+      'true',
+    )
+    await nudge(page, 'appearance.hideControlsAfter', 'ArrowRight')
+    await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('3.5 s')
+    await resetButton(page, 'appearance.hideControlsAfter').click()
+    await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('3 s')
   })
-  await page.goto('./#/')
-  await page.getByTestId('menu-settings').click()
-  await page.getByTestId('tab-appearance').click()
-  const toggle = setting(page, 'appearance.hideControls').getByRole('checkbox')
-  await expect(toggle).not.toBeChecked()
-  // Off: the delay is shown but can't be changed.
-  await expect(setting(page, 'appearance.hideControlsAfter')).toHaveAttribute(
-    'data-disabled',
-    'true',
-  )
-  await expect(thumb(page, 'appearance.hideControlsAfter')).toHaveAttribute('data-disabled', '')
-  await toggle.click()
-  await expect(setting(page, 'appearance.hideControlsAfter')).not.toHaveAttribute(
-    'data-disabled',
-    'true',
-  )
-  await nudge(page, 'appearance.hideControlsAfter', 'ArrowRight')
-  await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('3.5 s')
-  await resetButton(page, 'appearance.hideControlsAfter').click()
-  await expect(shownValue(page, 'appearance.hideControlsAfter')).toHaveText('3 s')
 })
 
 test('the tempo step (Practice tab) sets how far the tempo slider moves', async ({ page }) => {

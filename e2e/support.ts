@@ -180,3 +180,9 @@ export function seedBookmark(
     updatedAt: 1,
   }
 }
+
+/**
+ * No stored state: for tests that seed their own stored settings (the functional project
+ * otherwise starts with render quality Off, see playwright.config.ts).
+ */
+export const EMPTY_STORAGE = { cookies: [], origins: [] }

@@ -11,6 +11,38 @@ const port = useDevServer ? 5173 : 4173
 const baseURL = `http://localhost:${port}/pianomeister-online/`
 
 /**
+ * Functional e2e tests run at render quality Off (no bloom, the smallest particle pool), so
+ * parallel headless runs don't time out rendering bloom in software. This only seeds the
+ * stored settings; the app's defaults are unchanged. visualPolish (which exercises quality),
+ * the visual shots and the perf runs use their own settings. A test that seeds its own stored
+ * settings (e.g. a migration) opts out with `test.use({ storageState: EMPTY_STORAGE })`.
+ */
+const QUALITY_OFF = {
+  cookies: [],
+  origins: [
+    {
+      origin: `http://localhost:${port}`,
+      localStorage: [
+        {
+          name: 'pianomeister.settings',
+          value: JSON.stringify({
+            version: 6,
+            settings: {
+              render: {
+                quality: 'off',
+                bloomResolution: 'off',
+                particleBudget: 512,
+                shaderDetail: 'minimal',
+              },
+            },
+          }),
+        },
+      ],
+    },
+  ],
+}
+
+/**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
@@ -55,6 +87,17 @@ export default defineConfig({
     {
       name: 'chromium',
       // Visual-review screenshots (for a human) and performance runs are separate projects.
+      grepInvert: /@visual|@perf/,
+      testIgnore: /visualPolish\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: QUALITY_OFF,
+      },
+    },
+    {
+      // Milestone 9's controls, presets and looks: at the app's own default quality.
+      name: 'polish',
+      testMatch: /visualPolish\.spec\.ts/,
       grepInvert: /@visual|@perf/,
       use: {
         ...devices['Desktop Chrome'],

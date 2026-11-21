@@ -64,6 +64,30 @@ async function frame(page: Page): Promise<string> {
   return shot
 }
 
+/** The largest difference of any colour channel between two frames (0–255). */
+async function maxDifference(page: Page, a: string, b: string): Promise<number> {
+  return page.evaluate(
+    async ([first, second]) => {
+      const pixels = async (png: string) => {
+        const image = new Image()
+        image.src = `data:image/png;base64,${png}`
+        await image.decode()
+        const canvas = document.createElement('canvas')
+        canvas.width = image.width
+        canvas.height = image.height
+        const context = canvas.getContext('2d') as CanvasRenderingContext2D
+        context.drawImage(image, 0, 0)
+        return context.getImageData(0, 0, image.width, image.height).data
+      }
+      const [x, y] = [await pixels(first), await pixels(second)]
+      let max = 0
+      for (let i = 0; i < x.length; i++) max = Math.max(max, Math.abs((x[i] ?? 0) - (y[i] ?? 0)))
+      return max
+    },
+    [a, b] as const,
+  )
+}
+
 /** Settings under which every milestone 9 row is shown (dependent rows included). */
 const EVERYTHING_SHOWN: Settings = {
   lines: { borders: true, octaves: true },
@@ -181,6 +205,14 @@ test('quality presets set their cost settings; a tweak shows "modified"', async 
   // Bloom settings are greyed out while bloom is off.
   await segment(page, 'render.quality', 'Off')
   await expect(setting(page, 'render.bloomStrength')).toHaveAttribute('data-disabled', 'true')
+  // …and say why.
+  await expect(page.getByTestId('setting-render-bloomStrength-hint')).toHaveText(
+    'Needs bloom (quality Low or higher)',
+  )
+  await openSidebarSection(page, 'effects')
+  await expect(page.getByTestId('setting-effects-keyCone-hint')).toHaveText(
+    'Needs shader detail Medium or High',
+  )
   expect(errors).toEqual([])
 })
 
@@ -259,6 +291,72 @@ test('reduced motion stops animated fills', async ({ page }) => {
   await openPlayer(page)
   const a = await stableFrame(page)
   await pause(page, 400)
-  expect(await frame(page)).toEqual(a)
+  // Flicker or smoke would change whole notes; the odd pixel 1/255 off is a key still easing.
+  expect(await maxDifference(page, a, await frame(page))).toBeLessThanOrEqual(4)
+  expect(errors).toEqual([])
+})
+
+test('Copy look puts the current look on the clipboard as .pmlook.json', async ({
+  page,
+  context,
+}) => {
+  const errors = watchErrors(page)
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await openPlayer(page)
+  await page.getByTestId('toggle-sidebar').click()
+  await page.getByTestId('look-select').click()
+  await page.getByRole('option', { name: 'Classic', exact: true }).click()
+  await page.getByTestId('look-copy').click()
+  await expect(page.getByTestId('toast').filter({ hasText: 'Copied look "Classic"' })).toBeVisible()
+  const file = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))
+  expect(file).toMatchObject({ format: 'pianomeister-look', version: 6 })
+  expect(file.looks).toHaveLength(1)
+  expect(file.looks[0]).toMatchObject({ id: 'builtin:classic', name: 'Classic' })
+  expect(file.looks[0].settings.lines.nowStyle).toBe('thin')
+  // Device cost never travels with a look.
+  expect(file.looks[0].settings.render).not.toHaveProperty('quality')
+  expect(file.looks[0].settings.render).not.toHaveProperty('particleBudget')
+  expect(errors).toEqual([])
+})
+
+/** Everything that animates on, at full motion. */
+const LIVELY = {
+  noteStyle: { headFill: 'hotCore', sustainFill: 'smoke' },
+  effects: { sustain: 'embers', breathing: true, pulse: true },
+  appearance: { motion: 'full' },
+}
+
+test('a paused frame settles, then holds still', async ({ page }) => {
+  test.setTimeout(90_000)
+  const errors = watchErrors(page)
+  await seed(page, LIVELY)
+  await openPlayer(page)
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await pause(page, 2000)
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  // Pulses, flashes and particles in flight finish (well under 3 s), then nothing moves.
+  await pause(page, 3000)
+  const still = await frame(page)
+  await pause(page, 500)
+  expect(await frame(page)).toEqual(still)
+  expect(errors).toEqual([])
+})
+
+test('seeking while paused starts no pulse', async ({ page }) => {
+  test.setTimeout(90_000)
+  const errors = watchErrors(page)
+  await seed(page, LIVELY)
+  await openPlayer(page)
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  for (let bar = 0; bar < 2; bar++) {
+    await page.getByRole('button', { name: 'Next bar' }).click()
+    // Straight after the seek, a pulse would still be bright; a second later it's gone. Key
+    // presses easing in still change the odd pixel by 1/255, so this allows a little.
+    const now = await frame(page)
+    await pause(page, 1000)
+    expect(await maxDifference(page, now, await frame(page))).toBeLessThanOrEqual(4)
+  }
   expect(errors).toEqual([])
 })
