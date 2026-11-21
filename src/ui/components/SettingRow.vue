@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, inject, onBeforeUnmount, useId, watchEffect } from 'vue'
 
 import { formatSettingValue } from '@/core/settings/formatSettingValue'
 import type { SettingKey } from '@/core/settings/SettingKey'
@@ -10,6 +10,7 @@ import { settingDefinition } from '@/core/settings/settingValues'
 
 import { useSettingsStore } from '../stores/settingsStore'
 import ColorField from './ColorField.vue'
+import { sectionHintsKey } from './sectionHintsKey'
 import ResetButton from './ResetButton.vue'
 import SegmentedControl from './SegmentedControl.vue'
 import SelectField from './SelectField.vue'
@@ -41,7 +42,17 @@ const def = computed(() => settingDefinition(props.settingKey))
 const visible = computed(() => def.value.visible?.(store.settings) ?? true)
 const enabled = computed(() => def.value.enabled?.(store.settings) ?? true)
 /** Why the control is greyed out (e.g. "Needs shader detail Medium or High"). */
-const hint = computed(() => (enabled.value ? null : (def.value.disabledHint ?? null)))
+const reason = computed(() =>
+  enabled.value || !visible.value ? null : (def.value.disabledHint ?? null),
+)
+// The section shows a reason that three or more rows share once, at its top.
+const section = inject(sectionHintsKey, null)
+const row = Symbol(props.settingKey)
+watchEffect(() => section?.report(row, reason.value))
+onBeforeUnmount(() => section?.forget(row))
+const hint = computed(() =>
+  reason.value !== null && section?.shared.value.includes(reason.value) ? null : reason.value,
+)
 const value = computed(() =>
   props.override === undefined ? store.get(props.settingKey) : props.override.value,
 )
