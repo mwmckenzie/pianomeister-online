@@ -93,3 +93,104 @@ Spec: `docs/milestones/m9.md`. Plan and answers: `docs/milestones/m9-plan.md` (a
 - [ ] Note names: notes / keys / both, sharps/flats, octave on C vs all.
 - [ ] Motion → Reduced: no flicker/drift/smoke motion, onsets become still flashes.
 - [ ] 1024×768 and the Ember theme (primary/secondary line colours follow the menu colours).
+
+## 2026-11-21 — Round 2: your six items
+
+### What was done
+
+1. **Low's CPU cost** (`fdd0c92`, `f0d74cf`)
+   - Glow twins now live in a **small glow scene of their own** (`Engine.glowScene`). The bloom pass draws only that scene; there's no second walk of the main scene with a layer mask, and `GLOW_LAYER` is gone.
+   - Twins copy their source's world matrix, visibility (ancestors included), order, depth state and geometry **only when settings, the song or the pass chain change** (`Engine.syncGlow`). A per-frame boolean check catches the FXAA/SMAA chain arriving asynchronously. Per-frame changes still reach the twins through what they share: uniforms, the keys' instance matrices, and particle buffers.
+   - That alone doesn't separate Low from High: with the same draw calls, their CPU work differs only in GPU-side resolution. So the bloom blur is now `BloomChain` (UnrealBloomPass's blur, re-implemented), whose **mip count follows bloom resolution**: 5 mips at full, 4 at ½, 3 at ¼.
+     - The dropped mips are the sharpest ones. A ½-size glow target's first mip has the same on-screen size as full's second, so **every preset blurs at the same on-screen scales**.
+     - High is **pixel-identical** to Round 1 (checked: 1 pixel off by 1/255 at 1024×768). Medium and Low lose only the widest, faintest haze they used to have.
+     - Low runs 4 fewer full-screen passes than High, Medium 2 fewer. The unused blend back onto the glow target is gone at every preset.
+   - New: **draw calls per frame** in `RenderInfo` and the settings readout. They're exact, unlike timings near the browser's ~0.1 ms timer resolution.
+2. **Paused frames settle** (`72afdaf`)
+   - `Engine.setPlaying()` comes from the player's transport state.
+   - While paused:
+     - note pulses keep fading in wall-clock time (`uPausedFor`), and key pulses already did;
+     - particles in flight finish on the wall clock;
+     - looping animation stops: it now runs on `uLoopTime`, which advances only while playing (flicker, smoke, stripe drift, breathing, the held glow's pulse);
+     - held keys stop spawning sustain particles.
+   - Then the frame holds still: an e2e test checks two frames 0.5 s apart, 3 s after pausing, are byte-identical.
+   - **Seeking while paused never starts a pulse:** `songClock` treats any move while not playing as a jump. On resume, notes up to the paused position don't pulse again.
+   - `?animTime=` pins both clocks and shows paused pulses as already settled, so the visual shots stay deterministic.
+3. **Disabled controls say why** (`2087e1f`)
+   - Registry entries with `enabled()` carry a `disabledHint`, shown under the greyed-out control: "Needs shader detail Low or higher" (key spill), "Needs shader detail Medium or High" (cones), "Needs bloom (quality Low or higher)" (bloom strength, radius, threshold), and "Needs “Hide controls when idle”" (the idle delay).
+   - A registry unit test requires a hint wherever there's a rule.
+4. **Long demo:** already test-only (`test-fixtures/midi/`, uploaded by the perf tests; the bundled songs are in `public/songs/`), so left as is.
+5. **E2e at quality Off** (`427e00a`)
+   - The functional Playwright project starts with stored settings at render quality Off, via `storageState` in `playwright.config.ts`. This is a test fixture only; app defaults are unchanged.
+   - `visualPolish.spec.ts` moved to its own `polish` project at the default quality. The visual shots and perf runs seed their own settings.
+   - The two migration tests that seed old stored settings opt out with `EMPTY_STORAGE`.
+6. **Copy look** (`3fad576`)
+   - The picker has a "Copy look" button. It writes the current look to the clipboard in the `.pmlook.json` format from `m9-1.md` §A: `{format: "pianomeister-look", version: 6, looks: [{id, name, createdAt, settings}]}`, with settings nested by section like stored settings.
+   - Core: `LookFile`, `LookFileEntry`, `toLookFile` (+ spec).
+   - An unchanged look keeps its id and name. A changed one, or none picked, gets a new UUID and "⟨Name⟩ (modified)" / "My look", so pasting it later can't clash with the original.
+
+Docs: brief decisions 109, 110, 113, 119 and 121 updated; `docs/milestones/m9-1.md` committed as written.
+
+### Decisions I made that weren't in the instructions
+
+1. **Bloom mips follow bloom resolution** (above). It was the one honest way to make Low cheaper on the CPU than High: everything else they draw is the same. It also makes the halo's reach the same at every preset. Before, ¼ resolution reached further than full.
+2. **The loop clock stops while paused**, along with the pulses settling. "The frame holds still" needs flicker, smoke and breathing to stop too; they resume where they were.
+3. **`createdAt` in a copied look is the copy time.** Looks don't store a creation time yet (milestone 9.1 adds it).
+4. **Frame comparisons that only check "nothing animates"** (reduced motion, seek while paused) allow a 1/255 difference. Keys still easing into their pressed state change the odd pixel by one level for about 1.5 s; a pulse or flicker changes whole notes. "Settles, then holds still" stays an exact comparison.
+5. **No sub-bar seek exists in the UI** (bar steps are ≥ 3 quarter notes in our songs, which were already jumps). So the e2e seek test checks the end-to-end path, and the new rule is covered by the `songClock` unit test.
+
+### Results
+
+- `npm run check`: pass (631 unit tests). `npm run build`: pass.
+- **E2e**, full functional suite (`chromium` + `polish` projects), production preview, `--retries=0`: **162/162**.
+  - An earlier run of this round had 161/162: the reduced-motion exact-frame test failed on 1/255 pixels (decision 4 above).
+  - One run had 136 failures, all `ERR_CONNECTION_REFUSED`. The stale preview server I was reusing died mid-run; re-run with Playwright's own server.
+- **Visual** (`m9` block, headed): **30/30**. Pixel comparison with the Round 1 build:
+  - High (1280×720) is identical, and High at 1024×768 has 1 pixel off by 1.
+  - Off differs only in the HUD (a samples-loading line), not the scene.
+  - Medium and Low differ by at most 33/255 and 188/255, mostly in the wide haze. Low by eye: same picture, slightly less wide haze.
+- **Perf**, RTX 4090 at 120 Hz, 1600×900, headed. Every preset holds 8.33 ms frames.
+  - **Per-preset runs** (as in Round 1, one page per preset, 10 s each), CPU per frame:
+
+    | Run                        | Off     | Low     | Medium  | High    |
+    | -------------------------- | ------- | ------- | ------- | ------- |
+    | Canon, default look        | 0.43 ms | 0.48 ms | 0.49 ms | 0.51 ms |
+    | Dense chords + stress look | 0.44 ms | 0.53 ms | 0.51 ms | 0.51 ms |
+
+    Off itself read 0.37 ms in Round 1 with no change on its path: run-to-run drift is ~±0.06 ms.
+
+  - **Interleaved runs** (new test): the four presets cycle 3 times in one page, so drift hits all of them alike. Medians, with draw calls per frame (exact):
+
+    | Run                                        | Off     | Low     | Medium  | High    |
+    | ------------------------------------------ | ------- | ------- | ------- | ------- |
+    | Canon — draw calls / frame                 | **17**  | **34**  | **36**  | **38**  |
+    | Canon — CPU / frame (median of 3)          | 0.37 ms | 0.45 ms | 0.43 ms | 0.43 ms |
+    | Dense + stress — draw calls / frame        | **17**  | **34**  | **38**  | **40**  |
+    | Dense + stress — CPU / frame (median of 3) | 0.43 ms | 0.46 ms | 0.42 ms | 0.46 ms |
+
+    Dense uses 2 more calls at Medium/High because key cones are on there.
+
+  - **Low's CPU against High's:** structurally, Low now does less CPU work than High: 34 draw calls against 38–40, 4–6 fewer. The timings can't show that difference.
+    - The gap is a few draw calls, a few tens of µs. Chrome's `performance.now()` here is coarsened to ~0.1 ms, and the spread between rounds of the _same_ preset is 0.03–0.15 ms.
+    - So I can't honestly claim a measured Low < High in ms. What is true and exact: fewer passes and draw calls at Low, and the bloom part of Low's extra cost over Off went down (Canon, interleaved: Low − Off = +0.08 ms, inside the plan's +0.1 ms; Round 1: +0.12).
+    - A precise ms comparison needs a profiler trace or the iPad, where the CPU is slower and the gap scales up.
+  - GPU times are still not a cost comparison on this card: it clocks down under light load, so cheaper presets can read slower.
+
+### Known issues and open questions
+
+1. **Defaults are provisional.** As agreed in `m9-1.md` §D, the tuning session moves to the end of 9.1.
+2. **iPad:** Low and Medium must still be checked on a real iPad (milestone 11 at the latest). That is also where Low's CPU advantage should show in milliseconds.
+3. **Low < High in CPU is shown by draw calls, not by timings** (see Perf). If you want a millisecond number, I can add a debug-only CPU benchmark (N frames rendered back-to-back into a tiny canvas, so the GPU never limits it). Your call.
+4. Round 1 issues 4 (pulse frozen mid-flash while paused) and 6 (no hint on disabled controls) are fixed by items 2 and 3; issue 7 is item 1.
+5. The functional e2e suite now runs at quality Off, so bloom paths are exercised only by the `polish` project, the visual shots and perf.
+
+### Manual review checklist (Round 2)
+
+- [ ] Play with Hot core / Smoke fills, embers and pulse on, then pause: the pulses and particles finish, then nothing moves.
+- [ ] Paused, step bars with ← / →: no note or key flashes.
+- [ ] Resume after a pause: notes already under the now line don't flash again.
+- [ ] Render quality Off: the bloom sliders say "Needs bloom (quality Low or higher)". Shader detail Minimal: spill and cone hints.
+- [ ] Settings → Appearance with "Hide controls when idle" off: the delay row explains itself.
+- [ ] Look picker → Copy look, paste into a text editor: a `pianomeister-look` file. Change something and copy again: the name ends "(modified)" and the id differs.
+- [ ] Readout: draw calls change with the preset (Off 17 → High 38 on Canon).
+- [ ] Low vs High side by side: the halo looks the same size.
