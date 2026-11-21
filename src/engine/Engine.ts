@@ -25,7 +25,9 @@ import { NoteMask } from './notes/NoteMask'
 import { ContactShadow } from './notes/ContactShadow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
-import { hiddenByOverlap } from './model/hiddenByOverlap'
+import { labelStackSlots } from './model/labelStackSlots'
+import { placeLabels } from './model/placeLabels'
+import type { LabelSnapshot } from './names/LabelSnapshot'
 import { HeadLayer } from './notes/HeadLayer'
 import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/noteStyle'
 import { SustainLayer } from './notes/SustainLayer'
@@ -112,6 +114,9 @@ export class Engine {
   private playing = false
   /** Playback resumed since the last frame: notes up to the paused position don't pulse. */
   private resumed = false
+  /** Overlap-pass frame number and the label layout it was placed for (layoutNames). */
+  private labelFrame = 0
+  private labelLayoutKey = ''
   /** Seconds of looping animation (advances only while playing). */
   private loopClock = 0
   /** Wall-clock seconds since playback paused. */
@@ -159,6 +164,12 @@ export class Engine {
     const instances = noteInstances(song.notes, song.ppq)
     const white = instances.filter((n) => !n.isBlack)
     const black = instances.filter((n) => n.isBlack)
+    // Label stack slots come from the music, across both lane colours (brief decision 114).
+    const slots = labelStackSlots(
+      instances.map((n) => ({ startTick: n.startTick, centre: n.x + n.width / 2 })),
+    )
+    const slotsOf = (black: boolean) =>
+      Uint8Array.from(slots.filter((_, i) => instances[i]?.isBlack === black))
     const { barMap } = song
     const barTicks = song.ppq * 4
     const beats = barMap
@@ -194,8 +205,20 @@ export class Engine {
       ),
       shadow: new ContactShadow(black, this.time, ORDER.shadow),
       names: {
-        white: new NoteNameLayer(white, this.time, this.atlas.texture, ORDER.whiteNames),
-        black: new NoteNameLayer(black, this.time, this.atlas.texture, ORDER.blackNames),
+        white: new NoteNameLayer(
+          white,
+          this.time,
+          this.atlas.texture,
+          ORDER.whiteNames,
+          slotsOf(false),
+        ),
+        black: new NoteNameLayer(
+          black,
+          this.time,
+          this.atlas.texture,
+          ORDER.blackNames,
+          slotsOf(true),
+        ),
       },
       keyStates: new KeyStates(instances),
       onsets: onsetsOf(instances),
@@ -512,7 +535,7 @@ export class Engine {
         )
       }
     }
-    if (song !== null) this.layoutNames(song, tick, dt)
+    if (song !== null) this.layoutNames(song, tick, dt, clock.jumped)
     this.lastTick = tick
     // The chain can change after applySettings (FXAA/SMAA passes load asynchronously).
     if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()
@@ -521,14 +544,37 @@ export class Engine {
     this.record(this.frameMs, performance.now() - started)
   }
 
+  /** Labels placed in the last overlap pass, for tests (`?stats=1`). */
+  labelSnapshot(): LabelSnapshot[] {
+    const out: LabelSnapshot[] = []
+    this.song?.names.white.snapshot(this.labelFrame, 'w', out)
+    this.song?.names.black.snapshot(this.labelFrame, 'b', out)
+    return out
+  }
+
   /**
-   * Note labels that would overlap on screen: the farther one fades out (brief decision 114),
-   * across both lane colours, nearest first.
+   * The overlap pass (brief decision 114), across both lane colours, nearest first: one-way, so
+   * a shown label stays shown and a hidden one shows once there's room. A seek, or a change to
+   * how labels are laid out, places every label afresh, at once (no fades).
    */
-  private layoutNames(song: SongParts, tick: number, dt: number): void {
+  private layoutNames(song: SongParts, tick: number, dt: number, jumped: boolean): void {
     const { names } = this.settings
     const onNotes = names.mode === 'notes' || names.mode === 'both'
     if (!onNotes || !names.avoidOverlaps) return
+    const layoutKey = JSON.stringify([
+      names.style,
+      names.textSize,
+      names.anchor,
+      names.offset,
+      names.height,
+      names.showWithin,
+      names.fadeLength,
+      this.settings.notes.heads3d,
+      this.settings.notes.headHeight,
+    ])
+    // Skipping a frame number makes every label new.
+    this.labelFrame += jumped || layoutKey !== this.labelLayoutKey ? 2 : 1
+    this.labelLayoutKey = layoutKey
     const canvas = this.pipeline?.renderer.domElement
     const view: LabelView = {
       camera: this.camera,
@@ -538,17 +584,15 @@ export class Engine {
       lookAheadTicks: this.time.uLookAheadTicks.value,
       width: canvas?.clientWidth ?? 1,
       height: canvas?.clientHeight ?? 1,
+      frame: this.labelFrame,
     }
     const labels: LabelCandidate[] = []
     song.names.white.candidates(view, labels)
     song.names.black.candidates(view, labels)
     labels.sort((a, b) => a.ahead - b.ahead)
-    hiddenByOverlap(
-      labels.map((l) => l.rect),
-      2,
-    ).forEach((hidden, i) => {
+    placeLabels(labels).forEach((state, i) => {
       const label = labels[i]
-      label?.layer.setTarget(label.index, !hidden)
+      label?.layer.place(label.index, state, this.labelFrame)
     })
     for (const layer of [song.names.white, song.names.black]) layer.update(dt, this.reducedMotion)
   }

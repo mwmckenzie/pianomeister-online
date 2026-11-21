@@ -809,7 +809,12 @@ onMounted(() => {
     // Debug-only (like ?guides=1): lets a test harness read frame timings for perf reports.
     const stats = () => engine?.stats()
     const renderInfo = () => engine?.renderInfo()
-    Object.assign(window, { pianomeisterEngineStats: stats, pianomeisterRenderInfo: renderInfo })
+    const labels = () => engine?.labelSnapshot()
+    Object.assign(window, {
+      pianomeisterEngineStats: stats,
+      pianomeisterRenderInfo: renderInfo,
+      pianomeisterLabels: labels,
+    })
   }
   engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {

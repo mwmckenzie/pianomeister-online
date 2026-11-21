@@ -15,10 +15,12 @@ import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 import { GlowTwin } from '../GlowTwin'
 import { KEYBOARD } from '../model/KEYBOARD'
 import type { LabelRect } from '../model/LabelRect'
+import type { LabelState } from '../model/LabelState'
 import type { NoteInstance } from '../model/NoteInstance'
 import { srgb } from '../srgb'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
+import type { LabelSnapshot } from './LabelSnapshot'
 import { ATLAS_FONT_PX, atlasCell, CELL_H, CELL_W } from './NoteLabelAtlas'
 
 const PALETTE = PITCH_CLASS_COLORS.map((c) => srgb(c.hex))
@@ -31,8 +33,13 @@ const MIN_BEHIND = 0.6
 const HANDOVER = 0.05
 /** Below this on-screen height (CSS px) a label is fully transparent. */
 const MIN_PX = 8
-/** How quickly a label fades out or back in when overlaps change (seconds). */
-const OVERLAP_FADE_S = 0.15
+/** How quickly a hidden label fades in once there's room (seconds). */
+const REVEAL_FADE_S = 0.15
+/** CSS px between stacked labels (stack slots). */
+const STACK_GAP_PX = 2
+/** Flat labels stack along the note: one label depth plus this share. */
+const FLAT_STACK_GAP = 0.15
+const STATES: readonly LabelState[] = ['new', 'hidden', 'shown']
 
 const ANCHOR = { ahead: 0, on: 1, behind: 2 } as const
 const COLOR = { auto: 0, note: 1, white: 2, dark: 3 } as const
@@ -50,6 +57,7 @@ uniform float uOffset;      // lane widths
 uniform float uHeightPx;    // CSS px
 uniform float uShowWithin;
 uniform float uFadeLength;
+uniform float uStack;       // 1: labels take their stack slots (Avoid overlaps)
 
 /** The tick a label sits at, per the anchor (short notes fall back from behind to on). */
 float anchorTick(vec3 ticks, float laneWidth) {
@@ -73,6 +81,7 @@ attribute vec3 aTicks;  // start, end, head end
 attribute vec4 aCell;   // atlas u0, v0, u1, v1
 attribute vec3 aColor;
 attribute float aShown; // 0..1: hidden by an overlap
+attribute float aSlot;  // stack slot, fixed per song
 varying vec2 vUv;
 varying vec3 vColor;
 varying float vFade;
@@ -86,12 +95,14 @@ void main() {
   fade *= smoothstep(0.0, ${HANDOVER.toFixed(2)}, ahead) * aShown * hazeAlpha(tick);
   float heightPx = uTextPx * ${(CELL_H / ATLAS_FONT_PX).toFixed(4)} * uPixelRatio;
   vec2 corner = uv - 0.5;
+  float slot = aSlot * uStack;
   if (uFlat > 0.5) {
     // Flat on the note, as wide on screen as a facing label (not stretched along the note).
     vec2 a = toPx(anchor);
     float pxPerUnit = max(distance(a, toPx(anchor + vec3(1.0, 0.0, 0.0))), 1e-3);
     float width = heightPx * ${(CELL_W / CELL_H).toFixed(4)} / pxPerUnit;
     float depth = width * ${(CELL_H / CELL_W).toFixed(4)};
+    anchor.z -= slot * depth * ${(1 + FLAT_STACK_GAP).toFixed(2)};
     vec3 near = anchor + vec3(0.0, 0.0, 0.5 * depth);
     vec3 far = anchor - vec3(0.0, 0.0, 0.5 * depth);
     fade *= smoothstep(${MIN_PX}.0, ${MIN_PX + 3}.0, distance(toPx(near), toPx(far)) / uPixelRatio);
@@ -101,7 +112,8 @@ void main() {
     // Facing the camera: upright, a constant size on screen, raised above the note.
     vec4 clip = projectionMatrix * viewMatrix * vec4(anchor, 1.0);
     vec2 size = vec2(heightPx * ${(CELL_W / CELL_H).toFixed(4)}, heightPx) * step(0.004, fade);
-    vec2 raise = vec2(0.0, uHeightPx * uPixelRatio + 0.5 * heightPx);
+    float stackPx = slot * (heightPx + ${STACK_GAP_PX}.0 * uPixelRatio);
+    vec2 raise = vec2(0.0, uHeightPx * uPixelRatio + 0.5 * heightPx + stackPx);
     clip.xy += (corner * size + raise) * 2.0 / uViewport * clip.w;
     gl_Position = clip;
   }
@@ -149,6 +161,7 @@ export interface LabelCandidate {
   /** Share of the look-ahead from the now line (nearest first). */
   readonly ahead: number
   readonly rect: LabelRect
+  readonly state: LabelState
 }
 
 /** Layout values shared with the shader, for the overlap pass on the CPU. */
@@ -161,13 +174,20 @@ export interface LabelView {
   /** Canvas size in CSS pixels. */
   readonly width: number
   readonly height: number
+  /**
+   * Overlap-pass frame number. A label not placed in the previous frame is new again, so a seek
+   * (the engine skips a frame number) places every label afresh, at once.
+   */
+  readonly frame: number
 }
 
 /**
  * Note names on notes (brief decision 114), one instanced draw per lane colour: facing the
  * camera at a constant screen size (or flat on the note), in the note's tinted colour with a
  * soft halo, fading in with distance and out before the now line (where the key-top label
- * takes over); the farther of two overlapping labels fades out (layout(), on the CPU).
+ * takes over). Avoid overlaps: labels of chords in neighbouring lanes stack in fixed slots, and
+ * of two labels that still overlap the farther stays hidden until there's room; once shown, a
+ * label stays shown (placeLabels, on the CPU), so labels never jump or blink.
  */
 export class NoteNameLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
@@ -178,6 +198,9 @@ export class NoteNameLayer {
   private readonly byStart: Int32Array
   private readonly shown: Float32Array
   private readonly target: Float32Array
+  private readonly slots: Uint8Array
+  private readonly state: Uint8Array
+  private readonly placedAt: Int32Array
   private settings: PlayerSettings['names'] | null = null
   private headTop = 0
 
@@ -186,6 +209,7 @@ export class NoteNameLayer {
     time: TimeUniforms,
     atlas: Texture,
     renderOrder: number,
+    slots: Uint8Array,
   ) {
     this.notes = notes
     this.byStart = Int32Array.from(notes.keys()).sort(
@@ -193,6 +217,9 @@ export class NoteNameLayer {
     )
     this.shown = new Float32Array(notes.length).fill(1)
     this.target = new Float32Array(notes.length).fill(1)
+    this.slots = slots
+    this.state = new Uint8Array(notes.length)
+    this.placedAt = new Int32Array(notes.length).fill(-2)
     const g = new InstancedBufferGeometry()
     g.setAttribute(
       'position',
@@ -231,6 +258,7 @@ export class NoteNameLayer {
       ),
     )
     g.setAttribute('aShown', new InstancedBufferAttribute(this.shown, 1))
+    g.setAttribute('aSlot', new InstancedBufferAttribute(Float32Array.from(slots), 1))
     g.instanceCount = notes.length
     this.mesh = new Mesh(
       g,
@@ -250,6 +278,7 @@ export class NoteNameLayer {
           uHeightPx: { value: 6 },
           uShowWithin: { value: 0.4 },
           uFadeLength: { value: 0.15 },
+          uStack: { value: 1 },
           uColorMode: { value: 0 },
           uShadow: { value: 0.6 },
           uAtlas: { value: atlas },
@@ -277,10 +306,12 @@ export class NoteNameLayer {
     this.uniform('uFadeLength', names.fadeLength)
     this.uniform('uColorMode', COLOR[names.textColor])
     this.uniform('uShadow', names.shadow)
+    this.uniform('uStack', names.avoidOverlaps ? 1 : 0)
     this.twin.enabled = names.glow === 'subtle'
     if (!names.avoidOverlaps) {
       this.target.fill(1)
       this.shown.fill(1)
+      this.placedAt.fill(-2)
       this.markShown(0, this.shown.length - 1)
     }
   }
@@ -306,6 +337,7 @@ export class NoteNameLayer {
     const from = lowerBound(this.notes, this.byStart, view.tick - margin)
     const heightPx = s.textSize * (CELL_H / ATLAS_FONT_PX)
     const widthPx = heightPx * (CELL_W / CELL_H)
+    const stackPx = s.style === 'flat' ? heightPx * 0.5 + STACK_GAP_PX : heightPx + STACK_GAP_PX
     for (let k = from; k < this.byStart.length; k++) {
       const index = this.byStart[k] as number
       const n = this.notes[index]
@@ -315,30 +347,61 @@ export class NoteNameLayer {
       if (ahead <= 0 || ahead >= s.showWithin + s.fadeLength) continue
       const z = view.nowZ - (tick - view.tick) * view.unitsPerTick
       const centre = toCss(ANCHOR_POINT.set(n.x + n.width / 2, this.headTop, z), view)
-      const flat = s.style === 'flat'
-      const rect: LabelRect = flat
-        ? { x: centre.x, y: centre.y, width: widthPx, height: heightPx * 0.5 }
-        : { x: centre.x, y: centre.y - s.height - heightPx / 2, width: widthPx, height: heightPx }
-      out.push({ layer: this, index, ahead, rect })
+      const lift = (this.slots[index] ?? 0) * stackPx
+      const rect: LabelRect =
+        s.style === 'flat'
+          ? { x: centre.x, y: centre.y - lift, width: widthPx, height: heightPx * 0.5 }
+          : {
+              x: centre.x,
+              y: centre.y - s.height - heightPx / 2 - lift,
+              width: widthPx,
+              height: heightPx,
+            }
+      const placed = this.placedAt[index] === view.frame - 1
+      const state = placed ? (STATES[this.state[index] ?? 0] ?? 'new') : 'new'
+      out.push({ layer: this, index, ahead, rect, state })
     }
   }
 
-  /** Sets whether a label should show; update() eases toward it. */
-  setTarget(index: number, shown: boolean): void {
-    this.target[index] = shown ? 1 : 0
+  /**
+   * Records a label's placement. A newly placed label appears (or not) at once: it enters at the
+   * far fade, or after a seek where it should simply be in place. A revealed one fades in.
+   */
+  place(index: number, state: LabelState, frame: number): void {
+    const wasNew = this.placedAt[index] !== frame - 1
+    this.placedAt[index] = frame
+    this.state[index] = STATES.indexOf(state)
+    const goal = state === 'shown' ? 1 : 0
+    this.target[index] = goal
+    if (wasNew && this.shown[index] !== goal) {
+      this.shown[index] = goal
+      this.markShown(index, index)
+    }
   }
 
-  /** Eases labels toward their targets (at once under reduced motion). */
+  /** The labels placed in `frame`, for tests. */
+  snapshot(frame: number, prefix: string, out: LabelSnapshot[]): void {
+    for (let i = 0; i < this.placedAt.length; i++) {
+      if (this.placedAt[i] !== frame) continue
+      out.push({
+        id: `${prefix}${i}`,
+        state: STATES[this.state[i] ?? 0] ?? 'new',
+        shown: this.shown[i] ?? 0,
+        slot: this.slots[i] ?? 0,
+      })
+    }
+  }
+
+  /** Fades revealed labels in (at once under reduced motion). Never fades one out. */
   update(dt: number, instant: boolean): void {
     let lo = Infinity
     let hi = -1
-    const step = instant ? 1 : dt / OVERLAP_FADE_S
+    const step = instant ? 1 : dt / REVEAL_FADE_S
     for (let i = 0; i < this.shown.length; i++) {
       const current = this.shown[i] as number
       const goal = this.target[i] as number
-      if (current === goal) continue
-      this.shown[i] =
-        goal > current ? Math.min(goal, current + step) : Math.max(goal, current - step)
+      if (current >= goal) continue
+      this.shown[i] = Math.min(goal, current + step)
       lo = Math.min(lo, i)
       hi = i
     }
