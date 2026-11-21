@@ -301,4 +301,54 @@ describe('loadSettings', () => {
     expect(loadLooks(raw)).toEqual(state)
     expect(loadLooks({ ...raw, version: SETTINGS_VERSION + 1 })).toEqual(EMPTY_LOOKS)
   })
+
+  it('migrates v6 to v7: old Neon becomes Outline, the shared stripes move into each use', () => {
+    const v6 = stored(
+      {
+        noteStyle: {
+          headFill: 'neon',
+          sustainFill: 'stripes',
+          stripeWidth: 0.6,
+          stripeDrift: true,
+        },
+        pedal: { fill: 'neon' },
+      },
+      6,
+    )
+    const s = loadSettings(v6)
+    expect(s.noteStyle.headFill).toBe('outline')
+    expect(s.noteStyle.sustainFill).toBe('stripes')
+    expect(s.pedal.fill).toBe('outline')
+    for (const use of ['head', 'sustain'] as const) {
+      expect(s.noteStyle[`${use}StripeWidth`]).toBe(0.6)
+      expect(s.noteStyle[`${use}StripeDrift`]).toBe(true)
+    }
+    expect(s.pedal.stripeWidth).toBe(0.6)
+    expect(s.pedal.stripeDrift).toBe(true)
+    // In v7, Neon is the new fill and stays Neon.
+    expect(loadSettings(stored({ noteStyle: { headFill: 'neon' } })).noteStyle.headFill).toBe(
+      'neon',
+    )
+  })
+
+  it('keeps the pedal its new, wider stripes when the old shared width was the default', () => {
+    const s = loadSettings(stored({ noteStyle: { stripeWidth: 0.35 } }, 6))
+    expect(s.noteStyle.headStripeWidth).toBe(0.35)
+    expect(s.pedal.stripeWidth).toBe(R['pedal.stripeWidth'].default)
+    expect(R['pedal.stripeWidth'].default).toBeGreaterThan(0.35)
+  })
+
+  it('migrates saved looks stored by v6 the same way', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Old neon')
+    const values = {
+      ...look.values,
+      'noteStyle.headFill': 'neon',
+      'noteStyle.stripeWidth': 0.8,
+    }
+    const raw = { version: 6, settings: {}, looks: { active: null, saved: [{ ...look, values }] } }
+    const [migrated] = loadLooks(raw).saved
+    expect(migrated?.values['noteStyle.headFill']).toBe('outline')
+    expect(migrated?.values['noteStyle.headStripeWidth']).toBe(0.8)
+    expect(migrated?.values['pedal.stripeWidth']).toBe(0.8)
+  })
 })

@@ -1,7 +1,11 @@
+import { Vector2, Vector4 } from 'three'
+
 import type { NoteFill } from '@/core/settings/NoteFill'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
+import type { StripeStyle } from './StripeStyle'
+import { writeStripes } from './writeStripes'
 
 /** Shader ids of the fill styles (NOTE_FILL_GLSL compares against these). */
 export const FILL_ID: { readonly [F in NoteFill]: number } = {
@@ -9,21 +13,37 @@ export const FILL_ID: { readonly [F in NoteFill]: number } = {
   gradient: 1,
   hotCore: 2,
   glass: 3,
-  neon: 4,
-  stripes: 5,
-  smoke: 6,
+  outline: 4,
+  neon: 5,
+  stripes: 6,
+  smoke: 7,
 }
 
 /** Smoke noise octaves per shader detail level. */
 const OCTAVES = { minimal: 1, low: 1, medium: 2, high: 3 } as const
 
 export function createNoteStyleUniforms(): NoteStyleUniforms {
+  const stripe = () => ({
+    a: { value: new Vector4(1, 1, 1, 0) },
+    b: { value: new Vector4(0, 0, 0, 1) },
+    opacity: { value: new Vector2(1, 1) },
+    shape: { value: new Vector4(0.35, 0.5, Math.PI / 4, 0) },
+  })
+  const head = stripe()
+  const sustain = stripe()
   return {
     uHeadFill: { value: 0 },
     uSustainFill: { value: 0 },
     uGradientEnd: { value: 0.35 },
-    uStripeWidth: { value: 0.35 },
-    uStripeDrift: { value: 0 },
+    uNeonFlicker: { value: 0 },
+    uHeadStripeA: head.a,
+    uHeadStripeB: head.b,
+    uHeadStripeOpacity: head.opacity,
+    uHeadStripeShape: head.shape,
+    uSustainStripeA: sustain.a,
+    uSustainStripeB: sustain.b,
+    uSustainStripeOpacity: sustain.opacity,
+    uSustainStripeShape: sustain.shape,
     uEdgeOn: { value: 0 },
     uEdgeWidth: { value: 0.04 },
     uEdgeIntensity: { value: 0.5 },
@@ -40,14 +60,30 @@ export function createNoteStyleUniforms(): NoteStyleUniforms {
   }
 }
 
+/** A note use's stripe settings ('head' or 'sustain') as a StripeStyle. */
+export function noteStripes(n: PlayerSettings['noteStyle'], use: 'head' | 'sustain'): StripeStyle {
+  const field = <K extends string>(name: K) => n[`${use}Stripe${name}` as keyof typeof n]
+  return {
+    a: { mode: field('A') as StripeStyle['a']['mode'], color: field('ACustom') as string },
+    b: { mode: field('B') as StripeStyle['b']['mode'], color: field('BCustom') as string },
+    aOpacity: field('AOpacity') as number,
+    bOpacity: field('BOpacity') as number,
+    width: field('Width') as number,
+    balance: field('Balance') as number,
+    angleDeg: field('Angle') as number,
+    drift: field('Drift') as boolean,
+  }
+}
+
 /** Writes the note style settings into the shared uniforms. */
 export function applyNoteStyle(u: NoteStyleUniforms, settings: PlayerSettings): void {
   const { noteStyle: n, effects: e } = settings
   u.uHeadFill.value = FILL_ID[n.headFill]
   u.uSustainFill.value = FILL_ID[n.sustainFill]
   u.uGradientEnd.value = n.gradientEnd
-  u.uStripeWidth.value = n.stripeWidth
-  u.uStripeDrift.value = n.stripeDrift ? 1 : 0
+  u.uNeonFlicker.value = n.neonFlicker ? 1 : 0
+  writeStripes(u, 'uHeadStripe', noteStripes(n, 'head'))
+  writeStripes(u, 'uSustainStripe', noteStripes(n, 'sustain'))
   u.uEdgeOn.value = n.edgeGlow ? 1 : 0
   u.uEdgeWidth.value = n.edgeWidth
   u.uEdgeIntensity.value = n.edgeIntensity
@@ -63,15 +99,17 @@ export function applyNoteStyle(u: NoteStyleUniforms, settings: PlayerSettings): 
   u.uOctaves.value = OCTAVES[settings.render.shaderDetail]
 }
 
-/** True when the notes put anything on the glow layer (their twins are skipped otherwise). */
+/** Fills that put something on the glow scene by themselves. */
+export const EMISSIVE_FILLS: ReadonlySet<NoteFill> = new Set(['hotCore', 'outline', 'neon'])
+
+/** True when the notes put anything on the glow scene (their twins are skipped otherwise). */
 export function notesEmit(settings: PlayerSettings): boolean {
   const { noteStyle: n, effects: e } = settings
-  const emissiveFill = (f: NoteFill) => f === 'hotCore' || f === 'neon'
   return (
     (n.edgeGlow && n.edgeIntensity > 0) ||
     (e.pulse && e.pulseAmount > 0) ||
     (e.soundingGlow && e.soundingGlowAmount > 0) ||
-    emissiveFill(n.headFill) ||
-    emissiveFill(n.sustainFill)
+    EMISSIVE_FILLS.has(n.headFill) ||
+    EMISSIVE_FILLS.has(n.sustainFill)
   )
 }

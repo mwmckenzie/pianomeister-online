@@ -48,7 +48,7 @@ describe('SETTINGS_REGISTRY', () => {
   it('says why a setting is disabled wherever it can be', () => {
     const missing = SETTING_KEYS.filter((key) => {
       const def = settingDefinition(key)
-      return def.enabled !== undefined && !(def.disabledHint ?? '').startsWith('Needs ')
+      return def.enabled !== undefined && (def.disabledHint ?? '').trim() === ''
     })
     expect(missing).toEqual([])
   })

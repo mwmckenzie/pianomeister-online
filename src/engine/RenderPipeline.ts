@@ -77,6 +77,8 @@ export class RenderPipeline {
     this.renderer = new WebGLRenderer({
       canvas,
       antialias: false,
+      // Notes mask the cages through the stencil buffer (NoteMask).
+      stencil: true,
       powerPreference: 'high-performance',
     })
     this.renderer.outputColorSpace = LinearSRGBColorSpace
@@ -214,6 +216,7 @@ export class RenderPipeline {
     const target = new WebGLRenderTarget(1, 1, {
       type: UnsignedByteType,
       samples: chain.antialias === 'msaa' ? MSAA_SAMPLES : 0,
+      stencilBuffer: true,
     })
     const composer = new EffectComposer(this.renderer, target)
     if (chain.bloom) {

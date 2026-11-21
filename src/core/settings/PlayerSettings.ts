@@ -3,6 +3,7 @@ import type { PreRollMode } from '../transport/PreRollMode'
 import type { LineColor } from './LineColor'
 import type { NoteFill } from './NoteFill'
 import type { QualityPreset } from './QualityPreset'
+import type { StripeColor } from './StripeColor'
 
 /**
  * App settings (playfield, audio, practice, appearance), persisted in localStorage until
@@ -120,10 +121,35 @@ export interface PlayerSettings {
     readonly sustainFill: NoteFill
     /** Brightness at the far end of a Gradient fill, relative to its start. */
     readonly gradientEnd: number
-    /** Stripe width in world units (Stripes fill). */
-    readonly stripeWidth: number
-    /** Stripes drift slowly along the note (else fixed to it). */
-    readonly stripeDrift: boolean
+    /** Diagonal stripes on heads and on sustains, each with its own settings. */
+    readonly headStripeA: StripeColor
+    readonly headStripeACustom: string
+    readonly headStripeB: StripeColor
+    readonly headStripeBCustom: string
+    readonly headStripeAOpacity: number
+    readonly headStripeBOpacity: number
+    /** World units per stripe. */
+    readonly headStripeWidth: number
+    /** Share of each A/B pair that is stripe A. */
+    readonly headStripeBalance: number
+    /** Degrees from straight across the note. */
+    readonly headStripeAngle: number
+    readonly headStripeDrift: boolean
+    readonly sustainStripeA: StripeColor
+    readonly sustainStripeACustom: string
+    readonly sustainStripeB: StripeColor
+    readonly sustainStripeBCustom: string
+    readonly sustainStripeAOpacity: number
+    readonly sustainStripeBOpacity: number
+    /** World units per stripe. */
+    readonly sustainStripeWidth: number
+    /** Share of each A/B pair that is stripe A. */
+    readonly sustainStripeBalance: number
+    /** Degrees from straight across the note. */
+    readonly sustainStripeAngle: number
+    readonly sustainStripeDrift: boolean
+    /** The Neon fill's tube flickers now and then. */
+    readonly neonFlicker: boolean
     readonly edgeGlow: boolean
     readonly edgeWidth: number
     readonly edgeIntensity: number
@@ -147,6 +173,15 @@ export interface PlayerSettings {
     readonly borderWidth: number
     readonly borderGlow: number
     readonly cornerRadius: number
+    /** The cage's own stripes (Stripes fill); milestone 10's hand cages reuse the group. */
+    readonly stripeA: string
+    readonly stripeB: string
+    readonly stripeAOpacity: number
+    readonly stripeBOpacity: number
+    readonly stripeWidth: number
+    readonly stripeBalance: number
+    readonly stripeAngle: number
+    readonly stripeDrift: boolean
   }
   readonly effects: {
     readonly enabled: boolean

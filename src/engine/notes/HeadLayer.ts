@@ -96,7 +96,6 @@ void main() {
   float along = (vTick - vStart) * uUnitsPerTick;
   float len = (vEnd - vStart) * uUnitsPerTick;
   float u = vLocal.x / max(vHalf.x, 1e-4);
-  Fill f = noteFill(style, vColor, u, vHalf.x, along, len, vSeed);
   // Edges of the block: where two of the three faces are close. The near face is no edge while
   // the head is cut at the now line.
   vec3 d = vHalf - abs(vLocal);
@@ -104,16 +103,21 @@ void main() {
   float lo = min(d.x, min(d.y, d.z));
   float hi = max(d.x, max(d.y, d.z));
   float second = d.x + d.y + d.z - lo - hi;
+  Stripes st = Stripes(uHeadStripeA, uHeadStripeB, uHeadStripeOpacity, uHeadStripeShape);
+  Fill f = noteFill(style, vColor, u, vHalf.x, along, len, vSeed, second, st);
   float rim = noteEdge(second, style);
   float pulse = notePulse(vStart, vVelocity);
   float sounding = noteSounding(vStart, vEnd);
   vec3 rimColor = mix(vColor, vec3(1.0), 0.35);
 #ifdef GLOW_PASS
   // An occluder on the glow layer: black, except what glows.
-  float glow = (rim * edgeIntensity(style) + f.emission + sounding + pulse) * haze;
+  float glow = (rim * uEdgeIntensity + f.emission + sounding + pulse) * haze;
   gl_FragColor = vec4(mix(f.color, rimColor, rim) * glow, 1.0);
 #else
-  vec3 color = shade(f.color, normalize(vNormal), normalize(cameraPosition - vWorld));
+  vec3 n = normalize(vNormal);
+  vec3 color = shade(f.color, n, normalize(cameraPosition - vWorld));
+  // Glass: the top face reads lighter than the sides.
+  if (isFill(style, FILL_GLASS)) color *= mix(0.82, 1.12, clamp(n.y, 0.0, 1.0));
   if (rim > 0.0) color = mix(color, rimColor, rim);
   if (sounding > 0.0) color += vColor * sounding;
   if (pulse > 0.0) color += mix(vColor, vec3(1.0), 0.5) * pulse;
@@ -125,7 +129,7 @@ void main() {
 /**
  * 3D note heads (brief decision 39): raised blocks with the head's footprint, lit by the scene
  * light, rounded or square edges from a bevel template, with the milestone 9 head fill, rims,
- * pulse and sounding glow. Transparent only for the haze (and the Glass and Neon fills); they
+ * pulse and sounding glow. Transparent only for the haze (and see-through fills); they
  * write depth and cull back faces, so each convex block draws correctly in one pass.
  */
 export class HeadLayer {

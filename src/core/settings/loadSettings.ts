@@ -12,7 +12,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 6
+export const SETTINGS_VERSION = 7
 
 /** The first version that stored shortcut overrides (brief decision 88). */
 const SHORTCUTS_SINCE = 5
@@ -63,6 +63,63 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
       },
     }
   },
+  // v7 (brief decision 112): the old Neon fill (dark inside, bright border) is now Outline,
+  // and Neon a new fill; the shared stripe width and drift move into the head, sustain and
+  // pedal stripe groups. The pedal takes the width only where it was changed from the old
+  // default, so its new, wider default (no moiré) applies otherwise.
+  6: (settings) => {
+    const noteStyle = isRecord(settings.noteStyle) ? settings.noteStyle : {}
+    const pedal = isRecord(settings.pedal) ? settings.pedal : {}
+    const outline = (fill: unknown) => (fill === 'neon' ? 'outline' : fill)
+    const { stripeWidth: width, stripeDrift: drift, ...style } = noteStyle
+    const shape = (prefix: string, keepWidth: boolean) => ({
+      ...(width !== undefined && keepWidth ? { [`${prefix}Width`]: width } : {}),
+      ...(drift !== undefined ? { [`${prefix}Drift`]: drift } : {}),
+    })
+    return {
+      ...settings,
+      noteStyle: {
+        ...style,
+        headFill: outline(style.headFill),
+        sustainFill: outline(style.sustainFill),
+        ...shape('headStripe', true),
+        ...shape('sustainStripe', true),
+      },
+      pedal: {
+        ...pedal,
+        fill: outline(pedal.fill),
+        ...shape('stripe', width !== OLD_STRIPE_WIDTH),
+      },
+    }
+  },
+}
+
+/** The shared stripe width's default before v7. */
+const OLD_STRIPE_WIDTH = 0.35
+
+/**
+ * Migrates a saved look's values (flat `section.field` keys) stored with an older version,
+ * through the same steps as stored settings.
+ */
+export function migrateLookValues(values: Raw, from: number): Raw {
+  const nested: Record<string, Raw> = {}
+  for (const [key, value] of Object.entries(values)) {
+    const [section, field] = key.split('.')
+    if (section === undefined || field === undefined) continue
+    nested[section] ??= {}
+    nested[section][field] = value
+  }
+  let stored: Raw = nested
+  for (let version = from; version < SETTINGS_VERSION; version++) {
+    const migrate = MIGRATIONS[version]
+    if (migrate !== undefined) stored = migrate(stored)
+  }
+  const flat: Raw = {}
+  for (const [section, fields] of Object.entries(stored)) {
+    if (!isRecord(fields)) continue
+    for (const [field, value] of Object.entries(fields)) flat[`${section}.${field}`] = value
+  }
+  return flat
 }
 
 /** The persisted shape: `{ version, settings, shortcuts, looks, deviceClass }`. */
@@ -93,7 +150,7 @@ export function loadShortcuts(raw: unknown): ShortcutOverrides {
 /** Saved looks (brief decision 121): none before v6 or from a newer version. */
 export function loadLooks(raw: unknown): LooksState {
   if (!isKnownVersion(raw, 6)) return EMPTY_LOOKS
-  return readLooks(raw.looks)
+  return readLooks(raw.looks, (values) => migrateLookValues(values, raw.version as number))
 }
 
 /**

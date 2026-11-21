@@ -874,12 +874,12 @@ const M9_SHOTS: readonly { readonly name: string; readonly settings: Settings }[
       effects: { ...CLASSIC.effects, enabled: false },
     },
   },
-  ...(['solid', 'gradient', 'hotCore', 'glass', 'neon', 'stripes', 'smoke'] as const).map(
-    (fill) => ({
-      name: `fill-${fill}`,
-      settings: { noteStyle: { headFill: fill, sustainFill: fill } },
-    }),
-  ),
+  ...(
+    ['solid', 'gradient', 'hotCore', 'glass', 'outline', 'neon', 'stripes', 'smoke'] as const
+  ).map((fill) => ({
+    name: `fill-${fill}`,
+    settings: { noteStyle: { headFill: fill, sustainFill: fill } },
+  })),
   ...(['thin', 'glowing', 'neon'] as const).map((style) => ({
     name: `now-${style}`,
     settings: { lines: { nowStyle: style, nowGlow: 1 } },

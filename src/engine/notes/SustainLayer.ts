@@ -72,37 +72,45 @@ void main() {
   // Varyings are perspective-correct, so vU is the note's own lane coordinate: the gradient
   // follows the strip's perspective and taper instead of the screen.
   bool head = vTick < vHeadEnd;
+  // The note's own opacity (the centre setting): glow and additive parts scale with it, so a
+  // see-through note never keeps its full halo.
+  float opacity = head ? 1.0 : uCenterOpacity;
   float base = head ? 1.0 : mix(uCenterOpacity, uEdgeOpacity, abs(vU));
   float haze = hazeAlpha(vTick);
   float style = head ? uHeadFill : uSustainFill;
   float along = (vTick - vStart) * uUnitsPerTick;
   float len = (vEnd - vStart) * uUnitsPerTick;
-  Fill f = noteFill(style, vColor, vU, vHalfWidth, along, len, vSeed);
   float side = (1.0 - abs(vU)) * vHalfWidth;
   float startEdge = mix(along, 1e3, vStartOpen);
-  float rim = noteEdge(min(side, min(startEdge, len - along)), style);
+  float edge = min(side, min(startEdge, len - along));
+  // (No ?: on structs in WebGL's GLSL.)
+  Stripes st = Stripes(uSustainStripeA, uSustainStripeB, uSustainStripeOpacity, uSustainStripeShape);
+  if (head) st = Stripes(uHeadStripeA, uHeadStripeB, uHeadStripeOpacity, uHeadStripeShape);
+  Fill f = noteFill(style, vColor, vU, vHalfWidth, along, len, vSeed, edge, st);
+  float rim = noteEdge(edge, style);
   float pulse = notePulse(vStart, vVelocity);
   float sounding = noteSounding(vStart, vEnd);
   vec3 rimColor = mix(vColor, vec3(1.0), 0.35);
+  float lit = mix(opacity, 1.0, f.keep);
 #ifdef GLOW_PASS
-  float glow = rim * edgeIntensity(style) + (f.emission + sounding + pulse) * base * f.alpha;
+  float glow = (rim * uEdgeIntensity + (f.emission + sounding + pulse) * f.alpha) * lit;
   glow *= haze;
   if (glow <= 0.002) discard;
   gl_FragColor = vec4(mix(f.color, rimColor, rim) * glow, 1.0);
 #else
-  float alpha = base * f.alpha;
+  float alpha = mix(base, 1.0, f.keep) * f.alpha;
   vec3 color = f.color;
   if (rim > 0.0) {
     color = mix(color, rimColor, rim);
-    alpha = max(alpha, rim);
+    alpha = max(alpha, rim * opacity);
   }
   if (sounding > 0.0) {
     color += vColor * sounding;
-    alpha = min(1.0, alpha + 0.3 * sounding);
+    alpha = min(1.0, alpha + 0.3 * sounding * opacity);
   }
   if (pulse > 0.0) {
     color += mix(vColor, vec3(1.0), 0.5) * pulse;
-    alpha = min(1.0, alpha + pulse);
+    alpha = min(1.0, alpha + pulse * opacity);
   }
   alpha *= haze;
   if (alpha <= 0.002) discard;

@@ -2,8 +2,12 @@ import {
   BufferAttribute,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
+  KeepStencilOp,
   Mesh,
+  NotEqualStencilFunc,
   ShaderMaterial,
+  Vector2,
+  Vector4,
 } from 'three'
 
 import { GlowTwin } from '../GlowTwin'
@@ -11,7 +15,10 @@ import { cageQuads } from '../model/cageQuads'
 import type { CageRegion } from '../model/CageRegion'
 import { FILL_ID } from '../notes/noteStyle'
 import { NOTE_FILL_GLSL } from '../notes/NOTE_FILL_GLSL'
+import { NOTE_STENCIL } from '../notes/NoteMask'
 import type { NoteStyleUniforms } from '../notes/NoteStyleUniforms'
+import { EMISSIVE_FILLS } from '../notes/noteStyle'
+import { writeStripes } from '../notes/writeStripes'
 import { srgb } from '../srgb'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
@@ -57,6 +64,10 @@ uniform vec3 uBorderColor;
 uniform float uBorderWidth;
 uniform float uBorderGlow;
 uniform float uRadius;
+uniform vec4 uStripeA;
+uniform vec4 uStripeB;
+uniform vec2 uStripeOpacity;
+uniform vec4 uStripeShape;
 varying float vX;
 varying float vWidth;
 varying float vTick;
@@ -84,8 +95,9 @@ void main() {
     border = 1.0 - smoothstep(uBorderWidth - pixel, uBorderWidth + pixel, inside);
   }
   float u = vX / max(vWidth, 1e-4) * 2.0 - 1.0;
-  Fill f = noteFill(uCageFill, uFillColor, u, 0.5 * vWidth, along, len, 0.0);
-  float fillAlpha = uFillOpacity * f.alpha;
+  Stripes st = Stripes(uStripeA, uStripeB, uStripeOpacity, uStripeShape);
+  Fill f = noteFill(uCageFill, uFillColor, u, 0.5 * vWidth, along, len, 0.0, max(inside, 0.0), st);
+  float fillAlpha = mix(uFillOpacity, 1.0, f.keep) * f.alpha;
 #ifdef GLOW_PASS
   float glow = (border * uBorderGlow + f.emission * fillAlpha) * shape * haze;
   if (glow <= 0.002) discard;
@@ -132,9 +144,21 @@ export class CageLayer {
           uBorderWidth: { value: 0.06 },
           uBorderGlow: { value: 0 },
           uRadius: { value: 0 },
+          uStripeA: { value: new Vector4(1, 1, 1, 2) },
+          uStripeB: { value: new Vector4(0, 0, 0, 2) },
+          uStripeOpacity: { value: new Vector2(1, 1) },
+          uStripeShape: { value: new Vector4(1, 0.5, Math.PI / 4, 0) },
         },
         transparent: true,
         depthWrite: false,
+        // Never under a note (NoteMask): notes show the highway through them, not the cage.
+        stencilWrite: true,
+        stencilWriteMask: 0,
+        stencilRef: NOTE_STENCIL,
+        stencilFunc: NotEqualStencilFunc,
+        stencilFail: KeepStencilOp,
+        stencilZFail: KeepStencilOp,
+        stencilZPass: KeepStencilOp,
       }),
     )
     this.mesh.frustumCulled = false
@@ -163,8 +187,8 @@ export class CageLayer {
     set('uBorderWidth', style.borderWidth)
     set('uBorderGlow', style.borderGlow)
     set('uRadius', style.cornerRadius)
-    const emissiveFill = style.fill === 'hotCore'
-    this.twin.enabled = (style.border && style.borderGlow > 0) || emissiveFill
+    writeStripes(u, 'uStripe', style.stripes)
+    this.twin.enabled = (style.border && style.borderGlow > 0) || EMISSIVE_FILLS.has(style.fill)
   }
 
   dispose(): void {

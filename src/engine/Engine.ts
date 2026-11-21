@@ -21,6 +21,7 @@ import { songClock } from './model/songClock'
 import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
 import type { GlowTwin } from './GlowTwin'
+import { NoteMask } from './notes/NoteMask'
 import { ContactShadow } from './notes/ContactShadow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { NoteNameLayer } from './names/NoteNameLayer'
@@ -47,6 +48,7 @@ const SETTLED_SECONDS = 1e3
  * contact shadow, which draws after the white-lane notes.
  */
 const ORDER = {
+  noteMasks: 0.5,
   cages: 1,
   whiteSustains: 3,
   whiteHeads: 3.1,
@@ -71,6 +73,8 @@ interface SongParts {
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
   readonly shadow: ContactShadow
   readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
+  /** The notes in the stencil buffer, so cages never draw under them. */
+  readonly masks: readonly NoteMask[]
   readonly keyStates: KeyStates
   /** Note onsets sorted by tick, for sparks and key re-strikes. */
   readonly onsets: readonly Onset[]
@@ -159,6 +163,14 @@ export class Engine {
     const beats = barMap
       .beatTicksBetween(-PRE_SONG_BARS * barTicks, song.endTick + barTicks)
       .map((tick) => ({ tick, isBar: barMap.tickToPosition(tick).beat === 1 }))
+    const sustains = {
+      white: new SustainLayer(white, this.time, this.noteStyle, ORDER.whiteSustains),
+      black: new SustainLayer(black, this.time, this.noteStyle, ORDER.blackSustains),
+    }
+    const heads = {
+      white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads),
+      black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
+    }
     this.song = {
       ppq: song.ppq,
       highway: new Highway(beats, this.time),
@@ -174,14 +186,11 @@ export class Engine {
         this.noteStyle,
         { y: 0.003, renderOrder: ORDER.cages },
       ),
-      sustains: {
-        white: new SustainLayer(white, this.time, this.noteStyle, ORDER.whiteSustains),
-        black: new SustainLayer(black, this.time, this.noteStyle, ORDER.blackSustains),
-      },
-      heads: {
-        white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads),
-        black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
-      },
+      sustains,
+      heads,
+      masks: [sustains.white, sustains.black, heads.white, heads.black].map(
+        (layer) => new NoteMask(layer.mesh, ORDER.noteMasks),
+      ),
       shadow: new ContactShadow(black, this.time, ORDER.shadow),
       names: {
         white: new NoteNameLayer(white, this.time, this.atlas.texture, ORDER.whiteNames),
@@ -201,6 +210,7 @@ export class Engine {
       s.heads.black.mesh,
       s.names.white.mesh,
       s.names.black.mesh,
+      ...s.masks.map((m) => m.mesh),
     )
     this.lastTick = null
     this.effects.clear()
@@ -238,6 +248,16 @@ export class Engine {
         borderWidth: pedal.borderWidth,
         borderGlow: pedal.borderGlow,
         cornerRadius: pedal.cornerRadius,
+        stripes: {
+          a: { mode: 'custom', color: pedal.stripeA },
+          b: { mode: 'custom', color: pedal.stripeB },
+          aOpacity: pedal.stripeAOpacity,
+          bOpacity: pedal.stripeBOpacity,
+          width: pedal.stripeWidth,
+          balance: pedal.stripeBalance,
+          angleDeg: pedal.stripeAngle,
+          drift: pedal.stripeDrift,
+        },
       })
       const emit = notesEmit(settings)
       for (const layer of [song.sustains.white, song.sustains.black]) layer.twin.enabled = emit
@@ -269,6 +289,8 @@ export class Engine {
         layer.mesh.visible = namesOnNotes
         layer.setLift(y, top)
       }
+      const cageShown = pedal.show && (pedal.fillOpacity > 0 || pedal.border)
+      for (const mask of song.masks) mask.sync(cageShown)
     }
     if (this.pipeline !== null) {
       this.pipeline.configure(settings.render, settings.highway.vignette)
@@ -577,7 +599,12 @@ export class Engine {
       song.names.white,
       song.names.black,
     ]
-    this.scene.remove(song.highway.group, ...parts.map((p) => p.mesh))
+    this.scene.remove(
+      song.highway.group,
+      ...parts.map((p) => p.mesh),
+      ...song.masks.map((m) => m.mesh),
+    )
+    for (const mask of song.masks) mask.dispose()
     song.highway.dispose()
     for (const part of parts) part.dispose()
     this.song = null

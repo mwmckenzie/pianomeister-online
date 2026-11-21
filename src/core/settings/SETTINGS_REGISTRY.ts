@@ -65,8 +65,9 @@ const FILLS = [
   { value: 'gradient', label: 'Gradient' },
   { value: 'hotCore', label: 'Hot core' },
   { value: 'glass', label: 'Glass' },
+  { value: 'outline', label: 'Outline' },
   { value: 'neon', label: 'Neon' },
-  { value: 'stripes', label: 'Stripes' },
+  { value: 'stripes', label: 'Diagonal stripes' },
   { value: 'smoke', label: 'Smoke' },
 ] as const
 
@@ -81,6 +82,67 @@ const fill = (label: string, home: SettingHome) =>
   }) as const
 
 const effects = sidebar('effects')
+
+const STRIPE_COLORS = [
+  { value: 'note', label: 'Note colour' },
+  { value: 'darker', label: 'Darker note colour' },
+  { value: 'custom', label: 'Custom' },
+] as const
+
+type Shown = (s: PlayerSettings) => boolean
+
+/**
+ * One use's stripe settings (Stripes fill, brief decision 112): opacities, width, balance,
+ * angle and drift, separate per use, so fat pedal stripes never change the notes.
+ */
+function stripeShape(group: string, home: SettingHome, width: number, visible: Shown) {
+  const row = { group, visible }
+  return {
+    aOpacity: { ...num('Stripe A opacity', 1, home, [0, 1, 0.05]), ...percent, ...row },
+    bOpacity: { ...num('Stripe B opacity', 1, home, [0, 1, 0.05]), ...percent, ...row },
+    width: { ...num('Stripe width', width, home, [0.05, 3, 0.05], 'mm'), ...row },
+    balance: { ...num('Stripe balance', 0.5, home, [0.2, 0.8, 0.05]), ...percent, ...row },
+    angle: { ...num('Angle', 45, home, [-75, 75, 5], 'deg', 0), ...row },
+    drift: { ...bool('Drift along', false, home), ...row },
+  }
+}
+
+/** Note stripes: A and B are the note colour, a darker one, or custom. */
+function noteStripes(group: string, on: Shown) {
+  const home = sidebar('noteStyle')
+  const choice = (label: string, value: 'note' | 'darker') =>
+    ({
+      kind: 'choice',
+      label,
+      default: value as 'note' | 'darker' | 'custom',
+      home,
+      control: 'select',
+      options: STRIPE_COLORS,
+      group,
+      visible: on,
+    }) as const
+  return {
+    ...stripeShape(group, home, 0.35, on),
+    a: choice('Stripe A colour', 'note'),
+    b: choice('Stripe B colour', 'darker'),
+    custom: (label: string, value: string, which: (s: PlayerSettings) => string) => ({
+      ...color(label, value, home),
+      group,
+      visible: (s: PlayerSettings) => on(s) && which(s) === 'custom',
+    }),
+  }
+}
+
+const headStripes = noteStripes('Head stripes', (s) => s.noteStyle.headFill === 'stripes')
+const sustainStripes = noteStripes('Sustain stripes', (s) => s.noteStyle.sustainFill === 'stripes')
+const pedalStriped = (s: PlayerSettings) => s.pedal.show && s.pedal.fill === 'stripes'
+const pedalStripes = stripeShape('Stripes', sidebar('cages'), 1, pedalStriped)
+
+/** Fills that draw their own edge: the edge glow settings don't apply to them. */
+const OWN_EDGE = new Set<NoteFill>(['outline', 'neon'])
+const edgeApplies = (s: PlayerSettings) =>
+  !OWN_EDGE.has(s.noteStyle.headFill) || !OWN_EDGE.has(s.noteStyle.sustainFill)
+const EDGE_HINT = 'Outline and Neon draw their own edge'
 
 /** Size, count, lifetime and spread of one onset effect, shown while it's on. */
 function onsetKnobs(group: string, on: (s: PlayerSettings) => boolean) {
@@ -350,29 +412,66 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Fill',
       visible: (s) => s.noteStyle.headFill === 'gradient' || s.noteStyle.sustainFill === 'gradient',
     },
-    'noteStyle.stripeWidth': {
-      ...num('Stripe width', 0.35, sidebar('noteStyle'), [0.1, 1.5, 0.05], 'mm'),
+    'noteStyle.neonFlicker': {
+      ...bool('Neon flicker', false, sidebar('noteStyle')),
       group: 'Fill',
-      visible: (s) => s.noteStyle.headFill === 'stripes' || s.noteStyle.sustainFill === 'stripes',
+      visible: (s) => s.noteStyle.headFill === 'neon' || s.noteStyle.sustainFill === 'neon',
     },
-    'noteStyle.stripeDrift': {
-      ...bool('Stripes drift along the note', false, sidebar('noteStyle')),
-      group: 'Fill',
-      visible: (s) => s.noteStyle.headFill === 'stripes' || s.noteStyle.sustainFill === 'stripes',
-    },
+    'noteStyle.headStripeA': headStripes.a,
+    'noteStyle.headStripeACustom': headStripes.custom(
+      'Stripe A custom colour',
+      '#FAC400',
+      (s) => s.noteStyle.headStripeA,
+    ),
+    'noteStyle.headStripeB': headStripes.b,
+    'noteStyle.headStripeBCustom': headStripes.custom(
+      'Stripe B custom colour',
+      '#141414',
+      (s) => s.noteStyle.headStripeB,
+    ),
+    'noteStyle.headStripeAOpacity': headStripes.aOpacity,
+    'noteStyle.headStripeBOpacity': headStripes.bOpacity,
+    'noteStyle.headStripeWidth': headStripes.width,
+    'noteStyle.headStripeBalance': headStripes.balance,
+    'noteStyle.headStripeAngle': headStripes.angle,
+    'noteStyle.headStripeDrift': headStripes.drift,
+    'noteStyle.sustainStripeA': sustainStripes.a,
+    'noteStyle.sustainStripeACustom': sustainStripes.custom(
+      'Stripe A custom colour',
+      '#FAC400',
+      (s) => s.noteStyle.sustainStripeA,
+    ),
+    'noteStyle.sustainStripeB': sustainStripes.b,
+    'noteStyle.sustainStripeBCustom': sustainStripes.custom(
+      'Stripe B custom colour',
+      '#141414',
+      (s) => s.noteStyle.sustainStripeB,
+    ),
+    'noteStyle.sustainStripeAOpacity': sustainStripes.aOpacity,
+    'noteStyle.sustainStripeBOpacity': sustainStripes.bOpacity,
+    'noteStyle.sustainStripeWidth': sustainStripes.width,
+    'noteStyle.sustainStripeBalance': sustainStripes.balance,
+    'noteStyle.sustainStripeAngle': sustainStripes.angle,
+    'noteStyle.sustainStripeDrift': sustainStripes.drift,
     'noteStyle.edgeGlow': {
       ...bool('Edge glow', true, sidebar('noteStyle')),
       group: 'Edges',
+      enabled: edgeApplies,
+      disabledHint: EDGE_HINT,
     },
     'noteStyle.edgeWidth': {
       ...num('Edge width', 0.04, sidebar('noteStyle'), [0.01, 0.2, 0.005], 'mm'),
       group: 'Edges',
       visible: (s) => s.noteStyle.edgeGlow,
+      enabled: edgeApplies,
+      disabledHint: EDGE_HINT,
     },
     'noteStyle.edgeIntensity': {
       ...glow(0.5, 'Edge intensity', 3, sidebar('noteStyle')),
       group: 'Edges',
       visible: (s) => s.noteStyle.edgeGlow,
+      enabled: edgeApplies,
+      disabledHint: EDGE_HINT,
     },
 
     // Note names (decision 114)
@@ -443,6 +542,22 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...num('Corner rounding', 0, cages, [0, 2, 0.05], 'mm'),
       visible: (s) => s.pedal.show && s.pedal.border,
     },
+    'pedal.stripeA': {
+      ...color('Stripe A colour', '#FAC400', cages),
+      group: 'Stripes',
+      visible: pedalStriped,
+    },
+    'pedal.stripeB': {
+      ...color('Stripe B colour', '#141414', cages),
+      group: 'Stripes',
+      visible: pedalStriped,
+    },
+    'pedal.stripeAOpacity': pedalStripes.aOpacity,
+    'pedal.stripeBOpacity': pedalStripes.bOpacity,
+    'pedal.stripeWidth': pedalStripes.width,
+    'pedal.stripeBalance': pedalStripes.balance,
+    'pedal.stripeAngle': pedalStripes.angle,
+    'pedal.stripeDrift': pedalStripes.drift,
 
     // Effects (decisions 47, 113, 117, 118)
     'effects.enabled': bool('Now-line effects', true, effects),
