@@ -8,11 +8,13 @@
  *
  * The fills (brief decision 112, each recognisable at a glance):
  * - Solid: flat note colour. Gradient: bright at the head, fading toward the tail.
- * - Hot core: filled, bright in the middle — a white-hot centre band, a warmer tint, deep
- *   saturated colour at the edges; hottest at the head.
- * - Glass: a tinted block you can see into, a soft wide diagonal sheen, a thin smooth rim.
- * - Outline: dark inside, bright border. Neon: a glowing tube just inside the edge, a dim
- *   coloured haze inside.
+ * - Hot core: a filled body, bright in the middle — a white-hot centre band, a warmer tint,
+ *   deep saturated colour out to the edges; hottest at the head.
+ * - Glass: a tinted block you can see into, one continuous soft streak along the note (off
+ *   centre), a thin visible rim.
+ * - Outline: dark inside, a border at full note brightness. Neon: a glowing tube just inside
+ *   the edge with a near-white core line, a coloured haze inside.
+ * Each reads at quality Off; bloom only adds the halo.
  * - Diagonal stripes: two colours per use, box-filtered (no moiré). Smoke: drifting wisps.
  */
 export const NOTE_FILL_GLSL = /* glsl */ `
@@ -133,6 +135,11 @@ vec4 stripes(Stripes s, vec3 base, float x, float along) {
   return vec4(color, alpha);
 }
 
+/** The note colour at full brightness (its largest channel at 1), same hue. */
+vec3 fullBright(vec3 c) {
+  return c / max(max(c.r, c.g), max(c.b, 1e-3));
+}
+
 /** Coverage of a band [0, width] in from the outline, one pixel soft. */
 float band(float edge, float width) {
   float pixel = max(fwidth(edge), 1e-5);
@@ -151,58 +158,69 @@ Fill noteFill(
     return f;
   }
   if (isFill(style, FILL_HOT_CORE)) {
-    // Filled and bright in the middle: deep saturated edges, a warmer tint, a white-hot band;
-    // hottest at the head, cooling a little toward the tail.
+    // A filled body, bright in the middle: deep saturated colour at full strength out to the
+    // edges, a warmer tint inside, a white-hot centre band; hottest at the head. It reads
+    // without bloom (bloom only adds the halo).
     float r = abs(u);
-    float heat = mix(1.0, 0.72, t);
+    float heat = mix(1.0, 0.75, t);
     float grey = dot(base, vec3(0.299, 0.587, 0.114));
-    vec3 deep = clamp(mix(vec3(grey), base, 1.35), 0.0, 1.0) * 0.8;
-    vec3 warm = min(mix(base, vec3(1.0, 0.78, 0.45), 0.35) * 1.2, vec3(1.0));
-    float core = exp(-pow(r / 0.3, 2.0)) * heat;
+    vec3 deep = clamp(mix(vec3(grey), fullBright(base), 1.3), 0.0, 1.0) * 0.92;
+    vec3 warm = min(mix(fullBright(base), vec3(1.0, 0.8, 0.5), 0.4) * 1.1, vec3(1.0));
+    float core = exp(-pow(r / 0.22, 2.0)) * heat;
     float flicker = 0.94 + 0.06 * valueNoise(vec2(along * 1.7 + seed * 13.0, animTime() * 6.0));
-    vec3 c = mix(deep, warm, 1.0 - smoothstep(0.3, 0.95, r));
+    vec3 c = mix(deep, warm, 1.0 - smoothstep(0.25, 0.8, r));
     c = mix(c, vec3(1.0, 0.97, 0.9), core);
-    f.color = c * mix(0.85, 1.0, heat) * flicker;
-    f.emission = 0.9 * core;
-    // The white band fades less than the body when the note is see-through.
-    f.keep = 0.6 * core;
+    f.color = c * mix(0.88, 1.0, heat) * flicker;
+    f.emission = 0.9 * core + 0.15;
+    // The body stays filled and the white band fades least when the note is see-through.
+    f.keep = 0.35 + 0.5 * core;
     return f;
   }
   if (isFill(style, FILL_GLASS)) {
-    // A tinted block: you see into it (fairly solid at 0 % transparency), a soft wide sheen
-    // running diagonally across it, and a thin smooth rim at the silhouette.
-    float x = u * halfWidth;
-    float sheen = pow(0.5 + 0.5 * cos(6.2832 * (along + x) / max(halfWidth * 10.0, 1e-3)), 8.0);
-    float rim = 1.0 - smoothstep(0.0, max(0.06, halfWidth * 0.22), edge);
-    f.color = base * 0.72 + vec3(0.32) * sheen + mix(base, vec3(1.0), 0.5) * rim * 0.4;
+    // A tinted block: you see into it (fairly solid at 0 % transparency), one continuous soft
+    // streak along the whole note, off centre (a reflection, never blotches), and a thin rim
+    // at least a pixel and a half wide so it shows at any distance.
+    float sheen = exp(-pow((u + 0.38) / 0.2, 2.0));
+    float rim = band(edge, max(0.035, 1.5 * fwidth(edge)));
+    f.color = base * 0.72 + vec3(0.3) * sheen;
+    f.color = mix(f.color, mix(fullBright(base), vec3(1.0), 0.55), rim * 0.8);
     f.alpha = 0.8 + 0.2 * max(rim, sheen);
+    f.keep = 0.4 * rim;
     return f;
   }
   if (isFill(style, FILL_OUTLINE)) {
-    // Dark inside, a bright border.
-    float b = band(edge, 0.07);
-    f.color = mix(base * 0.22, min(mix(base, vec3(1.0), 0.45) * 1.15, vec3(1.0)), b);
+    // Dark inside, a border at the note colour's full brightness, never thinner than ~1.5 px,
+    // so it holds up far away and without bloom.
+    float b = band(edge, max(0.1, 1.5 * fwidth(edge)));
+    f.color = mix(base * 0.22, mix(fullBright(base), vec3(1.0), 0.15), b);
     f.alpha = mix(0.18, 1.0, b);
     f.emission = b;
-    f.keep = 0.3 * b;
+    f.keep = 0.6 * b;
     return f;
   }
   if (isFill(style, FILL_NEON)) {
-    // A neon-sign tube just inside the edge: a near-white core line, the note colour falling
-    // off on both sides, a dim coloured haze inside (not dark).
+    // A neon-sign tube just inside the edge, drawn in full without bloom: a near-white core
+    // line, the note colour at full brightness falling off on both sides, and a coloured haze
+    // filling the inside, brighter toward the tube. Bloom only adds the halo.
     float inset = min(0.11, halfWidth * 0.3);
-    float sigma = max(0.035, fwidth(edge) * 1.2);
-    float g = exp(-pow((edge - inset) / sigma, 2.0));
+    float sigma = max(0.04, fwidth(edge) * 2.0);
+    float d = edge - inset;
+    float core = exp(-pow(d / sigma, 2.0));
+    float tube = exp(-abs(d) / (sigma * 4.0));
+    float haze = 0.45 + 0.4 * exp(-max(d, 0.0) / max(halfWidth * 0.6, 1e-3));
     float lit = 1.0;
     if (uNeonFlicker > 0.5) {
       float n = valueNoise(vec2(seed * 37.0, animTime() * 7.0));
       lit = mix(0.35, 1.0, smoothstep(0.08, 0.2, n));
     }
-    vec3 tube = mix(min(base * 1.15, vec3(1.0)), vec3(1.0), pow(g, 6.0) * 0.85);
-    f.color = mix(base * 0.42, tube * lit, g);
-    f.alpha = mix(0.5, 1.0, g);
-    f.emission = 1.3 * g * lit;
-    f.keep = 0.3 * g;
+    vec3 bright = fullBright(base);
+    vec3 c = bright * haze * 0.6;
+    c = mix(c, bright * lit, tube);
+    c = mix(c, vec3(1.0, 0.98, 0.95) * lit, smoothstep(0.25, 0.85, core));
+    f.color = c;
+    f.alpha = max(mix(0.55, 0.75, haze), tube);
+    f.emission = 1.3 * tube * lit;
+    f.keep = 0.4 * tube;
     return f;
   }
   if (isFill(style, FILL_STRIPES)) {

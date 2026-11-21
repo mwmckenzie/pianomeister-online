@@ -114,19 +114,21 @@ test('@visual sheet fills: Hot core, Glass, Outline, Neon side by side', async (
   test.setTimeout(300_000)
   await openSong(page, PEDAL_DEMO, 'Pedal demo')
   const cells: Cell[] = []
-  for (const heads3d of [true, false]) {
-    for (const fill of ['hotCore', 'glass', 'outline', 'neon']) {
-      const settings = fillSettings(fill, { notes: { heads3d }, render: QUALITY.medium })
-      cells.push({
-        label: `${fill} · 3D heads ${heads3d ? 'on' : 'off'}`,
-        png: await frameWith(page, settings, 2, NEAR),
-      })
+  for (const quality of ['off', 'medium'] as const) {
+    for (const heads3d of [true, false]) {
+      for (const fill of ['hotCore', 'glass', 'outline', 'neon']) {
+        const settings = fillSettings(fill, { notes: { heads3d }, render: QUALITY[quality] })
+        cells.push({
+          label: `${fill} · 3D heads ${heads3d ? 'on' : 'off'} · ${quality}`,
+          png: await frameWith(page, settings, 2, NEAR),
+        })
+      }
     }
   }
   await writeSheet(
     browser,
     `${OUT}/fills-compare.png`,
-    'Hot core, Glass, Outline, Neon — Medium, default transparency',
+    'Hot core, Glass, Outline, Neon — quality Off and Medium, default transparency',
     cells,
     4,
     480,
