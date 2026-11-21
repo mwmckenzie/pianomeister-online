@@ -7,6 +7,8 @@ const props = defineProps<{
   readonly options: readonly { readonly value: V; readonly label: string }[]
   /** Accessible name of the group. */
   readonly label: string
+  /** Greyed out and not clickable (e.g. a setting with no effect right now). */
+  readonly disabled?: boolean
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: V] }>()
 
@@ -24,6 +26,8 @@ function update(value: unknown): void {
     data-owns-arrows
     :model-value="modelValue"
     :aria-label="label"
+    :disabled="disabled"
+    :class="{ off: disabled }"
     @update:model-value="update"
   >
     <ToggleGroupItem
@@ -70,5 +74,12 @@ function update(value: unknown): void {
   background: rgb(var(--primary-rgb) / 20%);
   color: var(--text-1);
   font-weight: var(--weight-medium);
+}
+.segmented.off {
+  opacity: 0.45;
+}
+
+.segmented.off .segment {
+  cursor: default;
 }
 </style>
