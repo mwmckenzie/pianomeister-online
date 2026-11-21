@@ -112,7 +112,9 @@ export class HeldGlow {
       const pulse = reducedMotion ? 0 : 0.12 * Math.sin(this.elapsed * 7 + i)
       const target = state.sounding ? 0.45 + pulse : 0
       const current = this.level[i] as number
-      this.level[i] = target > current ? target : current * Math.exp(-step * 14)
+      // Rise at once, fade toward the target, never below it: decaying past a held target and
+      // snapping back would flicker every other frame.
+      this.level[i] = target >= current ? target : Math.max(target, current * Math.exp(-step * 14))
       this.alpha[i] = this.level[i] as number
     })
     this.markDirty(false)
