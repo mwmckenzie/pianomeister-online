@@ -138,6 +138,21 @@ const sustainStripes = noteStripes('Sustain stripes', (s) => s.noteStyle.sustain
 const pedalStriped = (s: PlayerSettings) => s.pedal.show && s.pedal.fill === 'stripes'
 const pedalStripes = stripeShape('Stripes', sidebar('cages'), 1, pedalStriped)
 
+const namesShown = (s: PlayerSettings) => s.names.mode !== 'off'
+const namesOnNotes = (s: PlayerSettings) => s.names.mode === 'notes' || s.names.mode === 'both'
+const NAMES_HINT = 'Needs note names on notes (Notes or Both)'
+/** A note-label row: shown while names are on, enabled while they're on notes. */
+const onNotes = {
+  group: 'On notes',
+  enabled: namesOnNotes,
+  disabledHint: NAMES_HINT,
+}
+/** A row for names anywhere (notes or keys): greyed out while names are off. */
+const namesOn = {
+  enabled: namesShown,
+  disabledHint: 'Needs note names on',
+}
+
 /** Fills that draw their own edge: the edge glow settings don't apply to them. */
 const OWN_EDGE = new Set<NoteFill>(['outline', 'neon'])
 const edgeApplies = (s: PlayerSettings) =>
@@ -492,7 +507,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       label: 'Octave number',
       default: 'c',
       home: sidebar('names'),
-      visible: (s) => s.names.mode !== 'off',
+      ...namesOn,
       options: [
         { value: 'c', label: 'On C only' },
         { value: 'all', label: 'On all notes' },
@@ -503,10 +518,94 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       label: 'Black keys',
       default: 'sharps',
       home: sidebar('names'),
-      visible: (s) => s.names.mode !== 'off',
+      ...namesOn,
       options: [
         { value: 'sharps', label: 'Sharps ♯' },
         { value: 'flats', label: 'Flats ♭' },
+      ],
+    },
+    'names.style': {
+      kind: 'choice',
+      label: 'Label style',
+      default: 'facing',
+      home: sidebar('names'),
+      ...onNotes,
+      options: [
+        { value: 'facing', label: 'Facing camera' },
+        { value: 'flat', label: 'Flat on note' },
+      ],
+    },
+    'names.textSize': {
+      ...num('Text size', 12, sidebar('names'), [10, 18, 1], 'px', 0),
+      ...onNotes,
+    },
+    'names.textColor': {
+      kind: 'choice',
+      label: 'Text colour',
+      default: 'auto',
+      home: sidebar('names'),
+      control: 'select',
+      ...onNotes,
+      options: [
+        { value: 'auto', label: 'Auto' },
+        { value: 'note', label: 'Note colour' },
+        { value: 'white', label: 'White' },
+        { value: 'dark', label: 'Dark' },
+      ],
+    },
+    'names.shadow': {
+      ...num('Text shadow', 0.6, sidebar('names'), [0, 1, 0.05]),
+      ...percent,
+      ...namesOn,
+      // Also behind the key-top names; listed with the note labels' look.
+      group: 'On notes',
+    },
+    'names.showWithin': {
+      ...num('Show within', 0.4, sidebar('names'), [0.1, 1, 0.05]),
+      ...percent,
+      ...onNotes,
+    },
+    'names.fadeLength': {
+      ...num('Fade length', 0.15, sidebar('names'), [0, 0.3, 0.01]),
+      ...percent,
+      ...onNotes,
+    },
+    'names.anchor': {
+      kind: 'choice',
+      label: 'Anchor',
+      default: 'ahead',
+      home: sidebar('names'),
+      control: 'select',
+      ...onNotes,
+      options: [
+        { value: 'ahead', label: 'Ahead of head' },
+        { value: 'on', label: 'On head' },
+        { value: 'behind', label: 'Behind head' },
+      ],
+    },
+    'names.offset': {
+      ...num('Offset along note', 0, sidebar('names'), [-1, 1, 0.05], 'none', 2),
+      ...onNotes,
+    },
+    'names.height': {
+      ...num('Height above note', 6, sidebar('names'), [0, 24, 1], 'px', 0),
+      group: 'On notes',
+      enabled: (s) => namesOnNotes(s) && s.names.style === 'facing',
+      disabledHint: 'Needs note names on notes, facing the camera',
+    },
+    'names.avoidOverlaps': {
+      ...bool('Avoid overlaps', true, sidebar('names')),
+      ...onNotes,
+    },
+    'names.glow': {
+      kind: 'choice',
+      label: 'Label glow',
+      default: 'off',
+      home: sidebar('names'),
+      ...onNotes,
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'subtle', label: 'Subtle' },
       ],
     },
 

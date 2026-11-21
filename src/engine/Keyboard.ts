@@ -138,20 +138,39 @@ void main() {
 
 const LABEL_VERTEX = /* glsl */ `
 attribute vec4 aCell; // atlas u0, v0, u1, v1
+attribute vec4 aOverlay; // the key's lit colour and alpha (shared with the key mesh)
+attribute float aBlack;
 varying vec2 vUv;
+varying vec4 vOverlay;
+varying float vBlack;
 void main() {
   vUv = mix(aCell.xy, aCell.zw, uv);
+  vOverlay = aOverlay;
+  vBlack = aBlack;
   gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
 }
 `
 
 const LABEL_FRAGMENT = /* glsl */ `
 uniform sampler2D uAtlas;
+uniform float uShadow;
 varying vec2 vUv;
+varying vec4 vOverlay;
+varying float vBlack;
 void main() {
+  // The note-label atlas: red = text, green = halo (brief decision 114). Neutral while the key
+  // rests (dark on white keys, light on black), the note's colour tinted light while it's held.
   vec4 t = texture2D(uAtlas, vUv);
-  if (t.a <= 0.02) discard;
-  gl_FragColor = t;
+  float text = t.r;
+  float held = smoothstep(0.85, 1.0, vOverlay.a);
+  vec3 rest = vBlack > 0.5 ? vec3(0.9, 0.92, 0.96) : vec3(0.1, 0.11, 0.14);
+  vec3 color = mix(rest, mix(vOverlay.rgb, vec3(1.0), 0.75), held);
+  bool light = dot(color, vec3(0.299, 0.587, 0.114)) > 0.5;
+  vec3 haloColor = light ? vec3(0.02, 0.03, 0.06) : vec3(0.95);
+  float halo = t.g * uShadow * (1.0 - text);
+  float alpha = text + halo;
+  if (alpha <= 0.01) discard;
+  gl_FragColor = vec4((color * text + haloColor * halo) / alpha, alpha);
 }
 `
 
@@ -214,7 +233,7 @@ export class Keyboard {
     this.labelMaterial = new ShaderMaterial({
       vertexShader: LABEL_VERTEX,
       fragmentShader: LABEL_FRAGMENT,
-      uniforms: { uAtlas: { value: atlas } },
+      uniforms: { uAtlas: { value: atlas }, uShadow: { value: 0.6 } },
       transparent: true,
       depthWrite: false,
       side: DoubleSide,
@@ -264,6 +283,7 @@ export class Keyboard {
     setUniform(this.coneMaterial, 'uStrength', e.keyConeStrength)
     this.coneOn = e.keyCone && taps >= SPILL_TAPS.medium
     this.namesOnKeys = settings.names.mode === 'keys' || settings.names.mode === 'both'
+    setUniform(this.labelMaterial, 'uShadow', settings.names.shadow)
     this.applyVisibility()
   }
 
@@ -362,6 +382,12 @@ export class Keyboard {
     labelGeometry.setAttribute(
       'aCell',
       new InstancedBufferAttribute(new Float32Array(keys.flatMap((k) => atlasCell(k))), 4),
+    )
+    // The key's lit colour: the same attribute object as the key mesh's, so one update serves both.
+    labelGeometry.setAttribute('aOverlay', geometry.getAttribute('aOverlay'))
+    labelGeometry.setAttribute(
+      'aBlack',
+      new InstancedBufferAttribute(new Float32Array(keys.length).fill(first.isBlack ? 1 : 0), 1),
     )
     const labels = new InstancedMesh(labelGeometry, this.labelMaterial, keys.length)
     labels.instanceMatrix = mesh.instanceMatrix

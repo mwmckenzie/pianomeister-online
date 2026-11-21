@@ -160,6 +160,25 @@ export interface PlayerSettings {
     /** Octave number on every C only, or on every name. */
     readonly octave: 'c' | 'all'
     readonly accidentals: 'sharps' | 'flats'
+    /** Labels on notes: upright, facing the camera, or lying flat on the note. */
+    readonly style: 'facing' | 'flat'
+    /** Label text size on screen, in CSS pixels. */
+    readonly textSize: number
+    readonly textColor: 'auto' | 'note' | 'white' | 'dark'
+    /** Strength of the soft halo behind the text (0–1). */
+    readonly shadow: number
+    /** Labels show up to this share of the look-ahead… */
+    readonly showWithin: number
+    /** …and fade out over this further share. */
+    readonly fadeLength: number
+    readonly anchor: 'ahead' | 'on' | 'behind'
+    /** Along the note, in lane widths (+ toward the tail). */
+    readonly offset: number
+    /** Facing camera: gap above the note, in CSS pixels. */
+    readonly height: number
+    /** The farther of two overlapping labels fades out. */
+    readonly avoidOverlaps: boolean
+    readonly glow: 'off' | 'subtle'
   }
   /** The pedal cage (brief decisions 115–116). */
   readonly pedal: {

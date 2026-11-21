@@ -24,7 +24,8 @@ import type { GlowTwin } from './GlowTwin'
 import { NoteMask } from './notes/NoteMask'
 import { ContactShadow } from './notes/ContactShadow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
-import { NoteNameLayer } from './names/NoteNameLayer'
+import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
+import { hiddenByOverlap } from './model/hiddenByOverlap'
 import { HeadLayer } from './notes/HeadLayer'
 import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/noteStyle'
 import { SustainLayer } from './notes/SustainLayer'
@@ -282,12 +283,14 @@ export class Engine {
       }
       song.shadow.set(notes.contactShadow, notes.shadowStrength, lift)
       const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
+      const headTop = notes.heads3d ? notes.headHeight : 0
       for (const [layer, y, top] of [
         [song.names.white, WHITE_LANE_Y, false],
         [song.names.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
       ] as const) {
         layer.mesh.visible = namesOnNotes
         layer.setLift(y, top)
+        layer.applySettings(settings.names, headTop)
       }
       const cageShown = pedal.show && (pedal.fillOpacity > 0 || pedal.border)
       for (const mask of song.masks) mask.sync(cageShown)
@@ -375,7 +378,11 @@ export class Engine {
     const bufferHeight = height * pipeline.renderer.getPixelRatio()
     this.effects.setScale(bufferHeight / (2 * Math.tan(((FOV_DEG / 2) * Math.PI) / 180)))
     for (const layer of this.song === null ? [] : Object.values(this.song.names)) {
-      layer.setViewport(bufferHeight, pipeline.renderer.getPixelRatio())
+      layer.setViewport(
+        width * pipeline.renderer.getPixelRatio(),
+        bufferHeight,
+        pipeline.renderer.getPixelRatio(),
+      )
     }
     this.invalidate()
   }
@@ -505,12 +512,45 @@ export class Engine {
         )
       }
     }
+    if (song !== null) this.layoutNames(song, tick, dt)
     this.lastTick = tick
     // The chain can change after applySettings (FXAA/SMAA passes load asynchronously).
     if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()
     pipeline.render()
     this.rendered++
     this.record(this.frameMs, performance.now() - started)
+  }
+
+  /**
+   * Note labels that would overlap on screen: the farther one fades out (brief decision 114),
+   * across both lane colours, nearest first.
+   */
+  private layoutNames(song: SongParts, tick: number, dt: number): void {
+    const { names } = this.settings
+    const onNotes = names.mode === 'notes' || names.mode === 'both'
+    if (!onNotes || !names.avoidOverlaps) return
+    const canvas = this.pipeline?.renderer.domElement
+    const view: LabelView = {
+      camera: this.camera,
+      tick,
+      unitsPerTick: this.time.uUnitsPerTick.value,
+      nowZ: this.time.uNowZ.value,
+      lookAheadTicks: this.time.uLookAheadTicks.value,
+      width: canvas?.clientWidth ?? 1,
+      height: canvas?.clientHeight ?? 1,
+    }
+    const labels: LabelCandidate[] = []
+    song.names.white.candidates(view, labels)
+    song.names.black.candidates(view, labels)
+    labels.sort((a, b) => a.ahead - b.ahead)
+    hiddenByOverlap(
+      labels.map((l) => l.rect),
+      2,
+    ).forEach((hidden, i) => {
+      const label = labels[i]
+      label?.layer.setTarget(label.index, !hidden)
+    })
+    for (const layer of [song.names.white, song.names.black]) layer.update(dt, this.reducedMotion)
   }
 
   /** Onsets reached since the last frame, unless the position jumped (seek, loop wrap). */
@@ -577,6 +617,8 @@ export class Engine {
         song.sustains.black.twin,
         song.heads.white.twin,
         song.heads.black.twin,
+        song.names.white.twin,
+        song.names.black.twin,
       )
     }
     this.glowScene.clear()

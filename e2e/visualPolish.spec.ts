@@ -176,7 +176,7 @@ test('new playfield controls change what the highway shows', async ({ page }) =>
   const neon = await frame(page)
   expect(neon).not.toEqual(before)
   await openSidebarSection(page, 'noteStyle')
-  await choose(page, page.getByTestId('setting-noteStyle-sustainFill-control'), 'Stripes')
+  await choose(page, page.getByTestId('setting-noteStyle-sustainFill-control'), 'Diagonal stripes')
   const stripes = await frame(page)
   expect(stripes).not.toEqual(neon)
   await openSidebarSection(page, 'highway')
@@ -270,6 +270,10 @@ test('note names on and off', async ({ page }) => {
   expect(on).not.toEqual(off)
   await segment(page, 'names.mode', 'Off')
   expect(await stableFrame(page)).toEqual(off)
+  // Note-label rows stay in view, greyed out, and say why.
+  await expect(page.getByTestId('setting-names-offset-hint')).toHaveText(
+    'Needs note names on notes (Notes or Both)',
+  )
   expect(errors).toEqual([])
 })
 
