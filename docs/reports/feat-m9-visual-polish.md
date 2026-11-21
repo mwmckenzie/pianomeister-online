@@ -317,3 +317,65 @@ Contact sheets (JPEG, committed): `docs/design/m9/round3/`. Full-size PNGs are r
 - [ ] Outline or Neon on both fills: the edge rows grey out with the hint.
 - [ ] Pedal & cages → Fill: Diagonal stripes on the Pedal demo. Try width, angle, balance, opacity A/B, with no shimmer far away. Fill opacity 100 %: notes keep their own colours.
 - [ ] Head and sustain stripes, each with its own group.
+
+## 2026-11-21 — Round 4: labels that never blink or jump; section-level hints
+
+### What was done
+
+**Avoid overlaps, reworked** (`de062b5`, brief decision 114)
+
+- **Stack slots from the music.** Once per song, `labelStackSlots` finds notes that start at the same tick in neighbouring lanes: lane centres under ~1 white-key width apart, covering white–white, white–black and black–black neighbours. In pitch order, each takes the lowest slot no neighbour holds.
+  - A slot lifts a facing label by one label height + 2 px; a flat label moves one label depth along the note.
+  - Slots are a per-note attribute that never changes, so a label never moves while on screen.
+  - Slots apply while Avoid overlaps is on.
+- **One-way placement** (`placeLabels`), nearest first:
+  - A label entering range shows unless it overlaps a shown one (2 px clearance).
+  - A hidden label fades in (0.15 s, instantly under reduced motion) only once it clears every shown label by 4 px.
+  - A shown label stays shown until its handover fade at the now line. Nothing ever fades out because of an overlap.
+- **Seeks and layout changes:** a seek, or a change to label style, size, anchor, offset, height, range or head shape, places every label afresh, at once, with no fades. The engine skips an overlap-pass frame number, so every label counts as new.
+- The old `hiddenByOverlap` is gone.
+- **Test hook:** `pianomeisterLabels()` (only with `?stats=1`, like the other debug hooks) lists each placed label's state, rendered visibility and slot.
+
+**Section-level hints** (`a260e88`)
+
+- When 3 or more visible rows in a section are greyed out for the same reason, that reason shows once at the top of the section and the rows are greyed out without repeating it. Fewer than 3 keep their per-row hints.
+- Rows report their reason to the section they're in (provide/inject). `sharedHints` in core holds the rule, with unit tests.
+- Rows outside a section, such as the loop popover, keep per-row hints.
+- With note names Off, the Note names section shows two lines, "Needs note names on" and "Needs note names on notes (Notes or Both)", because those are two different reasons. With quality Off, Render quality shows "Needs bloom (quality Low or higher)" once.
+
+### Decisions I made that weren't in the instructions
+
+1. **"Adjacent lanes"** means lane centres under 1.05 white-key widths apart. That covers every neighbouring pair, including E–F and B–C, and C♯–D♯. C–E and wider stay unstacked; if their labels still overlap far away, the one-way hiding handles them.
+2. **Stack slots are on only with Avoid overlaps.** With it off, labels sit side by side as before (see the "avoid overlaps off" cell on the stacked sheet).
+3. **Two clearances.** A new label needs 2 px and a hidden one needs 4 px to show. That way a label can never hover on the boundary and flip.
+4. **Shown labels may overlap later.** This would only happen if notes converged, which doesn't happen on the highway as notes approach. The one-way rule wins over the overlap rule.
+
+### Results
+
+- `npm run check`: pass (650 unit tests, +12: stack slots, one-way placement including a boundary-hover case, shared hints). `npm run build`: pass.
+- **New e2e tests:**
+  - Each one plays for 5 s and compares the label snapshot frame by frame. A failure is a shown label hiding, a label's visibility dropping, or a slot changing.
+    - On the long demo's ten-note chords, which do have hidden labels.
+    - On the Clarity demo's neighbouring-lane chords, which do have stacked labels.
+  - A paused seek, three times: every label is fully in or out on the first frame.
+  - All pass.
+  - Note: none of the long demo's chords have neighbouring lanes, so it exercises hiding, not stacking. That is why the Clarity demo is the stacking case.
+- **E2e, full functional suite** (`chromium` + `polish`, production preview, `--retries=0`), three runs:
+  - 162/166, 164/166, 165/166.
+  - Each run failed a different test (listKeys, loopEditor, loopJump, overview, library, longNames, a player count-in). None of them involve note names or hints.
+  - Each failing test passed when rerun alone.
+  - The failures are click and load timeouts under parallel load, the same environmental flake as before. Nothing failed twice.
+- **Visual:** names sheets regenerated (3/3). New `docs/design/m9/round3/names-stacked.jpg` (Clarity demo: A♯/B stack by default, side by side with Avoid overlaps off). `names-dense.jpg` and `names-pedal.jpg` refreshed.
+
+### Known issues and open questions
+
+1. The full suite is green per test but not in one run: one or two timing flakes per run in unrelated specs. If you want a single green run before the PR, I can look at the shared load (likely sample downloads plus three workers) as its own task.
+2. The Note names section shows two hint lines with names Off, as noted above. If you'd rather it show only the root cause ("Needs note names on") when both apply, that's a small change.
+
+### Manual review checklist (Round 4)
+
+- [ ] Upload `test-fixtures/midi/clarity-demo.mid`, names on Notes: the neighbouring labels stack (one lifted) and stay put as they approach. Avoid overlaps off: they sit side by side.
+- [ ] Long demo, names on Notes, play: labels appear at the far end, and a few fill in as notes spread apart. None ever disappears before the now line.
+- [ ] Seek with Next bar, playing or paused: labels are simply there, with no wave of fades.
+- [ ] Note names → Off: the section's top says why, once (two lines), and the rows are greyed without per-row hints. Render quality → Off: "Needs bloom…" once at the top.
+- [ ] A section with only one or two greyed rows (e.g. Player controls with auto-hide off) still shows the hint under the row.
