@@ -4,6 +4,7 @@ import {
   type Cell,
   type Crop,
   frameWith,
+  LONG_DEMO,
   openSong,
   PEDAL_DEMO,
   type Settings,
@@ -212,3 +213,48 @@ test('@visual sheet stripes: heads and sustains, widths and A/B opacity', async 
   await writeSheet(browser, `${OUT}/stripes-notes.png`, 'Note stripes', cells, 3, 420)
   expect(cells.length).toBeGreaterThan(0)
 })
+
+/** Where the labels are (the nearer part of the highway and the keys), at 1:1. */
+const LABELS: Crop = { x: 300, y: 260, width: 680, height: 460 }
+
+const NAMES_CASES: readonly { readonly label: string; readonly names: Record<string, unknown> }[] =
+  [
+    { label: 'defaults (facing camera)', names: {} },
+    { label: 'flat on note', names: { style: 'flat' } },
+    { label: 'colour: note', names: { textColor: 'note' } },
+    { label: 'colour: white', names: { textColor: 'white' } },
+    { label: 'colour: dark', names: { textColor: 'dark' } },
+    { label: 'anchor: on head', names: { anchor: 'on' } },
+    { label: 'anchor: behind head', names: { anchor: 'behind' } },
+    { label: 'avoid overlaps off', names: { avoidOverlaps: false } },
+    { label: 'show within 100 %', names: { showWithin: 1 } },
+    { label: 'text 18 px, glow subtle', names: { textSize: 18, glow: 'subtle' } },
+    { label: 'Both (handover at the keys)', names: { mode: 'both' } },
+  ]
+
+for (const song of [
+  { title: 'Pedal demo', file: PEDAL_DEMO, name: 'names-pedal' },
+  { title: 'Long demo', file: LONG_DEMO, name: 'names-dense' },
+] as const) {
+  test(`@visual sheet names: ${song.title}`, async ({ page, browser }) => {
+    test.setTimeout(300_000)
+    await openSong(page, song.file, song.title)
+    const cells: Cell[] = []
+    for (const c of NAMES_CASES) {
+      const settings: Settings = {
+        names: { mode: 'notes', ...c.names },
+        render: QUALITY.medium,
+      }
+      cells.push({ label: c.label, png: await frameWith(page, settings, 2, LABELS) })
+    }
+    await writeSheet(
+      browser,
+      `${OUT}/${song.name}.png`,
+      `Note names — ${song.title}, bar 2, Medium`,
+      cells,
+      3,
+      680,
+    )
+    expect(cells).toHaveLength(NAMES_CASES.length)
+  })
+}
