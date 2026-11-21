@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef, watch } from 'vue'
 
-import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
+import { EMPTY_LOOKS } from '@/core/looks/EMPTY_LOOKS'
+import type { LooksState } from '@/core/looks/LooksState'
+import { defaultSettings } from '@/core/settings/DEFAULT_SETTINGS'
+import type { DeviceClass } from '@/core/settings/DeviceClass'
 import { applyShortcutEdit } from '@/core/commands/applyShortcutEdit'
 import type { Binding } from '@/core/commands/Binding'
 import type { CommandId } from '@/core/commands/CommandId'
@@ -10,7 +13,13 @@ import { metaKeyLabel } from '@/core/commands/metaKeyLabel'
 import { effectiveBindings } from '@/core/commands/shortcutBindings'
 import type { ShortcutEdit } from '@/core/commands/ShortcutEdit'
 import type { ShortcutOverrides } from '@/core/commands/ShortcutOverrides'
-import { loadSettings, loadShortcuts, storedSettings } from '@/core/settings/loadSettings'
+import {
+  loadDeviceClass,
+  loadLooks,
+  loadSettings,
+  loadShortcuts,
+  storedSettings,
+} from '@/core/settings/loadSettings'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 import type { SettingGroup } from '@/core/settings/SettingGroup'
 import {
@@ -23,22 +32,47 @@ import type { SettingKey } from '@/core/settings/SettingKey'
 import type { SettingValue } from '@/core/settings/SettingValue'
 import { isDefaultValue, readSetting, withSetting } from '@/core/settings/settingValues'
 
+import { detectDeviceClass } from './detectDeviceClass'
+
 const STORAGE_KEY = 'pianomeister.settings'
 
-function read(): { settings: PlayerSettings; shortcuts: ShortcutOverrides } {
+interface Stored {
+  readonly settings: PlayerSettings
+  readonly shortcuts: ShortcutOverrides
+  readonly looks: LooksState
+  readonly deviceClass: DeviceClass
+}
+
+function read(): Stored {
+  const detected = detectDeviceClass()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed: unknown = raw === null ? null : JSON.parse(raw)
-    return { settings: loadSettings(parsed), shortcuts: loadShortcuts(parsed) }
+    const deviceClass = loadDeviceClass(parsed, detected)
+    return {
+      settings: loadSettings(parsed, deviceClass),
+      shortcuts: loadShortcuts(parsed),
+      looks: loadLooks(parsed),
+      deviceClass,
+    }
   } catch {
     // Unreadable storage (private mode, corrupt JSON): fall back to defaults.
-    return { settings: DEFAULT_SETTINGS, shortcuts: {} }
+    return {
+      settings: defaultSettings(detected),
+      shortcuts: {},
+      looks: EMPTY_LOOKS,
+      deviceClass: detected,
+    }
   }
 }
 
-function write(settings: PlayerSettings, shortcuts: ShortcutOverrides): void {
+function write(stored: Stored): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(storedSettings(settings, shortcuts)))
+    const { settings, shortcuts, looks, deviceClass } = stored
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(storedSettings(settings, shortcuts, looks, deviceClass)),
+    )
   } catch {
     // Storage full or blocked: settings still apply for this session.
   }
@@ -74,10 +108,20 @@ export const useSettingsStore = defineStore('settings', () => {
   const stored = read()
   const settings = shallowRef<PlayerSettings>(stored.settings)
   const shortcuts = shallowRef<ShortcutOverrides>(stored.shortcuts)
+  const looks = shallowRef<LooksState>(stored.looks)
+  /** The device class the defaults are for (brief decision 110); fixed once stored. */
+  const deviceClass = stored.deviceClass
   const layoutMap = shallowRef<ReadonlyMap<string, string> | null>(null)
   void readLayoutMap().then((map) => (layoutMap.value = map))
 
-  watch([settings, shortcuts], () => write(settings.value, shortcuts.value))
+  watch([settings, shortcuts, looks], () =>
+    write({
+      settings: settings.value,
+      shortcuts: shortcuts.value,
+      looks: looks.value,
+      deviceClass,
+    }),
+  )
 
   /** Every command's keys in effect (brief decision 88). */
   const bindings = computed(() => effectiveBindings(shortcuts.value))
@@ -113,16 +157,20 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function isDefault(key: SettingKey): boolean {
-    return isDefaultValue(key, readSetting(settings.value, key))
+    return isDefaultValue(key, readSetting(settings.value, key), deviceClass)
   }
 
   function reset(key: SettingKey): void {
-    settings.value = withSetting(settings.value, key, readSetting(DEFAULT_SETTINGS, key))
+    settings.value = withSetting(
+      settings.value,
+      key,
+      readSetting(defaultSettings(deviceClass), key),
+    )
   }
 
   /** Resets a section, tab or the sidebar; returns the replaced values for Undo. */
   function resetGroup(group: SettingGroup): SettingValues {
-    const { settings: next, previous } = resetGroupValues(settings.value, group)
+    const { settings: next, previous } = resetGroupValues(settings.value, group, deviceClass)
     settings.value = next
     return previous
   }
@@ -132,7 +180,16 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function changedCount(group: SettingGroup): number {
-    return countChanged(settings.value, group)
+    return countChanged(settings.value, group, deviceClass)
+  }
+
+  /** Replaces settings wholesale (e.g. applying a look); the caller keeps what Undo needs. */
+  function replace(next: PlayerSettings): void {
+    settings.value = next
+  }
+
+  function setLooks(next: LooksState): void {
+    looks.value = next
   }
 
   /** A detached copy for the (non-reactive) engine. */
@@ -143,6 +200,8 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     settings,
     shortcuts,
+    looks,
+    deviceClass,
     bindings,
     get,
     set,
@@ -151,6 +210,8 @@ export const useSettingsStore = defineStore('settings', () => {
     resetGroup,
     restore,
     changedCount,
+    replace,
+    setLooks,
     snapshot,
     editShortcuts,
     restoreShortcuts,

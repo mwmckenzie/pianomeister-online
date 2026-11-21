@@ -1,5 +1,8 @@
 import type { HandAudio } from '../practice/HandAudio'
 import type { PreRollMode } from '../transport/PreRollMode'
+import type { LineColor } from './LineColor'
+import type { NoteFill } from './NoteFill'
+import type { QualityPreset } from './QualityPreset'
 
 /**
  * App settings (playfield, audio, practice, appearance), persisted in localStorage until
@@ -21,6 +24,8 @@ export interface PlayerSettings {
     /** Black-key lanes darker than white-key lanes. */
     readonly blackLaneShading: boolean
     readonly blackLaneShadingStrength: number
+    /** Darkening towards the screen corners, 0 = none (milestone 9). */
+    readonly vignette: number
   }
   readonly keys: {
     /** Fade-in window before an onset, in quarter notes. */
@@ -76,13 +81,72 @@ export interface PlayerSettings {
     readonly lane: string
     readonly bar: string
     readonly beat: string
-    readonly pedal: string
   }
   readonly opacity: {
     readonly lane: number
     readonly bar: number
     readonly beat: number
-    readonly pedal: number
+  }
+  /**
+   * Glowing lines (brief decision 111). Widths are world units; glow is the line's strength on
+   * the glow layer (0 = it doesn't bloom). Colours name a UI colour or use the `…Custom` value.
+   */
+  readonly lines: {
+    readonly nowStyle: 'thin' | 'glowing' | 'neon'
+    readonly nowColor: LineColor | 'pitch'
+    readonly nowCustom: string
+    readonly nowWidth: number
+    readonly nowGlow: number
+    readonly borders: boolean
+    readonly bordersColor: LineColor
+    readonly bordersCustom: string
+    readonly bordersWidth: number
+    readonly bordersGlow: number
+    /** A line on every B/C boundary. */
+    readonly octaves: boolean
+    /** Also on every E/F boundary. */
+    readonly octavesEF: boolean
+    readonly octavesColor: LineColor
+    readonly octavesCustom: string
+    readonly octavesWidth: number
+    readonly octavesGlow: number
+    /** Faint glow on the existing bar and beat lines. */
+    readonly barGlow: number
+    readonly beatGlow: number
+  }
+  /** Note fills and edge rims (brief decisions 112–113). */
+  readonly noteStyle: {
+    readonly headFill: NoteFill
+    readonly sustainFill: NoteFill
+    /** Brightness at the far end of a Gradient fill, relative to its start. */
+    readonly gradientEnd: number
+    /** Stripe width in world units (Stripes fill). */
+    readonly stripeWidth: number
+    /** Stripes drift slowly along the note (else fixed to it). */
+    readonly stripeDrift: boolean
+    readonly edgeGlow: boolean
+    readonly edgeWidth: number
+    readonly edgeIntensity: number
+  }
+  /** Note names on notes and keys (brief decision 114). */
+  readonly names: {
+    readonly mode: 'off' | 'notes' | 'keys' | 'both'
+    /** Octave number on every C only, or on every name. */
+    readonly octave: 'c' | 'all'
+    readonly accidentals: 'sharps' | 'flats'
+  }
+  /** The pedal cage (brief decisions 115–116). */
+  readonly pedal: {
+    readonly show: boolean
+    readonly fill: NoteFill
+    readonly fillColor: string
+    readonly fillOpacity: number
+    readonly border: boolean
+    readonly borderColor: LineColor
+    readonly borderCustom: string
+    readonly borderWidth: number
+    readonly borderGlow: number
+    readonly cornerRadius: number
   }
   readonly effects: {
     readonly enabled: boolean
@@ -91,6 +155,56 @@ export interface PlayerSettings {
     /** Size factor at velocity 0 and at velocity 127. */
     readonly minScale: number
     readonly maxScale: number
+    // Onset effects (brief decision 117), in any combination. Size, count and lifetime are
+    // factors of each effect's base look; spread widens where its particles go.
+    readonly sparks: boolean
+    readonly sparksSize: number
+    readonly sparksCount: number
+    readonly sparksLifetime: number
+    readonly sparksSpread: number
+    readonly scalingSparks: boolean
+    readonly scalingSparksSize: number
+    readonly scalingSparksCount: number
+    readonly scalingSparksLifetime: number
+    readonly scalingSparksSpread: number
+    readonly flame: boolean
+    readonly flameSize: number
+    readonly flameCount: number
+    readonly flameLifetime: number
+    readonly flameSpread: number
+    readonly explosion: boolean
+    readonly explosionSize: number
+    readonly explosionCount: number
+    readonly explosionLifetime: number
+    readonly explosionSpread: number
+    readonly glitter: boolean
+    readonly glitterSize: number
+    readonly glitterCount: number
+    readonly glitterLifetime: number
+    readonly glitterSpread: number
+    /** What a held note shows at the now line. */
+    readonly sustain: 'none' | 'glow' | 'embers' | 'flames' | 'smoke'
+    readonly sustainSize: number
+    /** Factor of the effect's base rate (particles per second per held key). */
+    readonly sustainCount: number
+    readonly sustainLifetime: number
+    readonly sustainSpread: number
+    /** Note-on flash on the key overlay and the whole note (brief decision 113). */
+    readonly pulse: boolean
+    readonly pulseAmount: number
+    readonly pulseDecayMs: number
+    /** Sounding notes glow brighter. */
+    readonly soundingGlow: boolean
+    readonly soundingGlowAmount: number
+    readonly breathing: boolean
+    /** Key light (brief decision 118). */
+    readonly keySpill: boolean
+    readonly keySpillStrength: number
+    /** How far the spill reaches, in white-key widths. */
+    readonly keySpillSpread: number
+    readonly keyCone: boolean
+    readonly keyConeStrength: number
+    readonly keyConeSpread: number
   }
   readonly render: {
     /** Render at the device pixel ratio; otherwise at `scale` × CSS pixels. */
@@ -99,6 +213,21 @@ export interface PlayerSettings {
     /** Upper bound for the resulting pixel ratio. */
     readonly maxPixelRatio: number
     readonly antialias: 'off' | 'msaa' | 'fxaa' | 'smaa'
+    /**
+     * Quality preset (brief decision 110): sets the cost settings below. Off is the
+     * pre-milestone-9 pipeline.
+     */
+    readonly quality: QualityPreset
+    /** Glow-target resolution relative to the drawing buffer; off = no bloom passes. */
+    readonly bloomResolution: 'off' | 'quarter' | 'half' | 'full'
+    /** Most particles alive at once. */
+    readonly particleBudget: number
+    /** Noise octaves, key-light reach and the light cone. */
+    readonly shaderDetail: 'minimal' | 'low' | 'medium' | 'high'
+    // The bloom look: part of a look, not of the preset (brief decision 121).
+    readonly bloomStrength: number
+    readonly bloomRadius: number
+    readonly bloomThreshold: number
   }
   readonly audio: {
     /** 0–1. */

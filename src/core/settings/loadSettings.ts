@@ -1,21 +1,28 @@
 import { readShortcutOverrides } from '../commands/readShortcutOverrides'
 import type { ShortcutOverrides } from '../commands/ShortcutOverrides'
+import { EMPTY_LOOKS } from '../looks/EMPTY_LOOKS'
+import type { LooksState } from '../looks/LooksState'
+import { readLooks } from '../looks/readLooks'
+import { coerceSetting } from './coerceSetting'
 import { constrainKeyboard } from './constrainKeyboard'
-import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
+import { defaultSettings } from './DEFAULT_SETTINGS'
+import type { DeviceClass } from './DeviceClass'
 import type { PlayerSettings } from './PlayerSettings'
-import type { AnySettingDefinition } from './SettingDefinition'
 import { SETTING_KEYS } from './SETTING_KEYS'
-import { settingDefinition } from './settingValues'
+import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 5
+export const SETTINGS_VERSION = 6
+
+/** The first version that stored shortcut overrides (brief decision 88). */
+const SHORTCUTS_SINCE = 5
 
 type Raw = Record<string, unknown>
 
 /**
  * Upgrades stored settings one version at a time. Each step returns the next version's shape;
  * keys a step doesn't mention are carried over, and keys that are new get their defaults when
- * the result is merged over DEFAULT_SETTINGS.
+ * the result is merged over the defaults.
  */
 const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
   // v2 adds the keyboard and render sections and new keys in highway, notes and effects.
@@ -41,20 +48,37 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
   // v5 stores the keyboard shortcut overrides beside the settings (brief decision 88); a
   // migrated store has none.
   4: (settings) => settings,
+  // v6 (brief decision 120): the pedal band becomes the pedal cage, whose fill keeps the
+  // band's colour and opacity; everything else new gets its default.
+  5: (settings) => {
+    const colors = isRecord(settings.colors) ? settings.colors : {}
+    const opacity = isRecord(settings.opacity) ? settings.opacity : {}
+    const pedal = isRecord(settings.pedal) ? settings.pedal : {}
+    return {
+      ...settings,
+      pedal: {
+        ...pedal,
+        ...('pedal' in colors ? { fillColor: colors.pedal } : {}),
+        ...('pedal' in opacity ? { fillOpacity: opacity.pedal } : {}),
+      },
+    }
+  },
 }
 
-const COLOR = /^#[0-9a-f]{6}$/i
-
-/** The persisted shape: `{ version, settings, shortcuts }` (shortcuts from v5). */
+/** The persisted shape: `{ version, settings, shortcuts, looks, deviceClass }`. */
 export function storedSettings(
   settings: PlayerSettings,
   shortcuts: ShortcutOverrides = {},
+  looks: LooksState = EMPTY_LOOKS,
+  deviceClass: DeviceClass = 'desktop',
 ): {
   readonly version: number
   readonly settings: PlayerSettings
   readonly shortcuts: ShortcutOverrides
+  readonly looks: LooksState
+  readonly deviceClass: DeviceClass
 } {
-  return { version: SETTINGS_VERSION, settings, shortcuts }
+  return { version: SETTINGS_VERSION, settings, shortcuts, looks, deviceClass }
 }
 
 /**
@@ -62,55 +86,70 @@ export function storedSettings(
  * from a newer version (like the settings themselves).
  */
 export function loadShortcuts(raw: unknown): ShortcutOverrides {
-  if (!isRecord(raw) || raw.version !== SETTINGS_VERSION) return {}
+  if (!isKnownVersion(raw, SHORTCUTS_SINCE)) return {}
   return readShortcutOverrides(raw.shortcuts)
+}
+
+/** Saved looks (brief decision 121): none before v6 or from a newer version. */
+export function loadLooks(raw: unknown): LooksState {
+  if (!isKnownVersion(raw, 6)) return EMPTY_LOOKS
+  return readLooks(raw.looks)
+}
+
+/**
+ * The device class the stored defaults were chosen for, so reset and "modified" stay per
+ * device (brief decision 110); `detected` when none is stored (first run, or before v6).
+ */
+export function loadDeviceClass(raw: unknown, detected: DeviceClass): DeviceClass {
+  if (!isKnownVersion(raw, 6)) return detected
+  return raw.deviceClass === 'tablet' || raw.deviceClass === 'desktop' ? raw.deviceClass : detected
 }
 
 /**
  * Rebuilds settings from stored JSON. Older versions are migrated; stored values are merged
- * over the defaults, numbers are clamped to their ranges (and the keyboard to its cross-setting
- * limits, see constrainKeyboard), choices must be listed, wrong types
- * and malformed colours fall back to the default, and unknown keys are ignored. Settings from
- * an unknown (newer) version are discarded.
+ * over the defaults for `device`, numbers are clamped to their ranges (and the keyboard to its
+ * cross-setting limits, see constrainKeyboard), choices must be listed, wrong types and
+ * malformed colours fall back to the default, and unknown keys are ignored. Settings from an
+ * unknown (newer) version are discarded.
  */
-export function loadSettings(raw: unknown): PlayerSettings {
+export function loadSettings(raw: unknown, device: DeviceClass = 'desktop'): PlayerSettings {
+  const defaults = defaultSettings(device)
   if (!isRecord(raw) || typeof raw.version !== 'number' || !isRecord(raw.settings)) {
-    return DEFAULT_SETTINGS
+    return defaults
   }
   let version = raw.version
   let stored: Raw = raw.settings
   while (version < SETTINGS_VERSION) {
     const migrate = MIGRATIONS[version]
-    if (migrate === undefined) return DEFAULT_SETTINGS
+    if (migrate === undefined) return defaults
     stored = migrate(stored)
     version++
   }
-  if (version !== SETTINGS_VERSION) return DEFAULT_SETTINGS
+  if (version !== SETTINGS_VERSION) return defaults
 
   const out: Record<string, Raw> = {}
   for (const key of SETTING_KEYS) {
     const [section, field] = key.split('.') as [string, string]
     const source = isRecord(stored[section]) ? stored[section] : {}
     out[section] ??= {}
-    out[section][field] = coerce(source[field], settingDefinition(key))
+    out[section][field] = coerceSetting(
+      source[field],
+      settingDefinition(key),
+      defaultValue(key, device),
+    )
   }
   const settings = out as unknown as PlayerSettings
   // Limits that depend on other settings (black height vs thickness, press depths).
   return { ...settings, keyboard: constrainKeyboard(settings.keyboard) }
 }
 
-function coerce(value: unknown, def: AnySettingDefinition): unknown {
-  switch (def.kind) {
-    case 'number':
-      if (typeof value !== 'number' || !Number.isFinite(value)) return def.default
-      return Math.min(def.max, Math.max(def.min, value))
-    case 'boolean':
-      return typeof value === 'boolean' ? value : def.default
-    case 'choice':
-      return def.options.some((o) => o.value === value) ? value : def.default
-    case 'color':
-      return typeof value === 'string' && COLOR.test(value) ? value.toUpperCase() : def.default
-  }
+function isKnownVersion(raw: unknown, since: number): raw is Raw {
+  return (
+    isRecord(raw) &&
+    typeof raw.version === 'number' &&
+    raw.version >= since &&
+    raw.version <= SETTINGS_VERSION
+  )
 }
 
 function isRecord(value: unknown): value is Raw {

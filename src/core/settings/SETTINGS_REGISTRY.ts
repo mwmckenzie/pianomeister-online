@@ -1,3 +1,5 @@
+import type { NoteFill } from './NoteFill'
+import type { PlayerSettings } from './PlayerSettings'
 import type { SettingDefinition, SettingUnit } from './SettingDefinition'
 import type { SettingHome, SettingsTabId, SidebarSectionId, WindowSectionId } from './SettingHome'
 import type { SettingKey } from './SettingKey'
@@ -34,6 +36,89 @@ const color = (label: string, value: string, home: SettingHome) =>
   ({ kind: 'color', label, default: value, home }) as const
 
 const percent = { unit: 'percent', digits: 0 } as const
+
+const COLORS = 'Colors'
+
+const LINE_COLORS = [
+  { value: 'white', label: 'White' },
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+  { value: 'custom', label: 'Custom' },
+] as const
+
+const lineColor = <V extends 'white' | 'primary' | 'secondary' | 'custom'>(value: V) =>
+  ({
+    kind: 'choice',
+    label: 'Colour',
+    default: value as 'white' | 'primary' | 'secondary' | 'custom',
+    home: sidebar('lines'),
+    control: 'select',
+    options: LINE_COLORS,
+  }) as const
+
+/** Emissive strength on the glow layer (0 = no bloom). */
+const glow = (value: number, label = 'Glow', max = 3, home = sidebar('lines')) =>
+  num(label, value, home, [0, max, 0.05], 'times')
+
+const FILLS = [
+  { value: 'solid', label: 'Solid' },
+  { value: 'gradient', label: 'Gradient' },
+  { value: 'hotCore', label: 'Hot core' },
+  { value: 'glass', label: 'Glass' },
+  { value: 'neon', label: 'Neon' },
+  { value: 'stripes', label: 'Stripes' },
+  { value: 'smoke', label: 'Smoke' },
+] as const
+
+const fill = (label: string, home: SettingHome) =>
+  ({
+    kind: 'choice',
+    label,
+    default: 'solid' as NoteFill,
+    home,
+    control: 'select',
+    options: FILLS,
+  }) as const
+
+const effects = sidebar('effects')
+
+/** Size, count, lifetime and spread of one onset effect, shown while it's on. */
+function onsetKnobs(group: string, on: (s: PlayerSettings) => boolean) {
+  const visible = (s: PlayerSettings) => s.effects.enabled && on(s)
+  const factor = (label: string, max = 3) => ({
+    ...num(label, 1, effects, [0.2, max, 0.05], 'times'),
+    group,
+    visible,
+  })
+  return {
+    size: factor('Size'),
+    count: factor('Count'),
+    lifetime: factor('Lifetime'),
+    spread: { ...num('Spread', 1, effects, [0, 3, 0.05], 'times'), group, visible },
+  }
+}
+
+const sparks = onsetKnobs('Sparks', (s) => s.effects.sparks)
+const scalingSparks = onsetKnobs('Scaling sparks', (s) => s.effects.scalingSparks)
+const flame = onsetKnobs('Flame burst', (s) => s.effects.flame)
+const explosion = onsetKnobs('Explosion', (s) => s.effects.explosion)
+const glitter = onsetKnobs('Glitter', (s) => s.effects.glitter)
+const sustainKnobs = onsetKnobs(
+  'While a note sustains',
+  (s) => s.effects.sustain !== 'none' && s.effects.sustain !== 'glow',
+)
+
+const onsetToggle = (label: string, value: boolean) => ({
+  ...bool(label, value, effects),
+  group: label,
+  visible: (s: PlayerSettings) => s.effects.enabled,
+})
+
+const cages = sidebar('cages')
+const render = sidebar('render')
+const PRESET = 'Quality'
+const BLOOM = 'Bloom'
+const RESOLUTION = 'Resolution'
 
 /**
  * Every setting, declared once (brief decisions 18–22, 39–63): label, default, limits, unit and
@@ -111,28 +196,105 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...percent,
       visible: (s) => s.highway.blackLaneShading,
     },
-    'colors.background': color('Background', '#05070F', sidebar('highway')),
-    'colors.highway': color('Highway', '#0A0F1E', sidebar('highway')),
-    'colors.lane': color('Lane lines', '#3A4A6E', sidebar('highway')),
+    'highway.vignette': {
+      ...num('Vignette', 0.2, sidebar('highway'), [0, 1, 0.05]),
+      ...percent,
+    },
+    // Very dark (decision 22, milestone 9): provisional until the tuning session.
+    'colors.background': { ...color('Background', '#03050B', sidebar('highway')), group: COLORS },
+    'colors.highway': { ...color('Highway', '#070B16', sidebar('highway')), group: COLORS },
+    'colors.lane': { ...color('Lane lines', '#3A4A6E', sidebar('highway')), group: COLORS },
     'opacity.lane': {
       ...num('Lane line opacity', 0.35, sidebar('highway'), [0, 1, 0.01]),
       ...percent,
+      group: COLORS,
     },
-    'colors.bar': color('Bar lines', '#5C6F99', sidebar('highway')),
+    'colors.bar': { ...color('Bar lines', '#5C6F99', sidebar('highway')), group: COLORS },
     'opacity.bar': {
       ...num('Bar line opacity', 0.6, sidebar('highway'), [0, 1, 0.01]),
       ...percent,
+      group: COLORS,
     },
-    'colors.beat': color('Beat lines', '#5C6F99', sidebar('highway')),
+    'colors.beat': { ...color('Beat lines', '#5C6F99', sidebar('highway')), group: COLORS },
     'opacity.beat': {
       ...num('Beat line opacity', 0.12, sidebar('highway'), [0, 1, 0.01]),
       ...percent,
+      group: COLORS,
     },
-    'colors.pedal': color('Pedal band', '#4A5468', sidebar('highway')),
-    'opacity.pedal': {
-      ...num('Pedal band opacity', 0.22, sidebar('highway'), [0, 1, 0.01]),
-      ...percent,
+
+    // Lines & glow (decision 111)
+    'lines.nowStyle': {
+      kind: 'choice',
+      label: 'Now line',
+      default: 'glowing',
+      home: sidebar('lines'),
+      group: 'Now line',
+      options: [
+        { value: 'thin', label: 'Thin' },
+        { value: 'glowing', label: 'Glowing' },
+        { value: 'neon', label: 'Neon' },
+      ],
     },
+    'lines.nowColor': {
+      kind: 'choice',
+      label: 'Colour',
+      default: 'custom',
+      home: sidebar('lines'),
+      group: 'Now line',
+      control: 'select',
+      options: [...LINE_COLORS, { value: 'pitch', label: 'Pitch (keys underneath)' }],
+    },
+    'lines.nowCustom': {
+      ...color('Custom colour', '#BFD2FF', sidebar('lines')),
+      group: 'Now line',
+      visible: (s) => s.lines.nowColor === 'custom',
+    },
+    'lines.nowWidth': {
+      ...num('Width', 0.08, sidebar('lines'), [0.02, 0.4, 0.01], 'mm'),
+      group: 'Now line',
+    },
+    'lines.nowGlow': { ...glow(0.6), group: 'Now line' },
+    'lines.borders': { ...bool('Highway borders', true, sidebar('lines')), group: 'Borders' },
+    'lines.bordersColor': {
+      ...lineColor('custom'),
+      group: 'Borders',
+      visible: (s) => s.lines.borders,
+    },
+    'lines.bordersCustom': {
+      ...color('Custom colour', '#5C6F99', sidebar('lines')),
+      group: 'Borders',
+      visible: (s) => s.lines.borders && s.lines.bordersColor === 'custom',
+    },
+    'lines.bordersWidth': {
+      ...num('Width', 0.05, sidebar('lines'), [0.01, 0.3, 0.01], 'mm'),
+      group: 'Borders',
+      visible: (s) => s.lines.borders,
+    },
+    'lines.bordersGlow': { ...glow(0.3), group: 'Borders', visible: (s) => s.lines.borders },
+    'lines.octaves': { ...bool('Octave lines (B/C)', false, sidebar('lines')), group: 'Octaves' },
+    'lines.octavesEF': {
+      ...bool('Also on E/F', false, sidebar('lines')),
+      group: 'Octaves',
+      visible: (s) => s.lines.octaves,
+    },
+    'lines.octavesColor': {
+      ...lineColor('secondary'),
+      group: 'Octaves',
+      visible: (s) => s.lines.octaves,
+    },
+    'lines.octavesCustom': {
+      ...color('Custom colour', '#7EE0C3', sidebar('lines')),
+      group: 'Octaves',
+      visible: (s) => s.lines.octaves && s.lines.octavesColor === 'custom',
+    },
+    'lines.octavesWidth': {
+      ...num('Width', 0.05, sidebar('lines'), [0.01, 0.3, 0.01], 'mm'),
+      group: 'Octaves',
+      visible: (s) => s.lines.octaves,
+    },
+    'lines.octavesGlow': { ...glow(0.5), group: 'Octaves', visible: (s) => s.lines.octaves },
+    'lines.barGlow': { ...glow(0, 'Bar line glow', 1), group: 'Bar & beat lines' },
+    'lines.beatGlow': { ...glow(0, 'Beat line glow', 1), group: 'Bar & beat lines' },
 
     // Notes (decisions 19, 39–41) and the key colour fade-in
     'notes.heads3d': bool('3D note heads', true, sidebar('notes')),
@@ -178,33 +340,303 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...percent,
     },
 
-    // Effects (decision 47)
-    'effects.enabled': bool('Now-line sparks and glow', true, sidebar('effects')),
+    // Note style (decisions 112–113)
+    'noteStyle.headFill': { ...fill('Head fill', sidebar('noteStyle')), group: 'Fill' },
+    'noteStyle.sustainFill': { ...fill('Sustain fill', sidebar('noteStyle')), group: 'Fill' },
+    'noteStyle.gradientEnd': {
+      ...num('Gradient end brightness', 0.35, sidebar('noteStyle'), [0, 1, 0.05]),
+      ...percent,
+      group: 'Fill',
+      visible: (s) => s.noteStyle.headFill === 'gradient' || s.noteStyle.sustainFill === 'gradient',
+    },
+    'noteStyle.stripeWidth': {
+      ...num('Stripe width', 0.35, sidebar('noteStyle'), [0.1, 1.5, 0.05], 'mm'),
+      group: 'Fill',
+      visible: (s) => s.noteStyle.headFill === 'stripes' || s.noteStyle.sustainFill === 'stripes',
+    },
+    'noteStyle.stripeDrift': {
+      ...bool('Stripes drift along the note', false, sidebar('noteStyle')),
+      group: 'Fill',
+      visible: (s) => s.noteStyle.headFill === 'stripes' || s.noteStyle.sustainFill === 'stripes',
+    },
+    'noteStyle.edgeGlow': {
+      ...bool('Edge glow', true, sidebar('noteStyle')),
+      group: 'Edges',
+    },
+    'noteStyle.edgeWidth': {
+      ...num('Edge width', 0.04, sidebar('noteStyle'), [0.01, 0.2, 0.005], 'mm'),
+      group: 'Edges',
+      visible: (s) => s.noteStyle.edgeGlow,
+    },
+    'noteStyle.edgeIntensity': {
+      ...glow(0.5, 'Edge intensity', 3, sidebar('noteStyle')),
+      group: 'Edges',
+      visible: (s) => s.noteStyle.edgeGlow,
+    },
+
+    // Note names (decision 114)
+    'names.mode': {
+      kind: 'choice',
+      label: 'Note names',
+      default: 'off',
+      home: sidebar('names'),
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'notes', label: 'Notes' },
+        { value: 'keys', label: 'Keys' },
+        { value: 'both', label: 'Both' },
+      ],
+    },
+    'names.octave': {
+      kind: 'choice',
+      label: 'Octave number',
+      default: 'c',
+      home: sidebar('names'),
+      visible: (s) => s.names.mode !== 'off',
+      options: [
+        { value: 'c', label: 'On C only' },
+        { value: 'all', label: 'On all notes' },
+      ],
+    },
+    'names.accidentals': {
+      kind: 'choice',
+      label: 'Black keys',
+      default: 'sharps',
+      home: sidebar('names'),
+      visible: (s) => s.names.mode !== 'off',
+      options: [
+        { value: 'sharps', label: 'Sharps ♯' },
+        { value: 'flats', label: 'Flats ♭' },
+      ],
+    },
+
+    // Pedal & cages (decisions 115–116); the defaults are the pre-milestone-9 pedal band.
+    'pedal.show': bool('Pedal sections', true, cages),
+    'pedal.fill': { ...fill('Fill', cages), visible: (s) => s.pedal.show },
+    'pedal.fillColor': { ...color('Fill colour', '#4A5468', cages), visible: (s) => s.pedal.show },
+    'pedal.fillOpacity': {
+      ...num('Fill opacity', 0.22, cages, [0, 1, 0.01]),
+      ...percent,
+      visible: (s) => s.pedal.show,
+    },
+    'pedal.border': { ...bool('Border', false, cages), visible: (s) => s.pedal.show },
+    'pedal.borderColor': {
+      ...lineColor('custom'),
+      home: cages,
+      label: 'Border colour',
+      visible: (s) => s.pedal.show && s.pedal.border,
+    },
+    'pedal.borderCustom': {
+      ...color('Custom border colour', '#7A86A0', cages),
+      visible: (s) => s.pedal.show && s.pedal.border && s.pedal.borderColor === 'custom',
+    },
+    'pedal.borderWidth': {
+      ...num('Border width', 0.06, cages, [0.01, 0.4, 0.01], 'mm'),
+      visible: (s) => s.pedal.show && s.pedal.border,
+    },
+    'pedal.borderGlow': {
+      ...glow(0.3, 'Border glow', 3, cages),
+      visible: (s) => s.pedal.show && s.pedal.border,
+    },
+    'pedal.cornerRadius': {
+      ...num('Corner rounding', 0, cages, [0, 2, 0.05], 'mm'),
+      visible: (s) => s.pedal.show && s.pedal.border,
+    },
+
+    // Effects (decisions 47, 113, 117, 118)
+    'effects.enabled': bool('Now-line effects', true, effects),
     'effects.velocityScaling': {
-      ...bool('Size follows velocity', true, sidebar('effects')),
+      ...bool('Size follows velocity', true, effects),
       visible: (s) => s.effects.enabled,
     },
     'effects.minScale': {
-      ...num('Size at softest', 0.6, sidebar('effects'), [0.2, 3, 0.05], 'times'),
+      ...num('Size at softest', 0.6, effects, [0.2, 3, 0.05], 'times'),
       visible: (s) => s.effects.enabled && s.effects.velocityScaling,
     },
     'effects.maxScale': {
-      ...num('Size at loudest', 1.7, sidebar('effects'), [0.2, 3, 0.05], 'times'),
+      ...num('Size at loudest', 1.7, effects, [0.2, 3, 0.05], 'times'),
       visible: (s) => s.effects.enabled && s.effects.velocityScaling,
+    },
+    'effects.sparks': onsetToggle('Sparks', true),
+    'effects.sparksSize': sparks.size,
+    'effects.sparksCount': sparks.count,
+    'effects.sparksLifetime': sparks.lifetime,
+    'effects.sparksSpread': sparks.spread,
+    'effects.scalingSparks': onsetToggle('Scaling sparks', false),
+    'effects.scalingSparksSize': scalingSparks.size,
+    'effects.scalingSparksCount': scalingSparks.count,
+    'effects.scalingSparksLifetime': scalingSparks.lifetime,
+    'effects.scalingSparksSpread': scalingSparks.spread,
+    'effects.flame': onsetToggle('Flame burst', false),
+    'effects.flameSize': flame.size,
+    'effects.flameCount': flame.count,
+    'effects.flameLifetime': flame.lifetime,
+    'effects.flameSpread': flame.spread,
+    'effects.explosion': onsetToggle('Explosion', false),
+    'effects.explosionSize': explosion.size,
+    'effects.explosionCount': explosion.count,
+    'effects.explosionLifetime': explosion.lifetime,
+    'effects.explosionSpread': explosion.spread,
+    'effects.glitter': onsetToggle('Glitter', false),
+    'effects.glitterSize': glitter.size,
+    'effects.glitterCount': glitter.count,
+    'effects.glitterLifetime': glitter.lifetime,
+    'effects.glitterSpread': glitter.spread,
+    'effects.sustain': {
+      kind: 'choice',
+      label: 'While a note sustains',
+      default: 'glow',
+      home: effects,
+      group: 'While a note sustains',
+      control: 'select',
+      visible: (s) => s.effects.enabled,
+      options: [
+        { value: 'none', label: 'Nothing' },
+        { value: 'glow', label: 'Glow' },
+        { value: 'embers', label: 'Embers' },
+        { value: 'flames', label: 'Small flames' },
+        { value: 'smoke', label: 'Smoke wisps' },
+      ],
+    },
+    'effects.sustainSize': sustainKnobs.size,
+    'effects.sustainCount': sustainKnobs.count,
+    'effects.sustainLifetime': sustainKnobs.lifetime,
+    'effects.sustainSpread': sustainKnobs.spread,
+    'effects.pulse': { ...bool('Note-on pulse', true, effects), group: 'Notes' },
+    'effects.pulseAmount': {
+      ...glow(0.5, 'Pulse amount', 2, effects),
+      group: 'Notes',
+      visible: (s) => s.effects.pulse,
+    },
+    'effects.pulseDecayMs': {
+      ...num('Pulse decay', 200, effects, [40, 1000, 10], 'ms', 0),
+      group: 'Notes',
+      visible: (s) => s.effects.pulse,
+    },
+    'effects.soundingGlow': {
+      ...bool('Sounding notes glow brighter', true, effects),
+      group: 'Notes',
+    },
+    'effects.soundingGlowAmount': {
+      ...num('Sounding glow', 0.3, effects, [0, 1, 0.05]),
+      ...percent,
+      group: 'Notes',
+      visible: (s) => s.effects.soundingGlow,
+    },
+    'effects.breathing': {
+      ...bool('Breathing pulse', false, effects),
+      group: 'Notes',
+      visible: (s) => s.effects.soundingGlow,
+    },
+    'effects.keySpill': { ...bool('Light spills onto neighbours', true, effects), group: 'Keys' },
+    'effects.keySpillStrength': {
+      ...num('Spill strength', 0.25, effects, [0, 1, 0.05]),
+      ...percent,
+      group: 'Keys',
+      visible: (s) => s.effects.keySpill,
+    },
+    'effects.keySpillSpread': {
+      ...num('Spill reach', 1.5, effects, [0.5, 4, 0.25], 'none', 2),
+      group: 'Keys',
+      visible: (s) => s.effects.keySpill,
+    },
+    'effects.keyCone': { ...bool('Light cone down the key', false, effects), group: 'Keys' },
+    'effects.keyConeStrength': {
+      ...num('Cone strength', 0.4, effects, [0, 1, 0.05]),
+      ...percent,
+      group: 'Keys',
+      visible: (s) => s.effects.keyCone,
+    },
+    'effects.keyConeSpread': {
+      ...num('Cone spread', 1, effects, [0.25, 3, 0.05], 'times'),
+      group: 'Keys',
+      visible: (s) => s.effects.keyCone,
     },
 
     // Render quality (decision 48)
-    'render.scaleAuto': bool('Match the display (auto)', true, sidebar('render')),
+    'render.quality': {
+      kind: 'choice',
+      label: 'Quality preset',
+      default: 'medium',
+      tabletDefault: 'low',
+      home: render,
+      group: PRESET,
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+      ],
+    },
+    'render.bloomResolution': {
+      kind: 'choice',
+      label: 'Bloom resolution',
+      default: 'half',
+      tabletDefault: 'quarter',
+      home: render,
+      group: PRESET,
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'quarter', label: '¼' },
+        { value: 'half', label: '½' },
+        { value: 'full', label: 'Full' },
+      ],
+    },
+    'render.particleBudget': {
+      ...num('Particle budget', 2048, render, [256, 4096, 256], 'none', 0),
+      tabletDefault: 1024,
+      group: PRESET,
+    },
+    'render.shaderDetail': {
+      kind: 'choice',
+      label: 'Shader detail',
+      default: 'medium',
+      tabletDefault: 'low',
+      home: render,
+      group: PRESET,
+      options: [
+        { value: 'minimal', label: 'Minimal' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+      ],
+    },
+    'render.bloomStrength': {
+      ...num('Bloom strength', 0.8, render, [0, 3, 0.05], 'times'),
+      group: BLOOM,
+      enabled: (s) => s.render.bloomResolution !== 'off',
+    },
+    'render.bloomRadius': {
+      ...num('Bloom radius', 0.4, render, [0, 1, 0.05]),
+      ...percent,
+      group: BLOOM,
+      enabled: (s) => s.render.bloomResolution !== 'off',
+    },
+    'render.bloomThreshold': {
+      ...num('Bloom threshold', 0.1, render, [0, 1, 0.01]),
+      ...percent,
+      group: BLOOM,
+      enabled: (s) => s.render.bloomResolution !== 'off',
+    },
+    'render.scaleAuto': {
+      ...bool('Match the display (auto)', true, render),
+      group: RESOLUTION,
+    },
     'render.scale': {
-      ...num('Render scale', 1, sidebar('render'), [0.5, 2, 0.05], 'times'),
+      ...num('Render scale', 1, render, [0.5, 2, 0.05], 'times'),
+      group: RESOLUTION,
       visible: (s) => !s.render.scaleAuto,
     },
-    'render.maxPixelRatio': num('Max pixel ratio', 2, sidebar('render'), [1, 4, 0.25], 'times'),
+    'render.maxPixelRatio': {
+      ...num('Max pixel ratio', 2, render, [1, 4, 0.25], 'times'),
+      group: RESOLUTION,
+    },
     'render.antialias': {
       kind: 'choice',
       label: 'Anti-aliasing',
       default: 'msaa',
-      home: sidebar('render'),
+      home: render,
+      group: RESOLUTION,
       options: [
         { value: 'off', label: 'Off' },
         { value: 'msaa', label: 'MSAA' },

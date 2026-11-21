@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import type { SettingKey } from '@/core/settings/SettingKey'
 import { settingGroupKeys } from '@/core/settings/settingGroups'
 import { SETTINGS_LAYOUT } from '@/core/settings/SETTINGS_LAYOUT'
+import { settingDefinition } from '@/core/settings/settingValues'
 
 import AppAccordion from '../components/AppAccordion.vue'
 import AppButton from '../components/AppButton.vue'
@@ -36,12 +37,32 @@ const sections = computed(() =>
   })),
 )
 
-const keysOf = (id: (typeof SETTINGS_LAYOUT.sidebar)[number]['id']): readonly SettingKey[] =>
-  settingGroupKeys({ kind: 'section', id })
+type SectionId = (typeof SETTINGS_LAYOUT.sidebar)[number]['id']
 
-const isColorRow = (key: SettingKey) => key.startsWith('colors.') || key.startsWith('opacity.')
-const highwayMain = computed(() => keysOf('highway').filter((k) => !isColorRow(k)))
-const highwayColors = computed(() => keysOf('highway').filter(isColorRow))
+/**
+ * A section's rows split at each subheading (the registry's `group`); a subheading shows only
+ * while one of its rows is visible.
+ */
+function blocksOf(id: SectionId): readonly { title?: string; keys: readonly SettingKey[] }[] {
+  const blocks: { title?: string; keys: SettingKey[] }[] = []
+  for (const key of settingGroupKeys({ kind: 'section', id })) {
+    const title = settingDefinition(key).group
+    const last = blocks.at(-1)
+    if (last !== undefined && last.title === title) last.keys.push(key)
+    else blocks.push({ title, keys: [key] })
+  }
+  return blocks
+}
+
+const isVisible = (key: SettingKey) => settingDefinition(key).visible?.(settings.settings) ?? true
+const blocks = computed(() =>
+  Object.fromEntries(
+    SETTINGS_LAYOUT.sidebar.map((s) => [
+      s.id,
+      blocksOf(s.id).map((b) => ({ ...b, shown: b.keys.some(isVisible) })),
+    ]),
+  ),
+)
 </script>
 
 <template>
@@ -69,13 +90,11 @@ const highwayColors = computed(() => keysOf('highway').filter(isColorRow))
             :reset-label="'resetLabel' in section ? section.resetLabel : undefined"
             :show-title="false"
           >
-            <template v-if="section.id === 'highway'">
-              <SettingRow v-for="key in highwayMain" :key="key" :setting-key="key" />
-              <h4 class="section-caps sub">Colors</h4>
-              <SettingRow v-for="key in highwayColors" :key="key" :setting-key="key" />
-            </template>
-            <template v-else>
-              <SettingRow v-for="key in keysOf(section.id)" :key="key" :setting-key="key" />
+            <template v-for="(block, i) in blocks[section.id]" :key="i">
+              <h4 v-if="block.title !== undefined && block.shown" class="section-caps sub">
+                {{ block.title }}
+              </h4>
+              <SettingRow v-for="key in block.keys" :key="key" :setting-key="key" />
             </template>
             <RenderReadout v-if="section.id === 'render'" :render-status="renderStatus" />
           </SettingsSection>

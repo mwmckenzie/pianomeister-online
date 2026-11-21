@@ -1,5 +1,15 @@
 /** Playfield sidebar sections (settings that change what the highway shows). */
-export type SidebarSectionId = 'camera' | 'keyboard' | 'highway' | 'notes' | 'effects' | 'render'
+export type SidebarSectionId =
+  | 'camera'
+  | 'keyboard'
+  | 'highway'
+  | 'lines'
+  | 'notes'
+  | 'noteStyle'
+  | 'effects'
+  | 'cages'
+  | 'names'
+  | 'render'
 
 /** Settings window tabs that hold settings. */
 export type SettingsTabId = 'practice' | 'audio' | 'appearance'

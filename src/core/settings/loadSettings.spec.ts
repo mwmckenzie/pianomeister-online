@@ -3,7 +3,16 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
 import { charKey } from '../commands/keyBindings'
-import { loadSettings, loadShortcuts, SETTINGS_VERSION, storedSettings } from './loadSettings'
+import { EMPTY_LOOKS } from '../looks/EMPTY_LOOKS'
+import { captureLook } from '../looks/lookValues'
+import {
+  loadDeviceClass,
+  loadLooks,
+  loadSettings,
+  loadShortcuts,
+  SETTINGS_VERSION,
+  storedSettings,
+} from './loadSettings'
 import { SETTINGS_REGISTRY as R } from './SETTINGS_REGISTRY'
 
 const stored = (settings: unknown, version = SETTINGS_VERSION) => ({ version, settings })
@@ -15,8 +24,8 @@ describe('loadSettings', () => {
     expect(loadSettings('garbage')).toEqual(DEFAULT_SETTINGS)
     expect(DEFAULT_SETTINGS.camera.tiltDeg).toBe(45)
     expect(DEFAULT_SETTINGS.highway.lookAheadBeats).toBe(8)
-    expect(DEFAULT_SETTINGS.colors.background).toBe('#05070F')
-    expect(DEFAULT_SETTINGS.colors.highway).toBe('#0A0F1E')
+    expect(DEFAULT_SETTINGS.colors.background).toBe('#03050B')
+    expect(DEFAULT_SETTINGS.colors.highway).toBe('#070B16')
   })
 
   it('round-trips stored settings', () => {
@@ -51,7 +60,7 @@ describe('loadSettings', () => {
     )
     expect(loaded.camera.tiltDeg).toBe(45)
     expect(loaded.camera.pan).toBe(0)
-    expect(loaded.colors.background).toBe('#05070F')
+    expect(loaded.colors.background).toBe('#03050B')
     expect(loaded.colors.lane).toBe(DEFAULT_SETTINGS.colors.lane)
     expect(loaded.colors.bar).toBe('#A1B2C3')
     expect(loaded.effects.enabled).toBe(true)
@@ -176,7 +185,7 @@ describe('loadSettings', () => {
     const loaded = loadSettings(stored(v2, 2))
     expect(loaded.camera).toEqual(v2.camera)
     expect(loaded.keyboard).toEqual(v2.keyboard)
-    expect(loaded.render).toEqual(v2.render)
+    expect(loaded.render).toMatchObject(v2.render)
     expect(loaded.audio).toEqual(DEFAULT_SETTINGS.audio)
     expect(loaded.practice).toEqual(DEFAULT_SETTINGS.practice)
     expect(loaded.appearance).toEqual(DEFAULT_SETTINGS.appearance)
@@ -231,9 +240,65 @@ describe('loadSettings', () => {
     expect(loadShortcuts(v4)).toEqual({})
     const overrides = { playPause: [charKey('k')], stop: [] }
     const stored = JSON.parse(JSON.stringify(storedSettings(loadSettings(v4), overrides)))
-    expect(stored.version).toBe(5)
+    expect(stored.version).toBe(SETTINGS_VERSION)
     expect(loadShortcuts(stored)).toEqual(overrides)
-    expect(loadShortcuts({ ...stored, version: 6 })).toEqual({})
+    expect(loadShortcuts({ ...stored, version: SETTINGS_VERSION + 1 })).toEqual({})
     expect(loadShortcuts(null)).toEqual({})
+  })
+
+  it('migrates v5 to v6: the pedal band becomes the pedal cage fill, shortcuts are kept', () => {
+    const overrides = { playPause: [charKey('k')] }
+    const v5 = {
+      version: 5,
+      settings: {
+        colors: { background: '#010203', pedal: '#112233' },
+        opacity: { lane: 0.5, pedal: 0.4 },
+        effects: { enabled: false },
+      },
+      shortcuts: overrides,
+    }
+    const loaded = loadSettings(v5)
+    expect(loaded.pedal).toEqual({
+      ...DEFAULT_SETTINGS.pedal,
+      fillColor: '#112233',
+      fillOpacity: 0.4,
+    })
+    expect(loaded.colors.background).toBe('#010203')
+    expect(loaded.opacity.lane).toBe(0.5)
+    expect(loaded.effects.enabled).toBe(false)
+    expect(loaded.lines).toEqual(DEFAULT_SETTINGS.lines)
+    expect(loadShortcuts(v5)).toEqual(overrides)
+    expect(loadLooks(v5)).toEqual(EMPTY_LOOKS)
+  })
+
+  it('uses the tablet defaults for values a tablet has stored nothing for', () => {
+    expect(loadSettings(null, 'tablet').render).toMatchObject({
+      quality: 'low',
+      bloomResolution: 'quarter',
+      particleBudget: 1024,
+      shaderDetail: 'low',
+    })
+    const partial = loadSettings(stored({ render: { quality: 'high' } }), 'tablet')
+    expect(partial.render.quality).toBe('high')
+    expect(partial.render.particleBudget).toBe(1024)
+    expect(loadSettings(null).render.quality).toBe('medium')
+  })
+
+  it('keeps the device class the defaults were chosen for', () => {
+    const tablet = JSON.parse(
+      JSON.stringify(storedSettings(DEFAULT_SETTINGS, {}, EMPTY_LOOKS, 'tablet')),
+    )
+    expect(loadDeviceClass(tablet, 'desktop')).toBe('tablet')
+    expect(loadDeviceClass({ ...tablet, deviceClass: 'phone' }, 'desktop')).toBe('desktop')
+    expect(loadDeviceClass({ version: 5, settings: {} }, 'tablet')).toBe('tablet')
+    expect(loadDeviceClass(null, 'desktop')).toBe('desktop')
+  })
+
+  it('round-trips saved looks', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Neon night')
+    const state = { active: 'look-1', saved: [look] }
+    const raw = JSON.parse(JSON.stringify(storedSettings(DEFAULT_SETTINGS, {}, state)))
+    expect(loadLooks(raw)).toEqual(state)
+    expect(loadLooks({ ...raw, version: SETTINGS_VERSION + 1 })).toEqual(EMPTY_LOOKS)
   })
 })

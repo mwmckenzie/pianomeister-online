@@ -177,7 +177,10 @@ export class Engine {
       const { notes } = settings
       const lift = blackLaneLift(notes, settings.keyboard)
       song.highway.applySettings(settings)
-      song.pedals.setStyle(settings.colors.pedal, settings.opacity.pedal)
+      song.pedals.setStyle(
+        settings.pedal.fillColor,
+        settings.pedal.show ? settings.pedal.fillOpacity : 0,
+      )
       // Floating below the white heads' tops, black-lane notes would intersect them: draw them on
       // top instead, so black-lane notes always win (brief decision 39).
       const onTop = lift < WHITE_LANE_Y + (notes.heads3d ? notes.headHeight : 0.01)

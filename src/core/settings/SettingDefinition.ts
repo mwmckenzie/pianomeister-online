@@ -6,12 +6,16 @@ import type { SettingHome } from './SettingHome'
  * × 100, `wholePercent` = the number itself with "%", `seconds` = "2.5 s". The stored value is always the raw number.
  */
 export type SettingUnit =
-  'none' | 'mm' | 'percent' | 'wholePercent' | 'deg' | 'beats' | 'times' | 'px' | 'seconds'
+  'none' | 'mm' | 'percent' | 'wholePercent' | 'deg' | 'beats' | 'times' | 'px' | 'seconds' | 'ms'
 
 interface BaseSetting<V> {
   readonly label: string
   readonly default: V
+  /** The default on a tablet, where it differs (brief decision 110). */
+  readonly tabletDefault?: V
   readonly home: SettingHome
+  /** Subheading inside its section; consecutive settings with the same group share it. */
+  readonly group?: string
   /** Hidden while it has no effect (e.g. edge size with square edges). */
   readonly visible?: (settings: PlayerSettings) => boolean
   /** Shown but disabled while it has no effect (e.g. the idle delay with hiding off). */
