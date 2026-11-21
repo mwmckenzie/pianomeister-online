@@ -242,7 +242,7 @@ export class Keyboard {
     this.white = this.keyGroup(whiteKeys, this.materials[0] as ShaderMaterial)
     this.black = this.keyGroup(blackKeys, this.materials[1] as ShaderMaterial)
     for (const g of [this.white, this.black]) {
-      this.group.add(g.mesh, g.twin.mesh, g.cones, g.labels)
+      this.group.add(g.mesh, g.cones, g.labels)
     }
     this.writeLightPositions()
     this.writeMatrices()
@@ -311,11 +311,6 @@ export class Keyboard {
       if (this.coneOn) group.cones.geometry.getAttribute('aCone').needsUpdate = true
     }
     this.writeMatrices()
-  }
-
-  /** Glow twins draw only while bloom runs. */
-  syncGlow(bloomActive: boolean): void {
-    for (const twin of this.twins) twin.sync(bloomActive)
   }
 
   dispose(): void {
@@ -424,7 +419,7 @@ export class Keyboard {
   private disposeMeshes(): void {
     for (const group of [this.white, this.black]) {
       if (group === null) continue
-      this.group.remove(group.mesh, group.twin.mesh, group.cones, group.labels)
+      this.group.remove(group.mesh, group.cones, group.labels)
       group.mesh.geometry.dispose()
       group.mesh.dispose()
       group.twin.dispose()

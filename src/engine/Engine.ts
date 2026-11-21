@@ -20,6 +20,7 @@ import { noteInstances } from './model/noteInstances'
 import { songClock } from './model/songClock'
 import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
+import type { GlowTwin } from './GlowTwin'
 import { ContactShadow } from './notes/ContactShadow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { NoteNameLayer } from './names/NoteNameLayer'
@@ -82,6 +83,10 @@ interface SongParts {
 export class Engine {
   private pipeline: RenderPipeline | null = null
   private readonly scene = new Scene()
+  /** Glow twins only (brief decision 109): the bloom pass draws this, not the main scene. */
+  private readonly glowScene = new Scene()
+  /** Bloom state the twins were last synced for; null = sync on the next frame. */
+  private glowSyncedFor: boolean | null = null
   private readonly camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 1000)
   private readonly time = createTimeUniforms()
   private readonly noteStyle = createNoteStyleUniforms()
@@ -115,7 +120,7 @@ export class Engine {
   }
 
   mount(canvas: HTMLCanvasElement): void {
-    this.pipeline = new RenderPipeline(canvas, this.scene, this.camera)
+    this.pipeline = new RenderPipeline(canvas, this.scene, this.glowScene, this.camera)
     this.applySettings(this.settings)
     // Size changes in device pixels (window resize, browser zoom); where the browser can't
     // observe the device-pixel box, the CSS box. A device-pixel-ratio change alone is also
@@ -179,16 +184,11 @@ export class Engine {
     this.scene.add(
       s.highway.group,
       s.pedals.mesh,
-      s.pedals.twin.mesh,
       s.sustains.white.mesh,
-      s.sustains.white.twin.mesh,
       s.heads.white.mesh,
-      s.heads.white.twin.mesh,
       s.shadow.mesh,
       s.sustains.black.mesh,
-      s.sustains.black.twin.mesh,
       s.heads.black.mesh,
-      s.heads.black.twin.mesh,
       s.names.white.mesh,
       s.names.black.mesh,
     )
@@ -265,6 +265,7 @@ export class Engine {
       this.resize()
     }
     this.placeCamera()
+    this.syncGlow()
     this.invalidate()
   }
 
@@ -447,7 +448,8 @@ export class Engine {
       }
     }
     this.lastTick = tick
-    this.syncGlow(pipeline.bloomActive)
+    // The chain can change after applySettings (FXAA/SMAA passes load asynchronously).
+    if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()
     pipeline.render()
     this.rendered++
     this.record(this.frameMs, performance.now() - started)
@@ -499,21 +501,30 @@ export class Engine {
     )
   }
 
-  /** Glow twins follow their meshes and are drawn only while bloom runs (brief decision 109). */
-  private syncGlow(bloomActive: boolean): void {
+  /**
+   * Refills the glow scene and syncs every twin with its mesh (brief decision 109). Only when
+   * settings, the song or the pass chain change: per-frame changes reach twins through shared
+   * uniforms and buffers, so frames don't pay for it.
+   */
+  private syncGlow(): void {
+    const bloomActive = this.pipeline?.bloomActive ?? false
+    this.glowSyncedFor = this.pipeline === null ? null : bloomActive
     const song = this.song
-    if (song === null) return
-    song.highway.syncGlow(bloomActive)
-    this.effects.syncGlow(bloomActive)
-    this.keyboard.syncGlow(bloomActive)
-    song.pedals.twin.sync(bloomActive)
-    for (const layer of [
-      song.sustains.white,
-      song.sustains.black,
-      song.heads.white,
-      song.heads.black,
-    ]) {
-      layer.twin.sync(bloomActive)
+    const twins: GlowTwin[] = [...this.keyboard.twins, ...this.effects.twins]
+    if (song !== null) {
+      twins.push(
+        ...song.highway.twins,
+        song.pedals.twin,
+        song.sustains.white.twin,
+        song.sustains.black.twin,
+        song.heads.white.twin,
+        song.heads.black.twin,
+      )
+    }
+    this.glowScene.clear()
+    for (const twin of twins) {
+      twin.sync(bloomActive)
+      this.glowScene.add(twin.mesh)
     }
   }
 
@@ -530,16 +541,11 @@ export class Engine {
       song.names.white,
       song.names.black,
     ]
-    this.scene.remove(
-      song.highway.group,
-      ...parts.map((p) => p.mesh),
-      ...[song.pedals, ...Object.values(song.sustains), ...Object.values(song.heads)].map(
-        (p) => p.twin.mesh,
-      ),
-    )
+    this.scene.remove(song.highway.group, ...parts.map((p) => p.mesh))
     song.highway.dispose()
     for (const part of parts) part.dispose()
     this.song = null
+    this.syncGlow()
   }
 
   private record(window: number[], value: number): void {

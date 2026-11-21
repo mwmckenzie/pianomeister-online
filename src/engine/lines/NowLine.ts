@@ -91,7 +91,7 @@ void main() {
  */
 export class NowLine {
   private readonly mesh: Mesh<BufferGeometry, ShaderMaterial>
-  private readonly twin: GlowTwin
+  readonly twin: GlowTwin
   private readonly pitchColors: DataTexture
 
   constructor(time: TimeUniforms) {
@@ -129,7 +129,7 @@ export class NowLine {
   }
 
   get meshes(): readonly Mesh[] {
-    return [this.mesh, this.twin.mesh]
+    return [this.mesh]
   }
 
   applySettings(
@@ -146,10 +146,6 @@ export class NowLine {
     set(u, 'uGlow', lines.nowGlow)
     set(u, 'uHalf', lines.nowWidth / 2 + lines.nowWidth * HALO[lines.nowStyle])
     this.twin.enabled = lines.nowGlow > 0
-  }
-
-  syncGlow(bloomActive: boolean): void {
-    this.twin.sync(bloomActive)
   }
 
   dispose(): void {

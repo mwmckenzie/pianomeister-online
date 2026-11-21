@@ -387,11 +387,8 @@ export class Highway {
       this.blackLanes,
       this.lanes,
       this.borders.mesh,
-      this.borders.twin.mesh,
       this.octaves.mesh,
-      this.octaves.twin.mesh,
       this.grid,
-      this.gridTwin.mesh,
       ...this.nowLine.meshes,
       ...this.guides,
     )
@@ -437,12 +434,9 @@ export class Highway {
     this.nowLine.applySettings(lines, appearance)
   }
 
-  /** Shows or hides the glow twins (only drawn while bloom runs). */
-  syncGlow(bloomActive: boolean): void {
-    this.gridTwin.sync(bloomActive)
-    this.borders.twin.sync(bloomActive)
-    this.octaves.twin.sync(bloomActive)
-    this.nowLine.syncGlow(bloomActive)
+  /** Glow twins of the grid, the glowing lines and the now line (for the glow scene). */
+  get twins(): readonly GlowTwin[] {
+    return [this.gridTwin, this.borders.twin, this.octaves.twin, this.nowLine.twin]
   }
 
   /** Shows the 1x and 1.5x look-ahead markers at the given z positions (debug review aid). */

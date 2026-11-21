@@ -11,15 +11,13 @@ import {
 import { Pass } from 'three/addons/postprocessing/Pass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 
-import { GLOW_LAYER } from '../GLOW_LAYER'
-
 const BLACK = new Color(0, 0, 0)
 
 /**
- * Selective bloom (brief decision 109): draws only the glow layer (glow twins: emitters, plus
+ * Selective bloom (brief decision 109): draws the glow scene (glow twins only: emitters, plus
  * keys and heads as black occluders) into its own half-float target at `scale` × the drawing
  * buffer, then blurs it with three's UnrealBloomPass. It leaves the composer's buffers alone;
- * the mix pass adds `bloomTexture` — the blur only, never the glow layer itself, so an element
+ * the mix pass adds `bloomTexture` — the blur only, never the glow scene itself, so an element
  * keeps its own brightness and gains a halo.
  */
 export class SelectiveBloomPass extends Pass {
@@ -30,7 +28,8 @@ export class SelectiveBloomPass extends Pass {
   private scale = 0.5
 
   constructor(
-    private readonly scene: Scene,
+    /** Only the glow twins: a small scene, so this pass doesn't walk the main one. */
+    private readonly glowScene: Scene,
     private readonly camera: Camera,
   ) {
     super()
@@ -64,19 +63,13 @@ export class SelectiveBloomPass extends Pass {
   }
 
   override render(renderer: WebGLRenderer): void {
-    const background = this.scene.background
-    const layers = this.camera.layers.mask
     const clearColor = renderer.getClearColor(new Color())
     const clearAlpha = renderer.getClearAlpha()
     const autoClear = renderer.autoClear
-    this.scene.background = null
-    this.camera.layers.set(GLOW_LAYER)
     renderer.autoClear = true
     renderer.setClearColor(BLACK, 1)
     renderer.setRenderTarget(this.glowTarget)
-    renderer.render(this.scene, this.camera)
-    this.camera.layers.mask = layers
-    this.scene.background = background
+    renderer.render(this.glowScene, this.camera)
     renderer.setClearColor(clearColor, clearAlpha)
     renderer.autoClear = autoClear
     // UnrealBloomPass reads `readBuffer` and finally blends onto it; the target is ours, so that

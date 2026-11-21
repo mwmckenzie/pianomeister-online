@@ -3,6 +3,7 @@ import { type Color, Group } from 'three'
 import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
+import type { GlowTwin } from '../GlowTwin'
 import type { KeyBody } from '../model/KeyBody'
 import { keyLayout } from '../model/keyLayout'
 import { KEYBOARD } from '../model/KEYBOARD'
@@ -62,7 +63,6 @@ export class NowLineEffects {
     this.smoke = new ParticleSystem(smokeCapacity(budget), time, true)
     keyLayout().forEach((key, i) => (this.keyTop[i] = key.raised))
     this.group.add(this.held.points, this.smoke.mesh, this.particles.mesh)
-    if (this.particles.twin !== null) this.group.add(this.particles.twin.mesh)
   }
 
   setBudget(budget: number): void {
@@ -148,9 +148,9 @@ export class NowLineEffects {
     else this.particles.emit(out)
   }
 
-  /** Glow twins draw only while bloom runs. */
-  syncGlow(bloomActive: boolean): void {
-    this.particles.twin?.sync(bloomActive)
+  /** The additive pool's glow twin (the smoke pool doesn't bloom). */
+  get twins(): readonly GlowTwin[] {
+    return this.particles.twin === null ? [] : [this.particles.twin]
   }
 
   clear(): void {

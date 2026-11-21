@@ -178,7 +178,6 @@ export class ParticleSystem {
     const old = this.mesh.geometry
     this.mesh.geometry = this.buildGeometry(capacity)
     old.dispose()
-    this.twin?.sync()
   }
 
   emit(emissions: readonly Emission[]): void {

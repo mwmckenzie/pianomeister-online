@@ -49,7 +49,7 @@ interface Chain {
  * - fxaa / smaa: draw into a render target, then three's FXAA or SMAA pass. Those passes are
  *   loaded on first use (SMAA carries its lookup textures), keeping them out of the main
  *   bundle; the previous chain keeps rendering until the pass has arrived;
- * - bloom: the glow layer is drawn and blurred first (SelectiveBloomPass), and a mix pass
+ * - bloom: the glow scene is drawn and blurred first (SelectiveBloomPass), and a mix pass
  *   adds the blur and the vignette after the main pass.
  */
 export class RenderPipeline {
@@ -70,6 +70,8 @@ export class RenderPipeline {
   constructor(
     canvas: HTMLCanvasElement,
     private readonly scene: Scene,
+    /** The glow twins (brief decision 109), drawn by the bloom pass. */
+    private readonly glowScene: Scene,
     private readonly camera: Camera,
   ) {
     this.renderer = new WebGLRenderer({
@@ -133,7 +135,7 @@ export class RenderPipeline {
     this.gpu.end()
   }
 
-  /** True while the glow layer is drawn: glow twins only need updating then. */
+  /** True while the glow scene is drawn: glow twins are shown only then. */
   get bloomActive(): boolean {
     return this.bloomPass !== null
   }
@@ -211,7 +213,7 @@ export class RenderPipeline {
     })
     const composer = new EffectComposer(this.renderer, target)
     if (chain.bloom) {
-      this.bloomPass = new SelectiveBloomPass(this.scene, this.camera)
+      this.bloomPass = new SelectiveBloomPass(this.glowScene, this.camera)
       composer.addPass(this.bloomPass)
     }
     composer.addPass(new RenderPass(this.scene, this.camera))

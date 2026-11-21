@@ -147,7 +147,6 @@ export class CageLayer {
     const old = this.mesh.geometry
     this.mesh.geometry = geometry(regions)
     old.dispose()
-    this.twin.sync()
   }
 
   setStyle(style: CageStyle): void {
