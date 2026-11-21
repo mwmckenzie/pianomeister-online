@@ -528,7 +528,12 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Notes',
       visible: (s) => s.effects.soundingGlow,
     },
-    'effects.keySpill': { ...bool('Light spills onto neighbours', true, effects), group: 'Keys' },
+    'effects.keySpill': {
+      ...bool('Light spills onto neighbours', true, effects),
+      group: 'Keys',
+      // Shader detail Minimal samples no neighbours (brief decision 110).
+      enabled: (s) => s.render.shaderDetail !== 'minimal',
+    },
     'effects.keySpillStrength': {
       ...num('Spill strength', 0.25, effects, [0, 1, 0.05]),
       ...percent,
@@ -540,7 +545,12 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Keys',
       visible: (s) => s.effects.keySpill,
     },
-    'effects.keyCone': { ...bool('Light cone down the key', false, effects), group: 'Keys' },
+    'effects.keyCone': {
+      ...bool('Light cone down the key', false, effects),
+      group: 'Keys',
+      // Cones need shader detail Medium or High (brief decision 110).
+      enabled: (s) => s.render.shaderDetail === 'medium' || s.render.shaderDetail === 'high',
+    },
     'effects.keyConeStrength': {
       ...num('Cone strength', 0.4, effects, [0, 1, 0.05]),
       ...percent,

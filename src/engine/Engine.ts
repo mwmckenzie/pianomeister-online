@@ -5,7 +5,7 @@ import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import { CageLayer } from './cages/CageLayer'
 import { createTimeUniforms } from './createTimeUniforms'
-import { Effects } from './Effects'
+import { NowLineEffects } from './effects/NowLineEffects'
 import type { EngineSong } from './EngineSong'
 import { Highway } from './Highway'
 import { Keyboard } from './Keyboard'
@@ -21,6 +21,8 @@ import { songClock } from './model/songClock'
 import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
 import { ContactShadow } from './notes/ContactShadow'
+import { NoteLabelAtlas } from './names/NoteLabelAtlas'
+import { NoteNameLayer } from './names/NoteNameLayer'
 import { HeadLayer } from './notes/HeadLayer'
 import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/noteStyle'
 import { SustainLayer } from './notes/SustainLayer'
@@ -48,6 +50,8 @@ const ORDER = {
   shadow: 3.5,
   blackSustains: 3.6,
   blackHeads: 3.7,
+  whiteNames: 3.15,
+  blackNames: 3.75,
 } as const
 
 interface Onset {
@@ -63,6 +67,7 @@ interface SongParts {
   readonly sustains: { readonly white: SustainLayer; readonly black: SustainLayer }
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
   readonly shadow: ContactShadow
+  readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
   readonly keyStates: KeyStates
   /** Note onsets sorted by tick, for sparks and key re-strikes. */
   readonly onsets: readonly Onset[]
@@ -80,8 +85,9 @@ export class Engine {
   private readonly camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 1000)
   private readonly time = createTimeUniforms()
   private readonly noteStyle = createNoteStyleUniforms()
-  private readonly keyboard = new Keyboard()
-  private readonly effects = new Effects()
+  private readonly atlas = new NoteLabelAtlas()
+  private readonly keyboard = new Keyboard(this.atlas.texture)
+  private readonly effects = new NowLineEffects(this.time, DEFAULT_SETTINGS.render.particleBudget)
   private song: SongParts | null = null
   private settings: PlayerSettings = DEFAULT_SETTINGS
   private keyboardKey = ''
@@ -162,6 +168,10 @@ export class Engine {
         black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
       },
       shadow: new ContactShadow(black, this.time, ORDER.shadow),
+      names: {
+        white: new NoteNameLayer(white, this.time, this.atlas.texture, ORDER.whiteNames),
+        black: new NoteNameLayer(black, this.time, this.atlas.texture, ORDER.blackNames),
+      },
       keyStates: new KeyStates(instances),
       onsets: onsetsOf(instances),
     }
@@ -179,6 +189,8 @@ export class Engine {
       s.sustains.black.twin.mesh,
       s.heads.black.mesh,
       s.heads.black.twin.mesh,
+      s.names.white.mesh,
+      s.names.black.mesh,
     )
     this.lastTick = null
     this.effects.clear()
@@ -190,13 +202,16 @@ export class Engine {
     this.settings = settings
     this.scene.background = srgb(settings.colors.background)
     applyNoteStyle(this.noteStyle, settings)
+    this.atlas.draw(settings.names)
     this.effects.group.visible = settings.effects.enabled
+    this.effects.setBudget(settings.render.particleBudget)
     const keyboardKey = JSON.stringify(settings.keyboard)
     if (keyboardKey !== this.keyboardKey) {
       this.keyboardKey = keyboardKey
       this.keyboard.rebuild(settings.keyboard)
       this.effects.setKeyTops(this.keyboard.keyBodies)
     }
+    this.keyboard.applySettings(settings)
     const song = this.song
     if (song !== null) {
       const { notes } = settings
@@ -236,6 +251,14 @@ export class Engine {
         layer.setShape(notes.headHeight, notes.headRounded)
       }
       song.shadow.set(notes.contactShadow, notes.shadowStrength, lift)
+      const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
+      for (const [layer, y, top] of [
+        [song.names.white, WHITE_LANE_Y, false],
+        [song.names.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
+      ] as const) {
+        layer.mesh.visible = namesOnNotes
+        layer.setLift(y, top)
+      }
     }
     if (this.pipeline !== null) {
       this.pipeline.configure(settings.render, settings.highway.vignette)
@@ -307,6 +330,9 @@ export class Engine {
     this.placeCamera()
     const bufferHeight = height * pipeline.renderer.getPixelRatio()
     this.effects.setScale(bufferHeight / (2 * Math.tan(((FOV_DEG / 2) * Math.PI) / 180)))
+    for (const layer of this.song === null ? [] : Object.values(this.song.names)) {
+      layer.setViewport(bufferHeight, pipeline.renderer.getPixelRatio())
+    }
     this.invalidate()
   }
 
@@ -361,6 +387,7 @@ export class Engine {
     this.disposeSong()
     this.keyboard.dispose()
     this.effects.dispose()
+    this.atlas.dispose()
     this.pipeline?.dispose()
     this.pipeline = null
   }
@@ -397,12 +424,27 @@ export class Engine {
     if (song !== null) {
       const { keys, effects } = this.settings
       for (const onset of this.crossedOnsets(song, tick)) {
-        this.keyboard.restrike(onset.midi)
-        if (effects.enabled) this.effects.spawn(onset.midi, velocityScale(onset.velocity, effects))
+        this.keyboard.restrike(onset.midi, velocityScale(onset.velocity, effects))
+        if (effects.enabled) {
+          this.effects.onset(
+            onset.midi,
+            velocityScale(onset.velocity, effects),
+            effects,
+            this.reducedMotion,
+          )
+        }
       }
       const states = song.keyStates.at(tick, keys.fadeBeats * song.ppq, keys.maxApproachAlpha)
       this.keyboard.update(states, dt)
-      if (effects.enabled) this.effects.update(dt, states, (v) => velocityScale(v, effects))
+      if (effects.enabled) {
+        this.effects.update(
+          dt,
+          states,
+          effects,
+          (v) => velocityScale(v, effects),
+          this.reducedMotion,
+        )
+      }
     }
     this.lastTick = tick
     this.syncGlow(pipeline.bloomActive)
@@ -462,6 +504,8 @@ export class Engine {
     const song = this.song
     if (song === null) return
     song.highway.syncGlow(bloomActive)
+    this.effects.syncGlow(bloomActive)
+    this.keyboard.syncGlow(bloomActive)
     song.pedals.twin.sync(bloomActive)
     for (const layer of [
       song.sustains.white,
@@ -483,6 +527,8 @@ export class Engine {
       song.heads.black,
       song.shadow,
       song.pedals,
+      song.names.white,
+      song.names.black,
     ]
     this.scene.remove(
       song.highway.group,

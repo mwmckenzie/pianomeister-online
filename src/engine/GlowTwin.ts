@@ -1,4 +1,11 @@
-import { AdditiveBlending, type BufferGeometry, Mesh, NoBlending, ShaderMaterial } from 'three'
+import {
+  AdditiveBlending,
+  type BufferGeometry,
+  InstancedMesh,
+  Mesh,
+  NoBlending,
+  ShaderMaterial,
+} from 'three'
 
 import { GLOW_LAYER } from './GLOW_LAYER'
 
@@ -29,7 +36,14 @@ export class GlowTwin<G extends BufferGeometry = BufferGeometry> {
       depthTest: true,
       side: main.side,
     })
-    this.mesh = new Mesh(source.geometry, material)
+    if (source instanceof InstancedMesh) {
+      // Instanced meshes (the keys): the twin shares the instance matrices, so presses follow.
+      const twin = new InstancedMesh(source.geometry, material, source.count)
+      twin.instanceMatrix = source.instanceMatrix
+      this.mesh = twin
+    } else {
+      this.mesh = new Mesh(source.geometry, material)
+    }
     this.mesh.layers.set(GLOW_LAYER)
     this.mesh.frustumCulled = false
     this.sync()
