@@ -64,8 +64,12 @@ async function frame(page: Page): Promise<string> {
   return shot
 }
 
-/** The largest difference of any colour channel between two frames (0–255). */
-async function maxDifference(page: Page, a: string, b: string): Promise<number> {
+/**
+ * How many pixels differ by more than 4/255 in any channel between two frames. Animation
+ * (flicker, smoke, a pulse) changes whole notes — thousands of pixels; settling keys and
+ * bloom rounding touch a few.
+ */
+async function changedPixels(page: Page, a: string, b: string): Promise<number> {
   return page.evaluate(
     async ([first, second]) => {
       const pixels = async (png: string) => {
@@ -80,9 +84,16 @@ async function maxDifference(page: Page, a: string, b: string): Promise<number> 
         return context.getImageData(0, 0, image.width, image.height).data
       }
       const [x, y] = [await pixels(first), await pixels(second)]
-      let max = 0
-      for (let i = 0; i < x.length; i++) max = Math.max(max, Math.abs((x[i] ?? 0) - (y[i] ?? 0)))
-      return max
+      let changed = 0
+      for (let i = 0; i < x.length; i += 4) {
+        const d = Math.max(
+          Math.abs((x[i] ?? 0) - (y[i] ?? 0)),
+          Math.abs((x[i + 1] ?? 0) - (y[i + 1] ?? 0)),
+          Math.abs((x[i + 2] ?? 0) - (y[i + 2] ?? 0)),
+        )
+        if (d > 4) changed++
+      }
+      return changed
     },
     [a, b] as const,
   )
@@ -279,13 +290,16 @@ test('note names on and off', async ({ page }) => {
 
 const ANIMATED = { noteStyle: { headFill: 'hotCore', sustainFill: 'smoke' } }
 
-test('animated fills move with full motion', async ({ page }) => {
+test('animated fills hold still while stopped, even with full motion', async ({ page }) => {
+  // Looping animation runs only while playing (brief decision 119), so the frame settles.
   const errors = watchErrors(page)
   await seed(page, { ...ANIMATED, appearance: { motion: 'full' } })
   await openPlayer(page)
-  const a = await frame(page)
+  // Keys and pulses from loading settle first (wall-clock fades).
+  await pause(page, 1500)
+  const a = await stableFrame(page)
   await pause(page, 400)
-  expect(await frame(page)).not.toEqual(a)
+  expect(await changedPixels(page, a, await frame(page))).toBeLessThan(50)
   expect(errors).toEqual([])
 })
 
@@ -293,10 +307,11 @@ test('reduced motion stops animated fills', async ({ page }) => {
   const errors = watchErrors(page)
   await seed(page, { ...ANIMATED, appearance: { motion: 'reduced' } })
   await openPlayer(page)
+  // Keys and pulses from loading settle first (wall-clock fades).
+  await pause(page, 1500)
   const a = await stableFrame(page)
   await pause(page, 400)
-  // Flicker or smoke would change whole notes; the odd pixel 1/255 off is a key still easing.
-  expect(await maxDifference(page, a, await frame(page))).toBeLessThanOrEqual(4)
+  expect(await changedPixels(page, a, await frame(page))).toBeLessThan(50)
   expect(errors).toEqual([])
 })
 
@@ -344,7 +359,7 @@ test('a paused frame settles, then holds still', async ({ page }) => {
   await pause(page, 3000)
   const still = await frame(page)
   await pause(page, 500)
-  expect(await frame(page)).toEqual(still)
+  expect(await changedPixels(page, still, await frame(page))).toBeLessThan(50)
   expect(errors).toEqual([])
 })
 
@@ -356,11 +371,10 @@ test('seeking while paused starts no pulse', async ({ page }) => {
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
   for (let bar = 0; bar < 2; bar++) {
     await page.getByRole('button', { name: 'Next bar' }).click()
-    // Straight after the seek, a pulse would still be bright; a second later it's gone. Key
-    // presses easing in still change the odd pixel by 1/255, so this allows a little.
+    // Straight after the seek, a pulse would still be bright; a second later it's gone.
     const now = await frame(page)
     await pause(page, 1000)
-    expect(await maxDifference(page, now, await frame(page))).toBeLessThanOrEqual(4)
+    expect(await changedPixels(page, now, await frame(page))).toBeLessThan(50)
   }
   expect(errors).toEqual([])
 })
