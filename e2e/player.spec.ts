@@ -90,7 +90,7 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
         (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
       ),
     )
-    .toMatchObject({ version: 5, settings: { camera: { tiltDeg: 48 } } })
+    .toMatchObject({ version: 6, settings: { camera: { tiltDeg: 48 } } })
 
   await page.reload()
   await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
@@ -224,7 +224,7 @@ test('settings saved by milestone 4 (v1) are migrated, not discarded', async ({ 
       ),
     )
     .toMatchObject({
-      version: 5,
+      version: 6,
       settings: { camera: { tiltDeg: 63 }, appearance: { primary: '#8AB4FF' } },
     })
 })

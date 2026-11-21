@@ -1,6 +1,11 @@
 <script setup lang="ts">
 /** An on/off checkbox, styled to the tokens (native input, so it's announced as a checkbox). */
-defineProps<{ readonly modelValue: boolean; readonly label: string; readonly id?: string }>()
+defineProps<{
+  readonly modelValue: boolean
+  readonly label: string
+  readonly id?: string
+  readonly disabled?: boolean
+}>()
 defineEmits<{ 'update:modelValue': [value: boolean] }>()
 </script>
 
@@ -10,6 +15,7 @@ defineEmits<{ 'update:modelValue': [value: boolean] }>()
     type="checkbox"
     class="toggle"
     :checked="modelValue"
+    :disabled="disabled"
     :aria-label="label"
     @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
   />
@@ -30,6 +36,11 @@ defineEmits<{ 'update:modelValue': [value: boolean] }>()
   transition:
     background var(--dur-fast),
     border-color var(--dur-fast);
+}
+
+.toggle:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .toggle::after {

@@ -122,6 +122,7 @@ function reset(): void {
             :id="id"
             :model-value="value as boolean"
             :label="def.label"
+            :disabled="!enabled"
             :data-testid="`${testid}-control`"
             @update:model-value="set"
           />
@@ -131,6 +132,7 @@ function reset(): void {
             :model-value="value as string"
             :options="def.options"
             :label="def.label"
+            :disabled="!enabled"
             :data-testid="`${testid}-control`"
             @update:model-value="set"
           />
