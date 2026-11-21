@@ -5,8 +5,8 @@ const STORAGE_KEY = 'pianomeister.ui'
 
 interface UiState {
   sidebarOpen: boolean
-  /** Expanded sections of the playfield sidebar. */
-  sidebarSections: string[]
+  /** The playfield sidebar's open section (one at a time), or none. */
+  sidebarSection: string | null
   /** The overview strip under the timeline (brief decision 105). */
   overviewOpen: boolean
   /** The loop editor's hand visibility toggles (view only, brief decision 106). */
@@ -15,7 +15,7 @@ interface UiState {
 
 const DEFAULTS: UiState = {
   sidebarOpen: false,
-  sidebarSections: ['camera'],
+  sidebarSection: null,
   overviewOpen: false,
   editorHands: { right: true, left: true },
 }
@@ -29,16 +29,22 @@ function readHands(raw: unknown): UiState['editorHands'] {
   }
 }
 
+/** The open section; state stored before the one-open accordion kept a list: its first. */
+function readSection(section: unknown, oldList: unknown): string | null {
+  if (typeof section === 'string') return section
+  if (section === null) return null
+  if (Array.isArray(oldList)) return oldList.find((s): s is string => typeof s === 'string') ?? null
+  return DEFAULTS.sidebarSection
+}
+
 function read(): UiState {
   try {
     const raw: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
     if (typeof raw !== 'object' || raw === null) return { ...DEFAULTS }
-    const r = raw as Partial<Record<keyof UiState, unknown>>
+    const r = raw as Partial<Record<keyof UiState | 'sidebarSections', unknown>>
     return {
       sidebarOpen: typeof r.sidebarOpen === 'boolean' ? r.sidebarOpen : DEFAULTS.sidebarOpen,
-      sidebarSections: Array.isArray(r.sidebarSections)
-        ? r.sidebarSections.filter((s): s is string => typeof s === 'string')
-        : [...DEFAULTS.sidebarSections],
+      sidebarSection: readSection(r.sidebarSection, r.sidebarSections),
       overviewOpen: typeof r.overviewOpen === 'boolean' ? r.overviewOpen : DEFAULTS.overviewOpen,
       editorHands: readHands(r.editorHands),
     }
@@ -49,25 +55,25 @@ function read(): UiState {
 
 /**
  * UI state that should survive a reload but isn't a setting (no reset, decision 63): whether
- * the playfield sidebar is open and which of its sections are expanded, and whether the
+ * the playfield sidebar is open and which of its sections is expanded, and whether the
  * overview strip is open, and which hands the loop editor shows.
  */
 export const useUiStateStore = defineStore('uiState', () => {
   const initial = read()
   const sidebarOpen = ref(initial.sidebarOpen)
-  const sidebarSections = ref<string[]>(initial.sidebarSections)
+  const sidebarSection = ref<string | null>(initial.sidebarSection)
   const overviewOpen = ref(initial.overviewOpen)
   const editorHands = ref(initial.editorHands)
 
   watch(
-    [sidebarOpen, sidebarSections, overviewOpen, editorHands],
+    [sidebarOpen, sidebarSection, overviewOpen, editorHands],
     () => {
       try {
         localStorage.setItem(
           STORAGE_KEY,
           JSON.stringify({
             sidebarOpen: sidebarOpen.value,
-            sidebarSections: sidebarSections.value,
+            sidebarSection: sidebarSection.value,
             overviewOpen: overviewOpen.value,
             editorHands: editorHands.value,
           }),
@@ -86,7 +92,7 @@ export const useUiStateStore = defineStore('uiState', () => {
 
   return {
     sidebarOpen,
-    sidebarSections,
+    sidebarSection,
     overviewOpen,
     editorHands,
     shortcutsOpen,

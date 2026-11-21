@@ -737,6 +737,14 @@ const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
 /** Shortcuts (decision 60); ignored while typing, and while a dialog has the keyboard. */
 function onKeyDown(event: KeyboardEvent): void {
   if (session === null || event.defaultPrevented || isTypingTarget(event.target)) return
+  // Controls that own Space and Enter (accordion headers toggle with them).
+  if (
+    (event.key === ' ' || event.key === 'Enter') &&
+    event.target instanceof HTMLElement &&
+    event.target.closest('[data-own-keys]') !== null
+  ) {
+    return
+  }
   // Behind Welcome the player's keys rest; Welcome has its own (Enter resumes).
   if (onWelcome.value) return
   if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return

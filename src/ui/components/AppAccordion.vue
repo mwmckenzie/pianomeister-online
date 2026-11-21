@@ -6,12 +6,19 @@ import {
   AccordionRoot,
   AccordionTrigger,
 } from 'reka-ui'
+import { computed, ref, watch } from 'vue'
 
+import { useReducedMotion } from '../theme/useReducedMotion'
 import AppIcon from './AppIcon.vue'
 
 /**
- * Collapsible sections (Reka Accordion, several open at once). Each item's body is the named
- * slot of its value; `changed` shows the primary-colour dot (decision 51).
+ * Collapsible sections, one open at a time (Reka Accordion, single and collapsible): opening
+ * one closes the other, clicking the open one's header closes it. Each item's body is the
+ * named slot of its value; `changed` shows the primary-colour dot (decision 51).
+ *
+ * No jump: the section being replaced closes at once (no collapse animation shifting what's
+ * below), the opened one fades in at full height, and the scroll area then brings its header
+ * to the top — smoothly, or at once under reduced motion.
  */
 defineProps<{
   readonly items: readonly {
@@ -20,26 +27,71 @@ defineProps<{
     readonly changed?: boolean
   }[]
 }>()
-const open = defineModel<string[]>({ required: true })
+const open = defineModel<string | null>({ required: true })
+const reducedMotion = useReducedMotion()
+const root = ref<HTMLElement | null>(null)
+/** True while one section replaces another: the old one closes without animating. */
+const switching = ref(false)
+
+const model = computed({
+  get: () => open.value ?? undefined,
+  set: (value: string | string[] | undefined) => {
+    const next = typeof value === 'string' && value !== '' ? value : null
+    switching.value = next !== null && open.value !== null
+    open.value = next
+  },
+})
+
+watch(open, (now, before) => {
+  if (now === null || now === before) return
+  // Two frames: the old section is gone and the new one has its height.
+  requestAnimationFrame(() => requestAnimationFrame(() => bringToTop(now)))
+})
+
+function bringToTop(value: string): void {
+  switching.value = false
+  const header = root.value?.querySelector<HTMLElement>(`[data-accordion-item="${value}"]`)
+  const scroller = header === null || header === undefined ? null : scrollParent(header)
+  if (header === null || header === undefined || scroller === null) return
+  const top =
+    scroller.scrollTop + header.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+  scroller.scrollTo({ top, behavior: reducedMotion.value ? 'instant' : 'smooth' })
+}
+
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  for (let e = element.parentElement; e !== null; e = e.parentElement) {
+    const overflow = getComputedStyle(e).overflowY
+    if (overflow === 'auto' || overflow === 'scroll') return e
+  }
+  return null
+}
 </script>
 
 <template>
-  <AccordionRoot v-model="open" type="multiple" class="accordion">
-    <AccordionItem v-for="item in items" :key="item.value" :value="item.value" class="item">
-      <AccordionHeader as="h3" class="header">
-        <AccordionTrigger class="trigger" :data-testid="`accordion-${item.value}`">
-          <span class="title">{{ item.title }}</span>
-          <span v-if="item.changed" class="dot" aria-label="has changed settings" />
-          <AppIcon class="chevron" name="chevronRight" :size="20" />
-        </AccordionTrigger>
-      </AccordionHeader>
-      <AccordionContent class="content">
-        <div class="inner">
-          <slot :name="item.value" />
-        </div>
-      </AccordionContent>
-    </AccordionItem>
-  </AccordionRoot>
+  <div ref="root" class="accordion" :data-switching="switching || undefined">
+    <AccordionRoot v-model="model" type="single" collapsible>
+      <AccordionItem
+        v-for="item in items"
+        :key="item.value"
+        :value="item.value"
+        class="item"
+        :data-accordion-item="item.value"
+      >
+        <AccordionHeader as="h3" class="header">
+          <AccordionTrigger class="trigger" data-own-keys :data-testid="`accordion-${item.value}`">
+            <span class="title">{{ item.title }}</span>
+            <span v-if="item.changed" class="dot" aria-label="has changed settings" />
+            <AppIcon class="chevron" name="chevronRight" :size="20" />
+          </AccordionTrigger>
+        </AccordionHeader>
+        <AccordionContent class="content">
+          <div class="inner">
+            <slot :name="item.value" />
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </AccordionRoot>
+  </div>
 </template>
 
 <style scoped>
@@ -96,7 +148,13 @@ const open = defineModel<string[]>({ required: true })
 }
 
 .content[data-state='open'] {
-  animation: accordion-open var(--dur) var(--ease-out);
+  /* Full height at once (a growing height would stop the scroll short); fades in. */
+  animation: pm-fade-in var(--dur) var(--ease-out);
+}
+
+/* One section replacing another: the old one goes at once, so nothing below it moves. */
+.accordion[data-switching] .content[data-state='closed'] {
+  animation: none;
 }
 
 .content[data-state='closed'] {
@@ -113,17 +171,6 @@ const open = defineModel<string[]>({ required: true })
 
 .inner {
   padding: 0 var(--space-6) var(--space-3);
-}
-
-@keyframes accordion-open {
-  from {
-    height: 0;
-    opacity: 0;
-  }
-
-  to {
-    height: var(--reka-accordion-content-height);
-  }
 }
 
 @keyframes accordion-close {

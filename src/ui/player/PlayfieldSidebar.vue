@@ -21,7 +21,7 @@ import type { RenderStatus } from './RenderStatus'
 
 /**
  * The playfield panel (decision 50): every setting that changes the highway, beside the live
- * view, in accordion sections. Rows come from the registry; the highway's colour rows are
+ * view, in accordion sections (one open at a time, brief decision 50). Rows come from the registry; the highway's colour rows are
  * grouped under their own heading.
  */
 defineProps<{ readonly renderStatus?: () => RenderStatus | null }>()
@@ -89,9 +89,10 @@ const blocks = computed(() =>
       />
     </header>
 
+    <!-- Outside the sections and the scroll area: always at the top. -->
+    <LookPicker />
     <div class="scroll">
-      <LookPicker />
-      <AppAccordion v-model="ui.sidebarSections" :items="sections">
+      <AppAccordion v-model="ui.sidebarSection" :items="sections">
         <template v-for="section in SETTINGS_LAYOUT.sidebar" :key="section.id" #[section.id]>
           <SettingsSection
             :section-id="section.id"

@@ -101,6 +101,48 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
   expect(errors).toEqual([])
 })
 
+test('sidebar sections: one open at a time, scrolled to the top, remembered', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/')
+  await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
+  await page.keyboard.press('KeyP')
+  const sidebar = page.getByTestId('playfield-sidebar')
+  await expect(sidebar).toBeVisible()
+  // None open at first; the look picker sits above the sections.
+  await expect(sidebar.locator('[data-state="open"][data-testid^="accordion-"]')).toHaveCount(0)
+  await expect(page.getByTestId('look-picker')).toBeVisible()
+
+  const camera = page.getByTestId('accordion-camera')
+  const effects = page.getByTestId('accordion-effects')
+  await camera.click()
+  await expect(camera).toHaveAttribute('aria-expanded', 'true')
+  await effects.click()
+  await expect(camera).toHaveAttribute('aria-expanded', 'false')
+  await expect(effects).toHaveAttribute('aria-expanded', 'true')
+  // The opened header ends at the top of the scroll area.
+  const scroll = sidebar.locator('.scroll')
+  await expect
+    .poll(async () => {
+      const [h, s] = [await effects.boundingBox(), await scroll.boundingBox()]
+      return Math.round(Math.abs((h?.y ?? 0) - (s?.y ?? 1e3)))
+    })
+    .toBeLessThanOrEqual(2)
+
+  await page.reload()
+  await expect(page.getByTestId('accordion-effects')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByTestId('accordion-camera')).toHaveAttribute('aria-expanded', 'false')
+  await page.getByTestId('accordion-effects').click()
+  await expect(sidebar.locator('[aria-expanded="true"][data-testid^="accordion-"]')).toHaveCount(0)
+
+  // Keyboard: a focused header toggles with Enter and Space.
+  await page.getByTestId('accordion-keyboard').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('accordion-keyboard')).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Space')
+  await expect(page.getByTestId('accordion-keyboard')).toHaveAttribute('aria-expanded', 'false')
+  expect(errors).toEqual([])
+})
+
 test('a changed setting lights its reset icon, and reset restores the default', async ({
   page,
 }) => {
@@ -142,11 +184,14 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   // Reset camera, then keyboard: only the keyboard reset can be undone.
   await openSidebarSection(page, 'keyboard')
   await nudge(page, 'keyboard.gap', 'ArrowRight', 2)
+  await openSidebarSection(page, 'camera')
   await page.getByTestId('reset-section-camera').click()
+  await openSidebarSection(page, 'keyboard')
   await page.getByRole('button', { name: 'Reset keyboard to grand piano' }).click()
   await expect(page.getByTestId('toast-undo')).toHaveCount(1)
   await page.getByTestId('toast-undo').click()
   await expect(shownValue(page, 'keyboard.gap')).toHaveText('1.6 mm')
+  await openSidebarSection(page, 'camera')
   await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
   expect(errors).toEqual([])
 })
@@ -159,37 +204,36 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await openSidebarSection(page, 'render')
   await expect(page.getByTestId('render-readout')).toContainText(/\d+ × \d+ px/)
-  await openSidebarSection(page, 'keyboard')
-  await openSidebarSection(page, 'notes')
-
-  await segment(page, 'keyboard.edgeProfile', 'Rounded')
   await segment(page, 'render.antialias', 'SMAA')
+  await openSidebarSection(page, 'keyboard')
+  await segment(page, 'keyboard.edgeProfile', 'Rounded')
+  await nudge(page, 'keyboard.gap', 'ArrowRight', 12)
+  await openSidebarSection(page, 'notes')
   await segment(page, 'notes.blackLiftMode', 'Manual')
   await nudge(page, 'notes.blackLift', 'Home')
-  await nudge(page, 'keyboard.gap', 'ArrowRight', 12)
   await setting(page, 'notes.heads3d').getByRole('checkbox').uncheck()
-  await expect(page.getByTestId('render-readout')).toContainText(/\d+ × \d+ px/)
 
   await page.reload()
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await openSidebarSection(page, 'keyboard')
-  await openSidebarSection(page, 'notes')
-  await openSidebarSection(page, 'render')
   await expect(
     page.getByTestId('setting-keyboard-edgeProfile-control').getByText('Rounded'),
   ).toHaveAttribute('data-state', 'on')
+  await expect(thumb(page, 'keyboard.gap')).toHaveAttribute('aria-valuenow', '0.12')
+  await openSidebarSection(page, 'notes')
+  await expect(thumb(page, 'notes.blackLift')).toHaveAttribute('aria-valuenow', '0')
+  await expect(setting(page, 'notes.heads3d').getByRole('checkbox')).not.toBeChecked()
+  await openSidebarSection(page, 'render')
   await expect(
     page.getByTestId('setting-render-antialias-control').getByText('SMAA', { exact: true }),
   ).toHaveAttribute('data-state', 'on')
-  await expect(thumb(page, 'notes.blackLift')).toHaveAttribute('aria-valuenow', '0')
-  await expect(thumb(page, 'keyboard.gap')).toHaveAttribute('aria-valuenow', '0.12')
-  await expect(setting(page, 'notes.heads3d').getByRole('checkbox')).not.toBeChecked()
 
   // Every anti-aliasing mode renders without errors (FXAA and SMAA load on demand).
   for (const mode of ['Off', 'MSAA', 'FXAA', 'SMAA']) {
     await segment(page, 'render.antialias', mode)
     await expect(page.getByTestId('render-readout')).toContainText(/\d+ × \d+ px/)
   }
+  await openSidebarSection(page, 'keyboard')
   await page.getByRole('button', { name: 'Reset keyboard to grand piano' }).click()
   await expect(shownValue(page, 'keyboard.gap')).toHaveText('1.4 mm')
   await expect(
@@ -220,6 +264,7 @@ test.describe('stored v1 settings', () => {
       page.getByTestId('setting-render-antialias-control').getByText('MSAA', { exact: true }),
     ).toHaveAttribute('data-state', 'on')
     // The next change saves as the current version.
+    await openSidebarSection(page, 'camera')
     await nudge(page, 'camera.tiltDeg', 'ArrowRight')
     await expect
       .poll(async () =>
