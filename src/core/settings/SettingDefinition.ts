@@ -20,6 +20,8 @@ interface BaseSetting<V> {
   readonly visible?: (settings: PlayerSettings) => boolean
   /** Shown but disabled while it has no effect (e.g. the idle delay with hiding off). */
   readonly enabled?: (settings: PlayerSettings) => boolean
+  /** Why it's disabled, shown beside the greyed-out control; required with `enabled`. */
+  readonly disabledHint?: string
 }
 
 export interface NumberSetting extends BaseSetting<number> {

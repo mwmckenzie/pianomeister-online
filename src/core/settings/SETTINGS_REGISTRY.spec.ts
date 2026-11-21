@@ -45,6 +45,14 @@ describe('SETTINGS_REGISTRY', () => {
     expect(differing).toEqual([])
   })
 
+  it('says why a setting is disabled wherever it can be', () => {
+    const missing = SETTING_KEYS.filter((key) => {
+      const def = settingDefinition(key)
+      return def.enabled !== undefined && !(def.disabledHint ?? '').startsWith('Needs ')
+    })
+    expect(missing).toEqual([])
+  })
+
   it('places every setting in a section the layout shows', () => {
     const sidebar = new Set<string>(SETTINGS_LAYOUT.sidebar.map((s) => s.id))
     const tabs = new Map<string, Set<string>>(

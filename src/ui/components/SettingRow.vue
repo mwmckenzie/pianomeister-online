@@ -40,6 +40,8 @@ const store = useSettingsStore()
 const def = computed(() => settingDefinition(props.settingKey))
 const visible = computed(() => def.value.visible?.(store.settings) ?? true)
 const enabled = computed(() => def.value.enabled?.(store.settings) ?? true)
+/** Why the control is greyed out (e.g. "Needs shader detail Medium or High"). */
+const hint = computed(() => (enabled.value ? null : (def.value.disabledHint ?? null)))
 const value = computed(() =>
   props.override === undefined ? store.get(props.settingKey) : props.override.value,
 )
@@ -107,6 +109,7 @@ function reset(): void {
         :data-testid="`${testid}-control`"
         @update:model-value="set"
       />
+      <p v-if="hint" class="hint" :data-testid="`${testid}-hint`">{{ hint }}</p>
     </template>
 
     <div v-else class="inline">
@@ -159,6 +162,7 @@ function reset(): void {
           @reset="reset"
         />
       </span>
+      <p v-if="hint" class="hint" :data-testid="`${testid}-hint`">{{ hint }}</p>
     </div>
   </div>
 </template>
@@ -215,6 +219,13 @@ function reset(): void {
 
 .control {
   display: inline-flex;
+}
+
+.hint {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .head + .slider {

@@ -118,6 +118,7 @@ const cages = sidebar('cages')
 const render = sidebar('render')
 const PRESET = 'Quality'
 const BLOOM = 'Bloom'
+const BLOOM_HINT = 'Needs bloom (quality Low or higher)'
 const RESOLUTION = 'Resolution'
 
 /**
@@ -533,6 +534,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Keys',
       // Shader detail Minimal samples no neighbours (brief decision 110).
       enabled: (s) => s.render.shaderDetail !== 'minimal',
+      disabledHint: 'Needs shader detail Low or higher',
     },
     'effects.keySpillStrength': {
       ...num('Spill strength', 0.25, effects, [0, 1, 0.05]),
@@ -550,6 +552,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Keys',
       // Cones need shader detail Medium or High (brief decision 110).
       enabled: (s) => s.render.shaderDetail === 'medium' || s.render.shaderDetail === 'high',
+      disabledHint: 'Needs shader detail Medium or High',
     },
     'effects.keyConeStrength': {
       ...num('Cone strength', 0.4, effects, [0, 1, 0.05]),
@@ -615,18 +618,21 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...num('Bloom strength', 0.8, render, [0, 3, 0.05], 'times'),
       group: BLOOM,
       enabled: (s) => s.render.bloomResolution !== 'off',
+      disabledHint: BLOOM_HINT,
     },
     'render.bloomRadius': {
       ...num('Bloom radius', 0.4, render, [0, 1, 0.05]),
       ...percent,
       group: BLOOM,
       enabled: (s) => s.render.bloomResolution !== 'off',
+      disabledHint: BLOOM_HINT,
     },
     'render.bloomThreshold': {
       ...num('Bloom threshold', 0.1, render, [0, 1, 0.01]),
       ...percent,
       group: BLOOM,
       enabled: (s) => s.render.bloomResolution !== 'off',
+      disabledHint: BLOOM_HINT,
     },
     'render.scaleAuto': {
       ...bool('Match the display (auto)', true, render),
@@ -763,6 +769,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'appearance.hideControlsAfter': {
       ...num('After', 3, tab('appearance', 'playerControls'), [0.5, 10, 0.5], 'seconds', 1),
       enabled: (settings) => settings.appearance.hideControls,
+      disabledHint: 'Needs “Hide controls when idle”',
     },
     'appearance.startOn': {
       kind: 'choice',
