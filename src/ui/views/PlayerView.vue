@@ -56,6 +56,7 @@ import { useLibraryStore } from '../stores/libraryStore'
 import { usePracticeStore } from '../stores/practiceStore'
 import { useProfileStore } from '../stores/profileStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useReducedMotion } from '../theme/useReducedMotion'
 import { useToastStore } from '../stores/toastStore'
 import { useUiStateStore } from '../stores/uiStateStore'
 
@@ -74,6 +75,7 @@ const loadLoopEditor = () => import('./LoopEditorView.vue')
 const route = useRoute()
 const router = useRouter()
 const settingsStore = useSettingsStore()
+const reducedMotion = useReducedMotion()
 const library = useLibraryStore()
 const toasts = useToastStore()
 const ui = useUiStateStore()
@@ -756,6 +758,7 @@ function renderStatus(): RenderStatus | null {
 }
 
 watch(() => [practice.current, practice.loopJump], applyPractice)
+watch(reducedMotion, (reduced) => engine?.setReducedMotion(reduced))
 watch(
   () => settingsStore.settings,
   (settings, previous) => {
@@ -785,6 +788,12 @@ onMounted(() => {
   engine = new Engine()
   engine.applySettings(settingsStore.snapshot())
   engine.setGuides(route.query.guides === '1')
+  engine.setReducedMotion(reducedMotion.value)
+  // Debug-only (like ?guides=1): pins the animation clock so visual shots are repeatable.
+  const animTime = Number(route.query.animTime)
+  if (route.query.animTime !== undefined && Number.isFinite(animTime)) {
+    engine.setFixedAnimationTime(animTime)
+  }
   if (route.query.stats === '1') {
     // Debug-only (like ?guides=1): lets a test harness read frame timings for perf reports.
     const stats = () => engine?.stats()

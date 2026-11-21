@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import type { SettingKey } from '@/core/settings/SettingKey'
 import { settingGroupKeys } from '@/core/settings/settingGroups'
+import { isQualityModified } from '@/core/settings/applyQualityPreset'
 import { SETTINGS_LAYOUT } from '@/core/settings/SETTINGS_LAYOUT'
 import { settingDefinition } from '@/core/settings/settingValues'
 
@@ -14,6 +15,7 @@ import SettingsSection from '../components/SettingsSection.vue'
 import { useResetWithUndo } from '../settings/useResetWithUndo'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUiStateStore } from '../stores/uiStateStore'
+import LookPicker from './LookPicker.vue'
 import RenderReadout from './RenderReadout.vue'
 import type { RenderStatus } from './RenderStatus'
 
@@ -54,6 +56,12 @@ function blocksOf(id: SectionId): readonly { title?: string; keys: readonly Sett
   return blocks
 }
 
+const qualityModified = computed(() => isQualityModified(settings.settings.render))
+const qualityLabel = computed(() => {
+  const q = settings.settings.render.quality
+  return q.charAt(0).toUpperCase() + q.slice(1)
+})
+
 const isVisible = (key: SettingKey) => settingDefinition(key).visible?.(settings.settings) ?? true
 const blocks = computed(() =>
   Object.fromEntries(
@@ -82,6 +90,7 @@ const blocks = computed(() =>
     </header>
 
     <div class="scroll">
+      <LookPicker />
       <AppAccordion v-model="ui.sidebarSections" :items="sections">
         <template v-for="section in SETTINGS_LAYOUT.sidebar" :key="section.id" #[section.id]>
           <SettingsSection
@@ -95,6 +104,13 @@ const blocks = computed(() =>
                 {{ block.title }}
               </h4>
               <SettingRow v-for="key in block.keys" :key="key" :setting-key="key" />
+              <p
+                v-if="section.id === 'render' && block.title === 'Quality' && qualityModified"
+                class="modified"
+                data-testid="quality-status"
+              >
+                {{ qualityLabel }} · modified
+              </p>
             </template>
             <RenderReadout v-if="section.id === 'render'" :render-status="renderStatus" />
           </SettingsSection>
@@ -161,6 +177,12 @@ const blocks = computed(() =>
 
 .sub {
   margin: var(--space-4) 0 var(--space-1);
+}
+
+.modified {
+  margin: var(--space-1) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
 }
 
 .bottom {

@@ -3,7 +3,10 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import type { RenderStatus } from './RenderStatus'
 
-/** Internal resolution and frame time (decision 48), polled from the engine while shown. */
+/**
+ * Internal resolution, bloom size and frame times (decisions 48, 109), polled from the engine
+ * while shown.
+ */
 const props = defineProps<{ readonly renderStatus?: () => RenderStatus | null }>()
 
 const text = ref('')
@@ -16,9 +19,16 @@ function update(): void {
     return
   }
   const { info, frameMs } = status
+  const bloom =
+    info.bloom === 'on'
+      ? ` · bloom ${info.bloomWidth} × ${info.bloomHeight}`
+      : info.bloom === 'unavailable'
+        ? ' · bloom unavailable on this device'
+        : ''
+  const gpu = info.gpuMs === null ? '' : `, ${info.gpuMs.toFixed(2)} ms GPU`
   text.value =
-    `${info.width} × ${info.height} px (pixel ratio ${info.pixelRatio.toFixed(2)}) · ` +
-    `${frameMs.toFixed(2)} ms per frame (CPU)`
+    `${info.width} × ${info.height} px (pixel ratio ${info.pixelRatio.toFixed(2)})${bloom} · ` +
+    `${frameMs.toFixed(2)} ms per frame (CPU)${gpu}`
 }
 
 onMounted(() => {
