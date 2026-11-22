@@ -1,6 +1,7 @@
 import { Dexie, type Table } from 'dexie'
 
 import type { Bookmark } from '@/core/practice/Bookmark'
+import type { Look } from '@/core/looks/Look'
 import { settleBookmark } from '@/core/practice/bookmarkNames'
 import { DEFAULT_PROFILE } from '@/core/profiles/DEFAULT_PROFILE'
 import type { Profile } from '@/core/profiles/Profile'
@@ -39,6 +40,7 @@ export class PianoMeisterDb extends Dexie {
   readonly bookmarks!: Table<Bookmark, string>
   readonly sessions!: Table<Session, string>
   readonly playRecords!: Table<PlayRecord, string>
+  readonly looks!: Table<Look, string>
 
   constructor(name = 'pianomeister') {
     super(name)
@@ -103,6 +105,9 @@ export class PianoMeisterDb extends Dexie {
             delete record.passes
           })
       })
+    // v6 (milestone 9.1): saved looks move here from localStorage, device-wide beside the
+    // playlists to come. The settings store moves them on its first start (Looks.adopt).
+    this.version(6).stores({ looks: 'id, createdAt' })
     // A new database starts with the "Me" profile (brief decision 65).
     this.on('populate', (tx) => {
       void tx.table<Profile, string>('profiles').add(DEFAULT_PROFILE)

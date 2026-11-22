@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, shallowRef, watch } from 'vue'
 
 import { EMPTY_LOOKS } from '@/core/looks/EMPTY_LOOKS'
+import type { Look } from '@/core/looks/Look'
 import type { LooksState } from '@/core/looks/LooksState'
 import { defaultSettings } from '@/core/settings/DEFAULT_SETTINGS'
 import type { DeviceClass } from '@/core/settings/DeviceClass'
@@ -32,6 +33,9 @@ import type { SettingKey } from '@/core/settings/SettingKey'
 import type { SettingValue } from '@/core/settings/SettingValue'
 import { isDefaultValue, readSetting, withSetting } from '@/core/settings/settingValues'
 
+import { Looks } from '@/data/Looks'
+
+import { appDatabase } from './appDatabase'
 import { detectDeviceClass } from './detectDeviceClass'
 
 const STORAGE_KEY = 'pianomeister.settings'
@@ -39,6 +43,7 @@ const STORAGE_KEY = 'pianomeister.settings'
 interface Stored {
   readonly settings: PlayerSettings
   readonly shortcuts: ShortcutOverrides
+  /** The picked look, and saved looks not yet moved to the database. */
   readonly looks: LooksState
   readonly deviceClass: DeviceClass
 }
@@ -99,8 +104,9 @@ async function readLayoutMap(): Promise<ReadonlyMap<string, string> | null> {
 }
 
 /**
- * App settings and keyboard shortcut overrides, device-wide, persisted to localStorage
- * (versioned). The value is immutable plain data: every change replaces it through `set`, which
+ * App settings, keyboard shortcut overrides and looks, device-wide. Settings, shortcuts and
+ * the picked look persist to localStorage (versioned, read before the first frame); saved looks
+ * live in the database (milestone 9.1) and arrive a moment after start. The value is immutable plain data: every change replaces it through `set`, which
  * applies the keyboard's cross-setting limits, so the engine can take it without unwrapping
  * proxies.
  */
@@ -109,19 +115,42 @@ export const useSettingsStore = defineStore('settings', () => {
   const settings = shallowRef<PlayerSettings>(stored.settings)
   const shortcuts = shallowRef<ShortcutOverrides>(stored.shortcuts)
   const looks = shallowRef<LooksState>(stored.looks)
+  /** Saved looks from localStorage (before milestone 9.1) still waiting to move to the database. */
+  let unmoved: readonly Look[] = stored.looks.saved
   /** The device class the defaults are for (brief decision 110); fixed once stored. */
   const deviceClass = stored.deviceClass
   const layoutMap = shallowRef<ReadonlyMap<string, string> | null>(null)
   void readLayoutMap().then((map) => (layoutMap.value = map))
 
-  watch([settings, shortcuts, looks], () =>
+  function persist(): void {
     write({
       settings: settings.value,
       shortcuts: shortcuts.value,
-      looks: looks.value,
+      looks: { active: looks.value.active, saved: unmoved },
       deviceClass,
-    }),
-  )
+    })
+  }
+  watch([settings, shortcuts, looks], persist)
+
+  let repository: Looks | null = null
+  const savedLooks = (): Looks => (repository ??= new Looks(appDatabase()))
+
+  /** Moves looks out of localStorage (only once the database has them), then lists them all. */
+  async function loadLooks(): Promise<void> {
+    try {
+      if (unmoved.length > 0) {
+        await savedLooks().adopt(unmoved)
+        unmoved = []
+        persist()
+      }
+      const saved = await savedLooks().list()
+      looks.value = { ...looks.value, saved }
+    } catch (error) {
+      // No database (private mode, blocked storage): looks stay as read for this session.
+      console.error('Looks could not be loaded', error)
+    }
+  }
+  void loadLooks()
 
   /** Every command's keys in effect (brief decision 88). */
   const bindings = computed(() => effectiveBindings(shortcuts.value))
@@ -188,8 +217,21 @@ export const useSettingsStore = defineStore('settings', () => {
     settings.value = next
   }
 
+  /**
+   * Replaces the looks state (pick, save, rename, delete, import, and Undo of each); saved looks
+   * that changed are written to the database and removed ones deleted.
+   */
   function setLooks(next: LooksState): void {
+    const before = new Map(looks.value.saved.map((look) => [look.id, look]))
+    const after = new Set(next.saved.map((look) => look.id))
     looks.value = next
+    const writes = [
+      ...next.saved
+        .filter((look) => before.get(look.id) !== look)
+        .map((look) => savedLooks().put(look)),
+      ...[...before.keys()].filter((id) => !after.has(id)).map((id) => savedLooks().delete(id)),
+    ]
+    void Promise.all(writes).catch((error: unknown) => console.error('Looks not saved', error))
   }
 
   /** A detached copy for the (non-reactive) engine. */

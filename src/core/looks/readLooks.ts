@@ -25,6 +25,7 @@ export function readLooks(
   if (!isRecord(raw)) return EMPTY_LOOKS
   const ids = new Set(BUILT_IN_LOOKS.map((look) => look.id))
   const saved: Look[] = []
+  const start = Date.parse(now)
   for (const entry of Array.isArray(raw.saved) ? raw.saved : []) {
     if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') {
       continue
@@ -35,7 +36,9 @@ export function readLooks(
     const stored = readLookValues(migrate(isRecord(entry.values) ? entry.values : {}))
     const values: Partial<Record<SettingKey, unknown>> = {}
     for (const key of LOOK_KEYS) values[key] = key in stored ? stored[key] : defaultValue(key)
-    saved.push({ id: entry.id, name, builtIn: false, createdAt: now, updatedAt: now, values })
+    // A millisecond apart, so the database lists them in the order they were saved.
+    const createdAt = new Date(start + saved.length).toISOString()
+    saved.push({ id: entry.id, name, builtIn: false, createdAt, updatedAt: createdAt, values })
   }
   return { active: typeof raw.active === 'string' ? raw.active : null, saved }
 }
