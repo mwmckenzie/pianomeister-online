@@ -1,6 +1,6 @@
 # Milestone 9.1 plan: Looks v2, range trimming, built-in looks
 
-Spec: `docs/milestones/m9-1.md`. Branch `feat/m9-1-looks` from `main` (milestone 9 merged). Waiting for approval before building.
+Spec: `docs/milestones/m9-1.md`. Branch `feat/m9-1-looks` from `main` (milestone 9 merged). Approved 2026-11-22 with the answers in §9.
 
 ## 1. Where the spec meets the current code
 
@@ -154,3 +154,23 @@ Spec: `docs/milestones/m9-1.md`. Branch `feat/m9-1-looks` from `main` (milestone
 
 4. **Range sheets:** about 98 sheets plus about 10 pair grids, roughly 30–60 MB as PNG. I'd put the zip (PNGs) at `test-results/visual/ranges.zip` and give you the path, rather than commit it. `ranges.md` and a few representative JPEGs go in `docs/design/m9-1/`. OK, or do you want all the sheets committed as JPEGs?
 5. **Export of a modified look:** Export writes the look as **saved**; Copy look keeps copying the **current** settings (milestone 9 behaviour). Or should Export also take the current settings when "· modified"?
+
+## 9. Answers (approved 2026-11-22)
+
+S4, S6, Classic pinning every key, the fixed-step capture mode and the shared reader are approved.
+
+1. **Resolution is cost.** Render scale, auto scale, max pixel ratio and anti-aliasing are never stored in or applied by a look.
+2. **A look is the complete playfield setup.** Applying any look, built-in or saved, sets every playfield setting, including camera, tilt, keyboard and look-ahead, with Undo.
+   - Built-in looks may have their own camera and look-ahead values; Fireworks keeps its extra look-ahead.
+   - There is no "include camera" option.
+   - `m9-1.md` §A and §C were updated.
+3. **Backup:**
+   - An identical look is skipped.
+   - The same id with different values is added under a new id.
+   - A name clash becomes "Name (2)".
+   - Nothing local is ever overwritten.
+   - Built-ins are never in a backup.
+4. **Range sheets:** the zip is at `test-results/visual/ranges.zip`, outside git. `ranges.md` and a few sample JPEGs are committed.
+5. **Export:** "Export look" exports the saved values. While the look is "· modified", a second item, **"Export current settings"**, exports what's on screen as "⟨Name⟩ (modified)" with a new id, the same as Copy look.
+
+Also: the roadmap gains the idea "Bookmarks can have a look" (9.5 or later), which uses the same temporary-look overlay. `lookSettings` stays pure and reusable.

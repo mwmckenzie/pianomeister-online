@@ -150,6 +150,8 @@ Play full songs back-to-back as background music, with the piano and highway as 
 - Listening is not practice and is not logged: no plays, practice time or listening stats.
 - Entry points: a Playlists tab next to Library | Bookmarks, and possibly a Welcome-screen tile (7.7).
 
+**Later idea — bookmarks can have a look** _(9.5 or later)_: a bookmark may name a look that's applied temporarily while practising that section (e.g. more look-ahead or a different tilt for a tricky passage), using the same temporary-look overlay as playlists. The overlay function stays pure and reusable for this.
+
 ### Hand caging _(milestone 10)_
 
 - Look-ahead visualization of where each hand needs to be per bar (a "cage" spanning the hand's key range).
