@@ -101,7 +101,7 @@ void main() {
 #ifdef GLOW_PASS
   float glow = (border * uBorderGlow + f.emission * fillAlpha) * shape * haze;
   if (glow <= 0.002) discard;
-  gl_FragColor = vec4(mix(f.color, uBorderColor, border) * glow, 1.0);
+  gl_FragColor = vec4(mix(glowColor(f), uBorderColor, border) * glow, 1.0);
 #else
   vec3 color = mix(f.color, uBorderColor, border);
   float alpha = max(fillAlpha, border) * shape;

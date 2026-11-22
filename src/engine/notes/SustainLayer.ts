@@ -96,7 +96,7 @@ void main() {
   float glow = (rim * uEdgeIntensity + (f.emission + sounding + pulse) * f.alpha) * lit;
   glow *= haze;
   if (glow <= 0.002) discard;
-  gl_FragColor = vec4(mix(f.color, rimColor, rim) * glow, 1.0);
+  gl_FragColor = vec4(mix(glowColor(f), rimColor, rim) * glow, 1.0);
 #else
   float alpha = mix(base, 1.0, f.keep) * f.alpha;
   vec3 color = f.color;

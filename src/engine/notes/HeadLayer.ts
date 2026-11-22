@@ -112,7 +112,7 @@ void main() {
 #ifdef GLOW_PASS
   // An occluder on the glow layer: black, except what glows.
   float glow = (rim * uEdgeIntensity + f.emission + sounding + pulse) * haze;
-  gl_FragColor = vec4(mix(f.color, rimColor, rim) * glow, 1.0);
+  gl_FragColor = vec4(mix(glowColor(f), rimColor, rim) * glow, 1.0);
 #else
   vec3 n = normalize(vNormal);
   vec3 color = shade(f.color, n, normalize(cameraPosition - vWorld));

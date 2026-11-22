@@ -69,6 +69,11 @@ const FILLS = [
   { value: 'neon', label: 'Neon' },
   { value: 'stripes', label: 'Diagonal stripes' },
   { value: 'smoke', label: 'Smoke' },
+  // Round-6 candidates, until one is picked.
+  { value: 'smokeRound1', label: 'Smoke (round 1)' },
+  { value: 'crystal', label: 'Crystal' },
+  { value: 'bubbles', label: 'Bubbles' },
+  { value: 'liquid', label: 'Liquid' },
 ] as const
 
 const fill = (label: string, home: SettingHome) =>
@@ -603,11 +608,12 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'names.repeats': {
       kind: 'choice',
       label: 'Label repeated notes',
-      default: 'first',
+      default: 'bar',
       home: sidebar('names'),
       control: 'select',
       ...onNotes,
       options: [
+        { value: 'bar', label: 'Once per bar' },
         { value: 'first', label: 'First of a run' },
         { value: 'all', label: 'All' },
       ],

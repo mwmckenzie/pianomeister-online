@@ -50,6 +50,13 @@ const float FILL_GLASS = 3.0;
 const float FILL_OUTLINE = 4.0;
 const float FILL_NEON = 5.0;
 const float FILL_STRIPES = 6.0;
+const float FILL_SMOKE = 7.0;
+// Round-6 candidates (brief decision 112): the round-1 Smoke for comparison, and three
+// replacements for Glass. The ones not picked are removed.
+const float FILL_SMOKE_ROUND1 = 8.0;
+const float FILL_CRYSTAL = 9.0;
+const float FILL_BUBBLES = 10.0;
+const float FILL_LIQUID = 11.0;
 
 /** How far darker "Darker note colour" is. */
 const float DARKER = 0.45;
@@ -86,6 +93,10 @@ float fbm(vec2 p) {
   return sum / max(norm, 1e-4);
 }
 
+vec2 hash22(vec2 p) {
+  return vec2(hash12(p), hash12(p + vec2(19.19, 47.3)));
+}
+
 bool isFill(float style, float id) {
   return abs(style - id) < 0.5;
 }
@@ -103,7 +114,13 @@ struct Fill {
   float alpha;    // multiplies the shape's own opacity
   float emission; // extra glow (glow scene)
   float keep;     // share of the alpha kept however see-through the note is set (0..1)
+  vec3 glow;      // colour on the glow scene; negative: the fill's own colour
 };
+
+/** The colour a fill emits on the glow scene. */
+vec3 glowColor(Fill f) {
+  return f.glow.r < 0.0 ? f.color : f.glow;
+}
 
 vec3 stripeColor(vec4 c, vec3 base) {
   return c.w < 0.5 ? base : c.w < 1.5 ? base * DARKER : c.rgb;
@@ -146,11 +163,120 @@ float band(float edge, float width) {
   return 1.0 - smoothstep(width - pixel, width + pixel, edge);
 }
 
+/**
+ * Crystal (candidate): a faceted gem — Voronoi shards in lighter and darker tints of the note
+ * colour, each lit from one side as if angled, with bright facet edges. Still.
+ */
+Fill crystal(Fill f, vec3 base, float u, float halfWidth, float along, float seed) {
+  float size = max(halfWidth * 2.2, 1e-3);
+  vec2 p = vec2(u * halfWidth, along) / size + vec2(seed * 11.0, 0.0);
+  vec2 cell = floor(p);
+  float f1 = 8.0;
+  float f2 = 8.0;
+  vec2 nearest = vec2(0.0);
+  vec2 nearestId = cell;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 id = cell + vec2(float(i), float(j));
+      vec2 point = id + 0.15 + 0.7 * hash22(id);
+      float d = distance(p, point);
+      if (d < f1) {
+        f2 = f1;
+        f1 = d;
+        nearest = point;
+        nearestId = id;
+      } else if (d < f2) {
+        f2 = d;
+      }
+    }
+  }
+  vec3 bright = fullBright(base);
+  // Each shard is tilted its own way: lit from the upper left, by its shade and its slope.
+  float shade = hash12(nearestId + 7.7);
+  float slope = dot(normalize(p - nearest + 1e-4), normalize(vec2(-0.6, 0.8)));
+  float lightness = clamp(0.25 + 0.5 * shade + 0.25 * slope * smoothstep(0.0, 0.5, f1), 0.0, 1.0);
+  vec3 c = mix(bright * 0.72, mix(bright, vec3(1.0), 0.35), lightness);
+  float seam = f2 - f1;
+  float edge = 1.0 - smoothstep(0.0, 0.03 + 1.5 * fwidth(seam), seam);
+  // Far away the facets blend to their average, never shimmer.
+  float far = smoothstep(0.15, 0.4, fwidth(p.y));
+  edge *= 1.0 - far;
+  c = mix(c, mix(bright, vec3(1.0), 0.35), far * 0.5);
+  f.color = mix(c, mix(bright, vec3(1.0), 0.75), edge * 0.85);
+  f.alpha = 0.88 + 0.12 * edge;
+  f.emission = 0.35 * edge;
+  return f;
+}
+
+/**
+ * Bubbles (candidate): a translucent note-coloured body with small bright bubbles of varied
+ * sizes rising toward the tail, each a thin rim with a soft highlight.
+ */
+Fill bubbles(Fill f, vec3 base, float u, float halfWidth, float along, float seed) {
+  float size = max(halfWidth * 2.0, 1e-3);
+  vec2 p = vec2(u * halfWidth, along) / size + vec2(seed * 5.0, 0.0);
+  p.y -= animTime() * 0.3;
+  vec2 cell = floor(p);
+  float px = max(fwidth(p.y), 1e-4);
+  vec3 bright = fullBright(base);
+  float ring = 0.0;
+  float glint = 0.0;
+  float inside = 0.0;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 id = cell + vec2(float(i), float(j));
+      vec2 h = hash22(id + 3.3);
+      if (h.x > 0.55) continue;
+      float r = mix(0.14, 0.36, hash12(id + 9.1));
+      // Bubbles sway a little side to side as they rise.
+      vec2 c = id + 0.5 + vec2(0.1 * sin(animTime() * 1.3 + h.y * 6.28), 0.0) + 0.2 * (h - 0.5);
+      float d = distance(p, c);
+      float rim = 1.0 - smoothstep(0.0, 1.5 * px + 0.035, abs(d - r));
+      float body = 1.0 - smoothstep(r - px, r + px, d);
+      float spot = 1.0 - smoothstep(0.0, r * 0.35 + px, distance(p, c + vec2(-0.35, 0.35) * r));
+      ring = max(ring, rim * smoothstep(0.0, 4.0, r / px));
+      glint = max(glint, spot * smoothstep(0.0, 4.0, r / px));
+      inside = max(inside, body);
+    }
+  }
+  vec3 c = mix(bright * 0.85, mix(bright, vec3(1.0), 0.2), inside * 0.6);
+  c = mix(c, mix(bright, vec3(1.0), 0.7), ring * 0.9);
+  c = mix(c, vec3(1.0), glint * 0.9);
+  f.color = c;
+  f.alpha = max(0.5 + 0.2 * inside, max(ring, glint));
+  f.emission = 0.4 * max(ring * 0.6, glint);
+  f.keep = 0.4 * max(ring, glint);
+  return f;
+}
+
+/**
+ * Liquid (candidate): light through water — a soft network of bright ripples moving slowly
+ * inside the note, over the clean note colour.
+ */
+Fill liquid(Fill f, vec3 base, float u, float halfWidth, float along, float seed) {
+  float size = max(halfWidth * 1.3, 1e-3);
+  vec2 q = vec2(u * halfWidth, along) / size + vec2(seed * 3.0, 0.0);
+  float t = animTime() * 0.6;
+  for (int i = 0; i < 3; i++) {
+    float k = float(i);
+    q += 0.45 * vec2(sin(q.y * 1.7 + t + k * 1.3), cos(q.x * 1.9 - 0.8 * t + k));
+  }
+  float v = sin(q.x * 2.2) + sin(q.y * 2.2);
+  float lines = exp(-abs(v) * 3.5);
+  // Ripples narrower than a few pixels settle to an even glow instead of shimmering.
+  lines = mix(lines, 0.3, smoothstep(0.4, 1.2, fwidth(v)));
+  vec3 bright = fullBright(base);
+  f.color = mix(bright * 0.82, mix(bright, vec3(1.0), 0.6), lines * 0.85);
+  f.alpha = 0.78 + 0.22 * lines;
+  f.emission = 0.3 * lines;
+  return f;
+}
+
 Fill noteFill(
   float style, vec3 base, float u, float halfWidth, float along, float len, float seed,
   float edge, Stripes st
 ) {
-  Fill f = Fill(base, 1.0, 0.0, 0.0);
+  Fill f = Fill(base, 1.0, 0.0, 0.0, vec3(-1.0));
   if (style < 0.5) return f;
   float t = clamp(along / max(len, 1e-3), 0.0, 1.0);
   if (isFill(style, FILL_GRADIENT)) {
@@ -219,7 +345,9 @@ Fill noteFill(
     c = mix(c, vec3(1.0, 0.98, 0.95) * lit, smoothstep(0.25, 0.85, core));
     f.color = c;
     f.alpha = max(mix(0.55, 0.75, haze), tube);
-    f.emission = 0.7 * tube * lit;
+    // The halo is the tube's saturated colour; near-white stays in the core line only.
+    f.emission = 0.9 * tube * lit;
+    f.glow = bright;
     f.keep = 0.4 * tube;
     return f;
   }
@@ -229,11 +357,29 @@ Fill noteFill(
     f.alpha = s.a;
     return f;
   }
-  // Smoke: soft wisps stretched along the note, drifting toward the tail.
-  float n = fbm(vec2(u * halfWidth * 1.6, along * 0.35) + vec2(seed * 7.0, -animTime() * 0.35));
-  float wisp = smoothstep(0.3, 0.8, n);
-  f.color = mix(base * 0.55, mix(base, vec3(1.0), 0.3), wisp);
-  f.alpha = 0.45 + 0.55 * wisp;
+  if (isFill(style, FILL_SMOKE_ROUND1)) {
+    // Round 1's Smoke, unchanged, for the side-by-side comparison only.
+    float n1 = fbm(vec2(u * halfWidth * 2.0, along * 0.8) + vec2(seed * 7.0, -animTime() * 0.4));
+    f.color = base * (0.55 + 0.6 * n1);
+    f.alpha = 0.6 + 0.4 * n1;
+    return f;
+  }
+  if (isFill(style, FILL_CRYSTAL)) return crystal(f, base, u, halfWidth, along, seed);
+  if (isFill(style, FILL_BUBBLES)) return bubbles(f, base, u, halfWidth, along, seed);
+  if (isFill(style, FILL_LIQUID)) return liquid(f, base, u, halfWidth, along, seed);
+  // Smoke: soft, billowing, low-contrast clouds of the clean note colour (lighter at their
+  // centres, never darker or greyer), with see-through gaps and feathered edges, drifting
+  // slowly toward the tail. Noise is sampled the same scale both ways in world space, scaled
+  // to the lane, so it reads as puffs rather than streaks.
+  float scale = 1.0 / max(halfWidth * 1.4, 1e-3);
+  vec2 p = vec2(u * halfWidth, along) * scale + vec2(seed * 7.0, 0.0);
+  p.y -= animTime() * 0.25;
+  // A gentle domain warp makes the clouds billow instead of tiling.
+  p += 0.6 * vec2(fbm(p * 0.6 + vec2(3.1, 1.7)), fbm(p * 0.6 + vec2(8.3, 2.9))) - 0.3;
+  float puff = smoothstep(0.3, 0.75, fbm(p));
+  f.color = mix(base, vec3(1.0), 0.28 * puff * puff);
+  f.alpha = mix(0.18, 0.95, puff);
+  f.keep = 0.25 * puff;
   return f;
 }
 

@@ -17,6 +17,10 @@ export const FILL_ID: { readonly [F in NoteFill]: number } = {
   neon: 5,
   stripes: 6,
   smoke: 7,
+  smokeRound1: 8,
+  crystal: 9,
+  bubbles: 10,
+  liquid: 11,
 }
 
 /** Smoke noise octaves per shader detail level. */
@@ -100,7 +104,14 @@ export function applyNoteStyle(u: NoteStyleUniforms, settings: PlayerSettings): 
 }
 
 /** Fills that put something on the glow scene by themselves. */
-export const EMISSIVE_FILLS: ReadonlySet<NoteFill> = new Set(['hotCore', 'outline', 'neon'])
+export const EMISSIVE_FILLS: ReadonlySet<NoteFill> = new Set([
+  'hotCore',
+  'outline',
+  'neon',
+  'crystal',
+  'bubbles',
+  'liquid',
+])
 
 /** True when the notes put anything on the glow scene (their twins are skipped otherwise). */
 export function notesEmit(settings: PlayerSettings): boolean {
