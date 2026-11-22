@@ -335,7 +335,7 @@ test('Copy look puts the current look on the clipboard as .pmlook.json', async (
   await page.getByTestId('look-copy').click()
   await expect(page.getByTestId('toast').filter({ hasText: 'Copied look "Classic"' })).toBeVisible()
   const file = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))
-  expect(file).toMatchObject({ format: 'pianomeister-look', version: 7 })
+  expect(file).toMatchObject({ format: 'pianomeister-look', version: 8 })
   expect(file.looks).toHaveLength(1)
   expect(file.looks[0]).toMatchObject({ id: 'builtin:classic', name: 'Classic' })
   expect(file.looks[0].settings.lines.nowStyle).toBe('thin')
