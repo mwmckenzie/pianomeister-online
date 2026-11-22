@@ -2,6 +2,7 @@ import { Vector2, Vector4 } from 'three'
 
 import type { NoteFill } from '@/core/settings/NoteFill'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
+import { velocityScaleBounds } from '@/core/settings/velocityScaleBounds'
 
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
 import type { StripeStyle } from './StripeStyle'
@@ -96,8 +97,9 @@ export function applyNoteStyle(u: NoteStyleUniforms, settings: PlayerSettings): 
   u.uSoundingAmount.value = e.soundingGlowAmount
   u.uBreathing.value = e.breathing ? 1 : 0
   u.uVelScaling.value = e.velocityScaling ? 1 : 0
-  u.uVelMin.value = e.minScale
-  u.uVelMax.value = e.maxScale
+  const sizes = velocityScaleBounds(e)
+  u.uVelMin.value = sizes.min
+  u.uVelMax.value = sizes.max
   u.uOctaves.value = OCTAVES[settings.render.shaderDetail]
 }
 

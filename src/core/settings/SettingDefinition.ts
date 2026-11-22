@@ -25,6 +25,11 @@ interface BaseSetting<V> {
    * names the root cause when one reason implies another (names off, not just "not on notes").
    */
   readonly disabledHint?: string | ((settings: PlayerSettings) => string)
+  /**
+   * A note under an enabled control while another setting limits what it does (e.g. Size at
+   * softest above Size at loudest); null when nothing limits it.
+   */
+  readonly limitHint?: (settings: PlayerSettings) => string | null
 }
 
 export interface NumberSetting extends BaseSetting<number> {
@@ -35,6 +40,8 @@ export interface NumberSetting extends BaseSetting<number> {
   readonly unit: SettingUnit
   /** Decimals shown (mm picks its own: 0 from 10 mm up, else 1). */
   readonly digits: number
+  /** Log sliders spend the travel per ratio (perceptual settings; see logSlider). */
+  readonly scale?: 'log'
 }
 
 export interface BooleanSetting extends BaseSetting<boolean> {

@@ -566,3 +566,33 @@ test('a seek places note labels at once (no fades)', async ({ page }) => {
   }
   expect(errors).toEqual([])
 })
+
+test('log sliders step through the dense low end; a limited size says why', async ({ page }) => {
+  const errors = watchErrors(page)
+  await openPlayer(page)
+  await openSidebarSection(page, 'lines')
+  const glow = page.getByTestId('setting-lines-bordersGlow-value')
+  await expect(glow).toHaveText('0.30×')
+  // Near the low end many slider positions snap to one step: each key press still moves on.
+  await nudge(page, 'lines.bordersGlow', 'ArrowLeft')
+  await expect(glow).toHaveText('0.25×')
+  await nudge(page, 'lines.bordersGlow', 'Home')
+  await expect(glow).toHaveText('0.00×')
+  await nudge(page, 'lines.bordersGlow', 'ArrowRight')
+  await expect(glow).toHaveText('0.05×')
+  await nudge(page, 'lines.bordersGlow', 'End')
+  await expect(glow).toHaveText('3.00×')
+
+  await openSidebarSection(page, 'effects')
+  const limit = page.getByTestId('setting-effects-minScale-limit')
+  await expect(limit).toBeHidden()
+  // Size at loudest down to 0.5×, below Size at softest (0.6×): the engine clamps the softest.
+  await nudge(page, 'effects.maxScale', 'Home')
+  await expect(page.getByTestId('setting-effects-maxScale-value')).toHaveText('0.50×')
+  await expect(limit).toHaveText('Limited by Size at loudest')
+  // The stored softest size stays as set.
+  await expect(page.getByTestId('setting-effects-minScale-value')).toHaveText('0.60×')
+  await nudge(page, 'effects.maxScale', 'End')
+  await expect(limit).toBeHidden()
+  expect(errors).toEqual([])
+})
