@@ -73,11 +73,16 @@ async function frame(page: Page): Promise<string> {
 /**
  * How many pixels differ by more than 4/255 in any channel between two frames. Animation
  * (flicker, smoke, a pulse) changes whole notes — thousands of pixels; settling keys and
- * bloom rounding touch a few.
+ * bloom rounding touch a few. `band` limits it to rows between two fractions of the height.
  */
-async function changedPixels(page: Page, a: string, b: string): Promise<number> {
+async function changedPixels(
+  page: Page,
+  a: string,
+  b: string,
+  band: readonly [number, number] = [0, 1],
+): Promise<number> {
   return page.evaluate(
-    async ([first, second]) => {
+    async ([first, second, [top, bottom]]) => {
       const pixels = async (png: string) => {
         const image = new Image()
         image.src = `data:image/png;base64,${png}`
@@ -87,21 +92,23 @@ async function changedPixels(page: Page, a: string, b: string): Promise<number> 
         canvas.height = image.height
         const context = canvas.getContext('2d') as CanvasRenderingContext2D
         context.drawImage(image, 0, 0)
-        return context.getImageData(0, 0, image.width, image.height).data
+        return context.getImageData(0, 0, image.width, image.height)
       }
       const [x, y] = [await pixels(first), await pixels(second)]
+      const from = Math.floor(x.height * top) * x.width * 4
+      const to = Math.floor(x.height * bottom) * x.width * 4
       let changed = 0
-      for (let i = 0; i < x.length; i += 4) {
+      for (let i = from; i < to; i += 4) {
         const d = Math.max(
-          Math.abs((x[i] ?? 0) - (y[i] ?? 0)),
-          Math.abs((x[i + 1] ?? 0) - (y[i + 1] ?? 0)),
-          Math.abs((x[i + 2] ?? 0) - (y[i + 2] ?? 0)),
+          Math.abs((x.data[i] ?? 0) - (y.data[i] ?? 0)),
+          Math.abs((x.data[i + 1] ?? 0) - (y.data[i + 1] ?? 0)),
+          Math.abs((x.data[i + 2] ?? 0) - (y.data[i + 2] ?? 0)),
         )
         if (d > 4) changed++
       }
       return changed
     },
-    [a, b] as const,
+    [a, b, band] as const,
   )
 }
 
@@ -594,5 +601,27 @@ test('log sliders step through the dense low end; a limited size says why', asyn
   await expect(page.getByTestId('setting-effects-minScale-value')).toHaveText('0.60×')
   await nudge(page, 'effects.maxScale', 'End')
   await expect(limit).toBeHidden()
+  expect(errors).toEqual([])
+})
+
+test('note colours recolour the notes and the keys', async ({ page }) => {
+  const errors = watchErrors(page)
+  await openPlayer(page)
+  // The baseline with the sidebar open: opening it reframes the canvas.
+  await openSidebarSection(page, 'notes')
+  const before = await stableFrame(page)
+  const palette = page.getByTestId('setting-notes-palette-control')
+  await choose(page, palette, 'Mono')
+  await expect(setting(page, 'notes.paletteMono')).toBeVisible()
+  const mono = await frame(page)
+  // The highway's notes (upper part) and the keys' approach colours (bottom fifth) both change.
+  expect(await changedPixels(page, before, mono, [0.1, 0.75])).toBeGreaterThan(200)
+  expect(await changedPixels(page, before, mono, [0.8, 1])).toBeGreaterThan(50)
+  await choose(page, palette, 'Two-tone')
+  await expect(setting(page, 'notes.paletteWhite')).toBeVisible()
+  await expect(setting(page, 'notes.paletteMono')).toBeHidden()
+  expect(await changedPixels(page, mono, await frame(page), [0.1, 0.75])).toBeGreaterThan(200)
+  await choose(page, palette, 'Default')
+  expect(await changedPixels(page, before, await frame(page))).toBeLessThan(200)
   expect(errors).toEqual([])
 })
