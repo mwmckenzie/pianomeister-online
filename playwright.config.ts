@@ -47,6 +47,12 @@ const QUALITY_OFF = {
  */
 export default defineConfig({
   testDir: './e2e',
+  /*
+   * Playwright empties its output folder before every run. Its own artifacts get a folder of
+   * their own, so review output written beside it (test-results/visual: shots, range sheets,
+   * their zip) survives the next run of any project.
+   */
+  outputDir: 'test-results/playwright',
   /* Maximum time one test can run for. */
   timeout: 30 * 1000,
   expect: {
