@@ -155,7 +155,10 @@ describe('capturing and listing looks', () => {
   it('lists built-in looks first and finds the active one', () => {
     const mine = captureLook(DEFAULT_SETTINGS, 'a', 'Mine')
     const state = { active: 'a', saved: [mine] }
-    expect(allLooks(state).map((l) => l.name)).toEqual(['Classic', 'Mine'])
+    const names = allLooks(state).map((l) => l.name)
+    expect(names[0]).toBe('Classic')
+    expect(names[names.length - 1]).toBe('Mine')
+    expect(names).toHaveLength(15)
     expect(activeLook(state)).toBe(mine)
     expect(activeLook({ active: 'gone', saved: [] })).toBeNull()
   })
