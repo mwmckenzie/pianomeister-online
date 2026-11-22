@@ -219,7 +219,7 @@ Fill noteFill(
     c = mix(c, vec3(1.0, 0.98, 0.95) * lit, smoothstep(0.25, 0.85, core));
     f.color = c;
     f.alpha = max(mix(0.55, 0.75, haze), tube);
-    f.emission = 1.3 * tube * lit;
+    f.emission = 0.7 * tube * lit;
     f.keep = 0.4 * tube;
     return f;
   }
