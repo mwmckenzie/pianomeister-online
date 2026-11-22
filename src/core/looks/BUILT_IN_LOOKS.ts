@@ -21,7 +21,8 @@ const CLASSIC: Readonly<Record<SettingKey, unknown>> = {
   'keyboard.pressDepthWhite': 0.22,
   'keyboard.pressDepthBlack': 0.3,
   'keyboard.pivotOffsetWhite': 0,
-  'keyboard.pivotOffsetBlack': 8.042553191489361,
+  // 8.04 until milestone 9.1 trimmed the range to 0–8; the press looks the same.
+  'keyboard.pivotOffsetBlack': 8,
   'highway.lookAheadBeats': 8,
   'highway.blackLaneShading': true,
   'highway.blackLaneShadingStrength': 0.22,
