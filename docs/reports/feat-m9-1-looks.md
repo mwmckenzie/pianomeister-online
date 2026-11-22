@@ -313,3 +313,23 @@ See plan §8. In short:
 ### For the tuning session
 
 - Fireworks' explosion glare at the keys; the subtle-bloom level (Study, Night Focus); the octave-glow brightening from section B.
+
+## 2026-11-22 — Wrap-up: final e2e, roadmap, PR
+
+### Final e2e run (`--retries=0`, chromium + polish, 170 tests, 7.0 min)
+
+- **Result:** 167 passed, 3 failed.
+- **The three failures:**
+  1. `listKeys.spec.ts:245` "a loop nudge key with the loop off turns it on from the last range". The settings window was still visible after 5 s, still on its closing animation (`data-state="closed"`).
+  2. `loopJump.spec.ts:259` "arrow keys on the range slider apply the loop once they settle, or on focus loss". Clicking `open-loop` hit the 30 s test timeout.
+  3. `welcome.spec.ts:144` "highlights rotate every 8 s and pause while hovered; a suggestion loads". The highlight hadn't rotated yet within 5 s (on an 8 s timer).
+- **Re-checked in isolation:** each test passed 3 of 3 times (`--workers=1 --repeat-each=3`, 9 of 9).
+  - All three are timing under load (animation, settle and rotation timers).
+  - None touches code this branch changed.
+  - None failed twice.
+  - No fix needed.
+
+### Roadmap and brief
+
+- **Roadmap:** 9.1 is ✅ done (on merge). A new standalone item, **Looks & defaults tuning pass**, not tied to a milestone: you tune the built-in looks and the defaults in the app and send Copy-look JSON; I pin them. Known items: Fireworks' glare where explosion rings start; the very low "subtle" bloom in Study and Night Focus; the brighter octave glow.
+- **Brief decision 108:** the defaults and built-in looks stay provisional until that pass.
