@@ -379,3 +379,80 @@ Contact sheets (JPEG, committed): `docs/design/m9/round3/`. Full-size PNGs are r
 - [ ] Seek with Next bar, playing or paused: labels are simply there, with no wave of fades.
 - [ ] Note names → Off: the section's top says why, once (two lines), and the rows are greyed without per-row hints. Render quality → Off: "Needs bloom…" once at the top.
 - [ ] A section with only one or two greyed rows (e.g. Player controls with auto-hide off) still shows the hint under the row.
+
+## 2026-11-22 — Round 5: repeated-note labels, key label size, fills at quality Off, e2e stability
+
+### What was done
+
+**1. Label repeated notes** (`names.repeats`: First of a run (default) / All)
+
+- A run is consecutive notes of one pitch with no gap over a beat (a quarter, `ppq` ticks). A pitch has its own lane, so nothing else can sit between two of its notes.
+- Runs are decided from the music once per song (`labelRunStarts`, with unit tests), like the stack slots, so a label never comes or goes on screen.
+- Stack slots are kept per choice: with First of a run, unlabelled repeats don't take a slot.
+- The long demo's walls of "A A A A…" are gone; the last cell of `names-dense.jpg` shows All for comparison.
+
+**2. Key label size** (`names.keySize`, 8–16 px, default 11, separate from note Text size)
+
+- Key-top labels are now sized on screen and upright.
+- Each one shrinks to fit its key, using the name's measured width from the atlas: 95 % of the key width on black keys, 85 % on white.
+- Under ~7 px a label fades out (6–8 px ramp) instead of rendering a smudge.
+- At 1280×720 black-key names now read at about 8–10 px, against about 4–5 px before; see the "Both" cells on the names sheets.
+
+**3. Label colours**
+
+- Dark text keeps a light halo of at least 85 %.
+- Note colour text is lifted 30 % toward white, with the dark halo.
+
+**4. Fills read at quality Off**
+
+- **Outline:** the border is at the note colour's full brightness and never thinner than ~1.5 px (0.1 world units near), so far notes keep it.
+- **Neon:** the note itself draws the near-white core line, the coloured tube falloff and a coloured haze filling the inside. Bloom only adds the halo.
+- **Glass:** one continuous soft streak along the whole note, off centre, replaces the repeating blotches. A rim at least ~1.5 px wide.
+- **Hot core:** a clearly filled body: saturated colour at full strength out to the edges, a narrower white band. The body keeps 35 % of its opacity however see-through the note is set.
+- `fills-compare.jpg` now has quality Off and Medium, each with 3D heads on and off.
+
+**5. Root-cause hints**
+
+- `disabledHint` may be a function of the settings (`disabledHintOf`, with unit tests).
+- With names Off, every names row says "Needs note names on", so the section shows that one line.
+- With names on Keys, the note rows say "…on notes (Notes or Both)".
+- With names on Notes, Key label size says "…on keys (Keys or Both)".
+- Height with Flat labels says "Needs labels facing the camera".
+
+**6. E2e flakiness**
+
+- **Cause, part 1:** each test's fresh browser downloaded all ~230 piano samples (43 MB) from the one preview server. With 5 workers, pages, chunks and songs queued behind them. Fix: `e2e/fixtures.ts` serves `/samples/` from a per-worker in-memory cache through `page.route`, and every spec imports `test` from it.
+- **Cause, part 2:** the local run is headed (GPU WebGL). A real pointer or focus over the windows can still disturb hover and keyboard checks. A headless run (software WebGL) is far worse at 5 workers (dozens of timeouts), so headed stays the local default.
+- **Result:** a fully green full-suite run, **166/166** with `--retries=0` (headed, default 5 workers, production preview).
+  - Runs before it at 5 and 3 workers each had one failure: a dialog closing and a hover check. In both, the dialog or check is the subject of the test.
+  - One run was void: the preview server died when I stopped an earlier headless run, after this run had attached to it.
+
+**7. Roadmap, Milestone 12 (Benchmark mode):** not added. Its text never reached this session: it isn't in this conversation or in the earlier transcripts I can read, and the roadmap has no Benchmark row. I didn't want to make it up; please paste it and I'll add it.
+
+### Decisions I made that weren't in the instructions
+
+1. **A "beat" for runs is a quarter note** (`ppq`), not the bar map's beat, so it doesn't depend on the meter.
+2. **Key labels:** fit the measured name width to 95 % of a black key and 85 % of a white key; fade between 6 and 8 px.
+3. **Dark text's halo is at least 85 %** whatever Text shadow is set to, since dark text needs it to read at all.
+4. **Neon's halo:** emission lowered to 0.7 (from 1.3) because the wider tube bloomed into a white blob at Medium. The halo still leans white; that's for the tuning pass in 9.1.
+5. **E2e stays headed locally.** CI is unchanged (headless, one worker).
+
+### Results
+
+- `npm run check`: pass (658 unit tests). `npm run build`: pass.
+- **E2e, full functional suite** (`chromium` + `polish`), `--retries=0`: **166/166**.
+- **Visual:** fills, fills-transparency, fills-compare and the three names sheets regenerated (6/6) and saved as JPEGs in `docs/design/m9/round3/`.
+
+### Known issues and open questions
+
+1. Defaults remain provisional (tuning at the end of 9.1), notably Neon's halo colour and strength at Medium/High.
+2. Milestone 12's text is needed (above).
+3. With First of a run, a long run shows its label only until the first note passes the now line, so the rest of the run is unlabelled by design. If you'd like the label to come back after N bars, that's a small addition.
+
+### Manual review checklist (Round 5)
+
+- [ ] Long demo, names on Notes: one label per run. Label repeated notes → All brings the walls back.
+- [ ] Names → Both: key labels readable on black keys. Key label size 8 → 16. Shrink the window: labels fade rather than smudge.
+- [ ] Text colour Dark and Note colour on the Pedal demo: both readable on their notes.
+- [ ] Render quality Off: Hot core, Glass, Outline and Neon each recognisable, near and far. Then Medium: bloom adds a halo only.
+- [ ] Names → Off: the section shows only "Needs note names on".
