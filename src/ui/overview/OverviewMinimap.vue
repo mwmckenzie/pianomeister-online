@@ -5,9 +5,10 @@ import type { HandNote } from '@/core/hands/HandNote'
 import type { BarLayout } from '@/core/overview/BarLayout'
 import type { OverviewView } from '@/core/overview/OverviewView'
 import { pitchRange } from '@/core/overview/pitchRange'
-import { pitchClassColor } from '@/core/pitchClassColors'
+import { notePaletteColors } from '@/core/color/notePaletteColors'
 import type { LoopRange } from '@/core/transport/LoopRange'
 
+import { useSettingsStore } from '../stores/settingsStore'
 import { readThemeColors } from './readThemeColors'
 import type { RollFrame } from './RollFrame'
 import { rollScale } from './rollScale'
@@ -27,6 +28,9 @@ const props = defineProps<{
   readonly loop: LoopRange | null
 }>()
 const emit = defineEmits<{ view: [view: OverviewView] }>()
+const settings = useSettingsStore()
+/** The same note colours as the highway (Note colours, brief decision 122). */
+const palette = computed(() => notePaletteColors(settings.settings.notes))
 
 const box = useTemplateRef<HTMLElement>('box')
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
@@ -74,7 +78,7 @@ function draw(): void {
   for (const n of props.notes) {
     if (n.hand === 'right' ? !props.hands.right : !props.hands.left) continue
     ctx.globalAlpha = n.hand === 'left' ? 0.5 : 1
-    ctx.fillStyle = pitchClassColor(n.midi).hex
+    ctx.fillStyle = palette.value[n.midi % 12] ?? '#FFFFFF'
     const y = height - 6 - (n.midi - low + 1) * rowHeight
     ctx.fillRect(s.x(n.startTick), y, Math.max(1, (n.endTick - n.startTick) * s.pxPerTick), 2)
   }
@@ -82,7 +86,15 @@ function draw(): void {
 }
 
 watch(
-  () => [size.value, props.notes, props.hands.right, props.hands.left, props.loop, props.layout],
+  () => [
+    size.value,
+    props.notes,
+    props.hands.right,
+    props.hands.left,
+    props.loop,
+    props.layout,
+    palette.value,
+  ],
   () => {
     if (request === 0) request = requestAnimationFrame(draw)
   },

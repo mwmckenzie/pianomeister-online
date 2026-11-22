@@ -1,7 +1,15 @@
 import { type Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
-import { readStore, seedBookmark, seedPractice, setLoopBars, watchErrors } from './support'
+import {
+  choose,
+  openSidebarSection,
+  readStore,
+  seedBookmark,
+  seedPractice,
+  setLoopBars,
+  watchErrors,
+} from './support'
 
 /**
  * Milestone 8: the overview strip in the player (brief decisions 101–105). The Minuet has 64
@@ -345,5 +353,20 @@ test('the Loop editor menu item opens the editor, from Welcome too', async ({ pa
   await expect(page.getByTestId('welcome')).toBeVisible()
   await item.click()
   await expect(page.getByTestId('loop-editor')).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('the piano roll follows the Note colours setting', async ({ page }) => {
+  const errors = watchErrors(page)
+  await openPlayer(page)
+  // Sidebar first: the strip's width follows the playfield panel.
+  await openSidebarSection(page, 'notes')
+  await openStrip(page)
+  const roll = page.getByTestId('overview-strip').getByTestId('roll')
+  const before = await roll.screenshot()
+  await choose(page, page.getByTestId('setting-notes-palette-control'), 'Mono')
+  await expect.poll(async () => (await roll.screenshot()).equals(before)).toBe(false)
+  await choose(page, page.getByTestId('setting-notes-palette-control'), 'Default')
+  await expect.poll(async () => (await roll.screenshot()).equals(before)).toBe(true)
   expect(errors).toEqual([])
 })
