@@ -77,15 +77,10 @@ function prerequisites(key: SettingKey): Settings {
   return {}
 }
 
-/** Perceptual settings (sizes, widths, strengths, counts, lifetimes, decay): log-spaced. */
+/** Log-spaced where the slider is log (the registry's `scale`, milestone 9.1 §B). */
 function isLog(key: SettingKey): boolean {
   const def = settingDefinition(key)
-  if (def.kind !== 'number') return false
-  if (def.unit === 'times') return true
-  if (/Width$|Size$|edgeSize|pulseDecayMs|cornerRadius|keySpillSpread|fadeLength/.test(key)) {
-    return true
-  }
-  return false
+  return def.kind === 'number' && def.scale === 'log'
 }
 
 const round = (v: number) => Number(v.toPrecision(6))
@@ -118,8 +113,17 @@ function expectShown(key: SettingKey, patch: Settings): void {
   for (const [section, fields] of Object.entries(patch)) {
     merged[section] = { ...defaults[section], ...fields }
   }
-  const visible = settingDefinition(key).visible
-  expect(visible?.(merged as unknown as PlayerSettings) ?? true, `${key} is hidden`).toBe(true)
+  const def = settingDefinition(key)
+  const settings = merged as unknown as PlayerSettings
+  expect(def.visible?.(settings) ?? true, `${key} is hidden`).toBe(true)
+  expect(def.enabled?.(settings) ?? true, `${key} is disabled`).toBe(true)
+}
+
+/** Deep-merges two settings patches (section by section). */
+function merge(a: Settings, b: Settings): Settings {
+  const out: Settings = { ...a }
+  for (const [section, fields] of Object.entries(b)) out[section] = { ...a[section], ...fields }
+  return out
 }
 
 /** Writes a nested settings patch for one key over its prerequisites. */
@@ -167,7 +171,7 @@ function cropOf(key: SettingKey): Crop | undefined {
 }
 
 /** Settings whose effect only shows in motion, and how to capture it. */
-function motionOf(key: SettingKey): { song: 'long' | 'pedal'; moments: number[] } | null {
+function motionOf(key: SettingKey): Motion | null {
   const field = key.split('.')[1] ?? ''
   if (!key.startsWith('effects.')) return null
   if (ONSETS.some((e) => KNOBS.some((k) => field === `${e}${k}`))) {
@@ -216,30 +220,53 @@ function saveBudgets(name: string): void {
   writeFileSync(`${OUT}/budget/${name}.json`, JSON.stringify(budgets, null, 2))
 }
 
-async function rangeSheet(page: Page, browser: Parameters<typeof writeSheet>[0], key: SettingKey) {
-  const base = prerequisites(key)
+type Motion = { readonly song: 'long' | 'pedal'; readonly moments: readonly number[] }
+
+/** A sheet's variation on the standard one (another camera, motion or crop). */
+interface SheetOptions {
+  /** Settings on top of the prerequisites, e.g. a low camera. */
+  readonly extra?: Settings
+  /** Replaces the key's own motion (null: a still frame). */
+  readonly motion?: Motion | null
+  /** Replaces the key's own crop (null: the full frame). */
+  readonly crop?: Crop | null
+  /** File name suffix and title note, e.g. "tilt-25". */
+  readonly tag?: string
+}
+
+async function rangeSheet(
+  page: Page,
+  browser: Parameters<typeof writeSheet>[0],
+  key: SettingKey,
+  options: SheetOptions = {},
+) {
+  const base = merge(prerequisites(key), options.extra ?? {})
   expectShown(key, base)
-  const motion = motionOf(key)
+  const motion = options.motion === undefined ? motionOf(key) : options.motion
+  const crop = (options.crop === undefined ? cropOf(key) : options.crop) ?? undefined
   const cells: Cell[] = []
   for (const value of valuesOf(key)) {
     const settings = withValue(base, key, value)
     if (motion === null) {
-      cells.push({ label: label(key, value), png: await frameWith(page, settings, 2, cropOf(key)) })
+      cells.push({ label: label(key, value), png: await frameWith(page, settings, 2, crop) })
       continue
     }
-    const { pngs, load } = await captureWith(page, settings, 2, motion.moments, cropOf(key))
+    const { pngs, load } = await captureWith(page, settings, 2, motion.moments, crop)
     pngs.forEach((png, i) =>
       cells.push({ label: `${label(key, value)} · t ${motion.moments[i]} s`, png }),
     )
-    ;(budgets[key] ??= []).push({ value, load })
+    if (options.tag === undefined) (budgets[key] ??= []).push({ value, load })
   }
-  const crop = cropOf(key)
   // Near 1:1 for crops (at most 640 px), two rows of four for still frames.
   const width = Math.min(640, crop?.width ?? 640)
+  const tag = options.tag === undefined ? '' : `.${options.tag}`
+  const note = [options.tag ?? '', motion === null ? '' : 'playing, fixed step'].filter(
+    (t) => t !== '',
+  )
   await writeSheet(
     browser,
-    `${OUT}/${sectionOf(key)}/${key}.png`,
-    title(key, motion === null ? '' : ' — playing, fixed step'),
+    `${OUT}/${sectionOf(key)}/${key}${tag}.png`,
+    title(key, note.length === 0 ? '' : ` — ${note.join(', ')}`),
     cells,
     motion === null ? 4 : motion.moments.length,
     width,
@@ -426,4 +453,50 @@ test('@visual range pairs: particle count × lifetime', async ({ page, browser }
       PARTICLES_CROP,
     ),
   ).toBe(16)
+})
+
+/**
+ * Settings the default 45° camera can't judge (vertical sizes, the press, the cone): from a low
+ * 25° camera, the keys mid-press on the fixed step (a press takes 0.04 s, so 0.017 s and
+ * 0.034 s catch it at about 40% and 85%). Camera-dependent ranges (look-ahead, label sizes) are
+ * also checked from 25° and 85°.
+ */
+const LOW = { camera: { tiltDeg: 25 } }
+/** From 25°: the near notes (heads and the black-lane shadow). */
+const LOW_NOTES_CROP: Crop = { x: 360, y: 300, width: 400, height: 320 }
+/** From 25°: the pressed keys on the left of the Pedal demo, and what lights them. */
+const LOW_KEYS_CROP: Crop = { x: 280, y: 520, width: 440, height: 200 }
+const MID_PRESS: Motion = { song: 'pedal', moments: [0.017, 0.034, 0.3] }
+const CONE: Motion = { song: 'pedal', moments: [0.05, 0.15, 0.4] }
+
+test('@visual range low camera', async ({ page, browser }) => {
+  test.setTimeout(3_600_000)
+  await openSong(page, PEDAL_DEMO, 'Pedal demo')
+  const sheets: [SettingKey, SheetOptions][] = [
+    ['notes.headHeight', { extra: LOW, crop: LOW_NOTES_CROP, tag: 'tilt-25' }],
+    ['notes.shadowStrength', { extra: LOW, crop: LOW_NOTES_CROP, tag: 'tilt-25' }],
+    [
+      'keyboard.pressDepthWhite',
+      { extra: LOW, motion: MID_PRESS, crop: LOW_KEYS_CROP, tag: 'tilt-25' },
+    ],
+    [
+      'keyboard.pivotOffsetWhite',
+      { extra: LOW, motion: MID_PRESS, crop: LOW_KEYS_CROP, tag: 'tilt-25' },
+    ],
+    [
+      'keyboard.pivotOffsetBlack',
+      { extra: LOW, motion: MID_PRESS, crop: LOW_KEYS_CROP, tag: 'tilt-25' },
+    ],
+    ['effects.keyConeStrength', { extra: LOW, motion: CONE, crop: LOW_KEYS_CROP, tag: 'tilt-25' }],
+    ['effects.keyConeSpread', { extra: LOW, motion: CONE, crop: LOW_KEYS_CROP, tag: 'tilt-25' }],
+  ]
+  for (const tilt of [25, 85]) {
+    const extra = { camera: { tiltDeg: tilt } }
+    for (const key of ['highway.lookAheadBeats', 'names.textSize', 'names.keySize'] as const) {
+      sheets.push([key, { extra, crop: null, tag: `tilt-${tilt}` }])
+    }
+  }
+  for (const [key, options] of sheets) {
+    expect(await rangeSheet(page, browser, key, options)).toBeGreaterThan(0)
+  }
 })
