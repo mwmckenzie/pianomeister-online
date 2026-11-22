@@ -1,8 +1,7 @@
+import type { PlayerSettings } from '@/core/settings/PlayerSettings'
+
 /**
- * A layer's label stack slots, per "Label repeated notes" choice: with only the first of each
- * run labelled, the unlabelled repeats don't take slots.
+ * A layer's label stack slots, per "Label repeated notes" choice: unlabelled repeats don't take
+ * slots, so each choice has its own.
  */
-export interface LabelSlots {
-  readonly first: Uint8Array
-  readonly all: Uint8Array
-}
+export type LabelSlots = Readonly<Record<PlayerSettings['names']['repeats'], Uint8Array>>

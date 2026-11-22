@@ -25,7 +25,7 @@ import { NoteMask } from './notes/NoteMask'
 import { ContactShadow } from './notes/ContactShadow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
-import { labelRunStarts } from './model/labelRunStarts'
+import { BAR_START, labelRepeatRanks, RUN_START } from './model/labelRepeatRanks'
 import { labelStackSlots } from './model/labelStackSlots'
 import { placeLabels } from './model/placeLabels'
 import type { LabelSnapshot } from './names/LabelSnapshot'
@@ -169,23 +169,35 @@ export class Engine {
     const white = instances.filter((n) => !n.isBlack)
     const black = instances.filter((n) => n.isBlack)
     // Label stack slots and runs of repeated notes come from the music, across both lane
-    // colours (brief decision 114); only the first of a run is labelled by default.
-    const runStarts = labelRunStarts(instances, song.ppq)
-    const lanes = instances.map((n) => ({ startTick: n.startTick, centre: n.x + n.width / 2 }))
-    const allSlots = labelStackSlots(lanes)
-    const firsts = instances.flatMap((_, i) => (runStarts[i] === 1 ? [i] : []))
-    const firstSlots = new Uint8Array(instances.length)
-    labelStackSlots(firsts.map((i) => lanes[i] ?? { startTick: 0, centre: 0 })).forEach(
-      (slot, k) => (firstSlots[firsts[k] ?? 0] = slot),
+    // colours (brief decision 114); by default the first of a run in each bar is labelled.
+    const ranks = labelRepeatRanks(
+      instances,
+      song.ppq,
+      (tick) => song.barMap.tickToPosition(tick).bar,
     )
+    const lanes = instances.map((n) => ({ startTick: n.startTick, centre: n.x + n.width / 2 }))
+    /** Stack slots among the notes ranked at least `rank` (the ones a choice labels). */
+    const slotsFrom = (rank: number) => {
+      const labelled = instances.flatMap((_, i) => ((ranks[i] ?? 0) >= rank ? [i] : []))
+      const slots = new Uint8Array(instances.length)
+      labelStackSlots(labelled.map((i) => lanes[i] ?? { startTick: 0, centre: 0 })).forEach(
+        (slot, k) => (slots[labelled[k] ?? 0] = slot),
+      )
+      return slots
+    }
+    const choiceSlots = {
+      first: slotsFrom(RUN_START),
+      bar: slotsFrom(BAR_START),
+      all: slotsFrom(0),
+    }
     const pick = (slots: Uint8Array, black: boolean) =>
       Uint8Array.from(slots.filter((_, i) => instances[i]?.isBlack === black))
     const slotsOf = (black: boolean) => ({
-      first: pick(firstSlots, black),
-      all: pick(allSlots, black),
+      first: pick(choiceSlots.first, black),
+      bar: pick(choiceSlots.bar, black),
+      all: pick(choiceSlots.all, black),
     })
-    const runStartsOf = (black: boolean) =>
-      Uint8Array.from(runStarts.filter((_, i) => instances[i]?.isBlack === black))
+    const ranksOf = (black: boolean) => pick(ranks, black)
     const { barMap } = song
     const barTicks = song.ppq * 4
     const beats = barMap
@@ -227,7 +239,7 @@ export class Engine {
           this.atlas.texture,
           ORDER.whiteNames,
           slotsOf(false),
-          runStartsOf(false),
+          ranksOf(false),
         ),
         black: new NoteNameLayer(
           black,
@@ -235,7 +247,7 @@ export class Engine {
           this.atlas.texture,
           ORDER.blackNames,
           slotsOf(true),
-          runStartsOf(true),
+          ranksOf(true),
         ),
       },
       keyStates: new KeyStates(instances),

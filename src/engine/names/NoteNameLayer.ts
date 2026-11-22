@@ -16,6 +16,7 @@ import { GlowTwin } from '../GlowTwin'
 import { KEYBOARD } from '../model/KEYBOARD'
 import type { LabelRect } from '../model/LabelRect'
 import type { LabelState } from '../model/LabelState'
+import { BAR_START, RUN_START } from '../model/labelRepeatRanks'
 import type { NoteInstance } from '../model/NoteInstance'
 import { srgb } from '../srgb'
 import { TIME_GLSL } from '../timeGlsl'
@@ -43,6 +44,8 @@ const FLAT_STACK_GAP = 0.15
 const STATES: readonly LabelState[] = ['new', 'hidden', 'shown']
 
 const ANCHOR = { ahead: 0, on: 1, behind: 2 } as const
+/** The lowest repeat rank each "Label repeated notes" choice labels (labelRepeatRanks). */
+const MIN_RANK = { first: RUN_START, bar: BAR_START, all: 0 } as const
 const COLOR = { auto: 0, note: 1, white: 2, dark: 3 } as const
 
 const SHARED_GLSL = /* glsl */ `
@@ -59,7 +62,7 @@ uniform float uHeightPx;    // CSS px
 uniform float uShowWithin;
 uniform float uFadeLength;
 uniform float uStack;       // 1: labels take their stack slots (Avoid overlaps)
-uniform float uAllRepeats;  // 1: label every repeated note, 0: the first of a run only
+uniform float uMinRank;     // label repeated notes ranked at least this (labelRepeatRanks)
 
 /** The tick a label sits at, per the anchor (short notes fall back from behind to on). */
 float anchorTick(vec3 ticks, float laneWidth) {
@@ -84,7 +87,7 @@ attribute vec4 aCell;   // atlas u0, v0, u1, v1
 attribute vec3 aColor;
 attribute float aShown; // 0..1: hidden by an overlap
 attribute float aSlot;  // stack slot, fixed per song
-attribute float aFirst; // 1: first of a run of repeated notes
+attribute float aRank;  // 2 first of a run, 1 first of the run in a bar, 0 other repeats
 varying vec2 vUv;
 varying vec3 vColor;
 varying float vFade;
@@ -96,7 +99,7 @@ void main() {
   // Distance fade (a ramp, no hard cut), the handover before the now line, overlaps.
   float fade = 1.0 - smoothstep(uShowWithin, uShowWithin + max(uFadeLength, 1e-3), ahead);
   fade *= smoothstep(0.0, ${HANDOVER.toFixed(2)}, ahead) * aShown * hazeAlpha(tick);
-  fade *= max(aFirst, uAllRepeats);
+  fade *= step(uMinRank - 0.5, aRank);
   float heightPx = uTextPx * ${(CELL_H / ATLAS_FONT_PX).toFixed(4)} * uPixelRatio;
   vec2 corner = uv - 0.5;
   float slot = aSlot * uStack;
@@ -208,7 +211,8 @@ export class NoteNameLayer {
   /** Stack slots for each "Label repeated notes" choice; `slots` is the one in use. */
   private readonly slotSets: LabelSlots
   private slots: Uint8Array
-  private readonly runStarts: Uint8Array
+  private readonly ranks: Uint8Array
+  private minRank: number = MIN_RANK.bar
   private readonly state: Uint8Array
   private readonly placedAt: Int32Array
   private settings: PlayerSettings['names'] | null = null
@@ -220,7 +224,7 @@ export class NoteNameLayer {
     atlas: Texture,
     renderOrder: number,
     slots: LabelSlots,
-    runStarts: Uint8Array,
+    ranks: Uint8Array,
   ) {
     this.notes = notes
     this.byStart = Int32Array.from(notes.keys()).sort(
@@ -229,8 +233,8 @@ export class NoteNameLayer {
     this.shown = new Float32Array(notes.length).fill(1)
     this.target = new Float32Array(notes.length).fill(1)
     this.slotSets = slots
-    this.slots = slots.first
-    this.runStarts = runStarts
+    this.slots = slots.bar
+    this.ranks = ranks
     this.state = new Uint8Array(notes.length)
     this.placedAt = new Int32Array(notes.length).fill(-2)
     const g = new InstancedBufferGeometry()
@@ -271,8 +275,8 @@ export class NoteNameLayer {
       ),
     )
     g.setAttribute('aShown', new InstancedBufferAttribute(this.shown, 1))
-    g.setAttribute('aSlot', new InstancedBufferAttribute(Float32Array.from(slots.first), 1))
-    g.setAttribute('aFirst', new InstancedBufferAttribute(Float32Array.from(runStarts), 1))
+    g.setAttribute('aSlot', new InstancedBufferAttribute(Float32Array.from(slots.bar), 1))
+    g.setAttribute('aRank', new InstancedBufferAttribute(Float32Array.from(ranks), 1))
     g.instanceCount = notes.length
     this.mesh = new Mesh(
       g,
@@ -293,7 +297,7 @@ export class NoteNameLayer {
           uShowWithin: { value: 0.4 },
           uFadeLength: { value: 0.15 },
           uStack: { value: 1 },
-          uAllRepeats: { value: 0 },
+          uMinRank: { value: MIN_RANK.bar },
           uColorMode: { value: 0 },
           uShadow: { value: 0.6 },
           uAtlas: { value: atlas },
@@ -322,8 +326,9 @@ export class NoteNameLayer {
     this.uniform('uColorMode', COLOR[names.textColor])
     this.uniform('uShadow', names.shadow)
     this.uniform('uStack', names.avoidOverlaps ? 1 : 0)
-    this.uniform('uAllRepeats', names.repeats === 'all' ? 1 : 0)
-    const slots = names.repeats === 'all' ? this.slotSets.all : this.slotSets.first
+    this.minRank = MIN_RANK[names.repeats]
+    this.uniform('uMinRank', this.minRank)
+    const slots = this.slotSets[names.repeats]
     if (slots !== this.slots) {
       this.slots = slots
       const attribute = this.mesh.geometry.getAttribute('aSlot') as InstancedBufferAttribute
@@ -366,7 +371,7 @@ export class NoteNameLayer {
       const index = this.byStart[k] as number
       const n = this.notes[index]
       if (n === undefined || n.startTick > view.tick + range + margin) break
-      if (s.repeats === 'first' && this.runStarts[index] === 0) continue
+      if ((this.ranks[index] ?? 0) < this.minRank) continue
       const tick = anchorTick(n, s, view.unitsPerTick)
       const ahead = (tick - view.tick) / view.lookAheadTicks
       if (ahead <= 0 || ahead >= s.showWithin + s.fadeLength) continue
