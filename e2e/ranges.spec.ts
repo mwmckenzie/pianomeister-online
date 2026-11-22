@@ -5,6 +5,8 @@ import { expect, test } from './fixtures'
 
 import { COST_KEYS } from '../src/core/looks/COST_KEYS'
 import type { SettingKey } from '../src/core/settings/SettingKey'
+import { DEFAULT_SETTINGS } from '../src/core/settings/DEFAULT_SETTINGS'
+import type { PlayerSettings } from '../src/core/settings/PlayerSettings'
 import { SETTING_KEYS } from '../src/core/settings/SETTING_KEYS'
 import { formatSettingValue } from '../src/core/settings/formatSettingValue'
 import { settingDefinition } from '../src/core/settings/settingValues'
@@ -53,6 +55,7 @@ function prerequisites(key: SettingKey): Settings {
   if (field.startsWith('headStripe')) return { noteStyle: { headFill: 'stripes' } }
   if (field.startsWith('sustainStripe')) return { noteStyle: { sustainFill: 'stripes' } }
   if (field.startsWith('edge') && section === 'noteStyle') return { noteStyle: { edgeGlow: true } }
+  if (key === 'notes.blackLift') return { notes: { blackLiftMode: 'manual' } }
   if (key === 'names.keySize') return { names: { mode: 'both' } }
   if (section === 'names') return { names: { mode: 'notes' } }
   if (key.startsWith('pedal.border') || key === 'pedal.cornerRadius') {
@@ -105,6 +108,20 @@ function valuesOf(key: SettingKey): number[] {
   return [...new Set(all.map(round))].sort((a, b) => a - b)
 }
 
+/**
+ * Fails when `key` would be hidden (so inert) under `patch` over the defaults: a sheet of a
+ * setting that does nothing looks like a setting with no visible effect.
+ */
+function expectShown(key: SettingKey, patch: Settings): void {
+  const defaults = DEFAULT_SETTINGS as unknown as Settings
+  const merged: Settings = { ...defaults }
+  for (const [section, fields] of Object.entries(patch)) {
+    merged[section] = { ...defaults[section], ...fields }
+  }
+  const visible = settingDefinition(key).visible
+  expect(visible?.(merged as unknown as PlayerSettings) ?? true, `${key} is hidden`).toBe(true)
+}
+
 /** Writes a nested settings patch for one key over its prerequisites. */
 function withValue(base: Settings, key: SettingKey, value: unknown): Settings {
   const [section, field] = key.split('.') as [string, string]
@@ -136,7 +153,7 @@ function cropOf(key: SettingKey): Crop | undefined {
   const field = key.split('.')[1] ?? ''
   if (motionOf(key)?.song === 'long') return PARTICLES_CROP
   if (/pulse|soundingGlow|keySpill|keyCone/.test(field)) return ARRIVAL_CROP
-  if (key.startsWith('keyboard.') || key.startsWith('keys.') || key === 'notes.blackLift') {
+  if (key.startsWith('keyboard.') || key.startsWith('keys.')) {
     return KEYS_CROP
   }
   if (key.startsWith('names.')) return LABELS_CROP
@@ -201,6 +218,7 @@ function saveBudgets(name: string): void {
 
 async function rangeSheet(page: Page, browser: Parameters<typeof writeSheet>[0], key: SettingKey) {
   const base = prerequisites(key)
+  expectShown(key, base)
   const motion = motionOf(key)
   const cells: Cell[] = []
   for (const value of valuesOf(key)) {
@@ -306,6 +324,8 @@ async function pairSheet(
   motion: { moment: number } | null,
   crop?: Crop,
 ) {
+  expectShown(rows.key, base)
+  expectShown(columns.key, base)
   const cells: Cell[] = []
   for (const r of rows.values) {
     for (const c of columns.values) {
