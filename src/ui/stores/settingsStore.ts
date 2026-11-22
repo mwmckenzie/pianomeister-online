@@ -136,7 +136,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const savedLooks = (): Looks => (repository ??= new Looks(appDatabase()))
 
   /** Moves looks out of localStorage (only once the database has them), then lists them all. */
-  async function loadLooks(): Promise<void> {
+  async function reloadLooks(): Promise<void> {
     try {
       if (unmoved.length > 0) {
         await savedLooks().adopt(unmoved)
@@ -150,7 +150,7 @@ export const useSettingsStore = defineStore('settings', () => {
       console.error('Looks could not be loaded', error)
     }
   }
-  void loadLooks()
+  void reloadLooks()
 
   /** Every command's keys in effect (brief decision 88). */
   const bindings = computed(() => effectiveBindings(shortcuts.value))
@@ -254,6 +254,7 @@ export const useSettingsStore = defineStore('settings', () => {
     changedCount,
     replace,
     setLooks,
+    reloadLooks,
     snapshot,
     editShortcuts,
     restoreShortcuts,

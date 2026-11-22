@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import type { SettingKey } from '@/core/settings/SettingKey'
 import { settingGroupKeys } from '@/core/settings/settingGroups'
@@ -18,6 +18,7 @@ import { useUiStateStore } from '../stores/uiStateStore'
 import LookPicker from './LookPicker.vue'
 import RenderReadout from './RenderReadout.vue'
 import type { RenderStatus } from './RenderStatus'
+import { useLooks } from './useLooks'
 
 /**
  * The playfield panel (decision 50): every setting that changes the highway, beside the live
@@ -56,6 +57,33 @@ function blocksOf(id: SectionId): readonly { title?: string; keys: readonly Sett
   return blocks
 }
 
+/** Look files dropped anywhere on the panel are imported (never applied). */
+const { importFile } = useLooks()
+const dropping = ref(false)
+const carriesFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
+
+function onDragOver(event: DragEvent): void {
+  if (!carriesFiles(event)) return
+  event.preventDefault()
+  if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'copy'
+  dropping.value = true
+}
+
+function onDragLeave(event: DragEvent): void {
+  // Leaving for a child of the panel isn't leaving the panel.
+  const to = event.relatedTarget
+  if (!(to instanceof Node) || !(event.currentTarget as HTMLElement).contains(to)) {
+    dropping.value = false
+  }
+}
+
+async function onDrop(event: DragEvent): Promise<void> {
+  if (!carriesFiles(event)) return
+  event.preventDefault()
+  dropping.value = false
+  for (const file of event.dataTransfer?.files ?? []) await importFile(file)
+}
+
 const qualityModified = computed(() => isQualityModified(settings.settings.render))
 const qualityLabel = computed(() => {
   const q = settings.settings.render.quality
@@ -74,7 +102,15 @@ const blocks = computed(() =>
 </script>
 
 <template>
-  <aside class="sidebar glass" aria-label="Playfield" data-testid="playfield-sidebar">
+  <aside
+    class="sidebar glass"
+    :class="{ dropping }"
+    aria-label="Playfield"
+    data-testid="playfield-sidebar"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
     <header class="top">
       <div>
         <h2 class="title">Playfield</h2>
@@ -146,6 +182,12 @@ const blocks = computed(() =>
   border-width: 0 0 0 1px;
   border-radius: 0;
   box-shadow: none;
+}
+
+/* A look file held over the panel: dropping it imports it. */
+.sidebar.dropping {
+  outline: 2px dashed var(--primary);
+  outline-offset: -6px;
 }
 
 .top {

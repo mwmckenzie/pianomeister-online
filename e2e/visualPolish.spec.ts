@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+
 import { type Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
@@ -267,10 +269,92 @@ test('looks: apply with Undo, modified, save as new, persist, delete with Undo',
   await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
   await expect(page.getByTestId('look-select')).toContainText('Neon night')
 
+  await page.getByTestId('look-menu').click()
   await page.getByTestId('look-delete').click()
   await expect(page.getByTestId('look-select')).toContainText('Custom')
   await page.getByTestId('toast-undo').click()
   await expect(page.getByTestId('look-select')).toContainText('Neon night')
+  expect(errors).toEqual([])
+})
+
+test('looks: save, rename, export, delete, import the file back, Undo; cost stays', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await seed(page, {
+    render: {
+      quality: 'low',
+      bloomResolution: 'quarter',
+      particleBudget: 1024,
+      shaderDetail: 'low',
+    },
+  })
+  await openPlayer(page)
+  await page.getByTestId('toggle-sidebar').click()
+  const select = page.getByTestId('look-select')
+  const menu = page.getByTestId('look-menu')
+  const toast = (text: string) => page.getByTestId('toast').filter({ hasText: text })
+
+  await openSidebarSection(page, 'lines')
+  await segment(page, 'lines.nowStyle', 'Neon')
+  await page.getByTestId('look-save-new').click()
+  await page.getByTestId('look-name').fill('Night')
+  await page.getByTestId('look-name-save').click()
+  await expect(select).toContainText('Night')
+
+  await menu.click()
+  await page.getByTestId('look-rename').click()
+  await page.getByTestId('look-name').fill('Night drive')
+  await page.getByTestId('look-name-save').click()
+  await expect(select).toContainText('Night drive')
+
+  await menu.click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('look-export').click(),
+  ])
+  expect(download.suggestedFilename()).toBe('Night drive.pmlook.json')
+  const path = test.info().outputPath('night-drive.pmlook.json')
+  await download.saveAs(path)
+  const file = JSON.parse(await readFile(path, 'utf8'))
+  expect(file).toMatchObject({ format: 'pianomeister-look', version: SETTINGS_VERSION })
+  expect(file.looks[0]).toMatchObject({ name: 'Night drive' })
+  expect(file.looks[0].settings.lines.nowStyle).toBe('neon')
+  // A look is the whole playfield setup: the camera travels with it, device cost never.
+  expect(file.looks[0].settings.camera).toHaveProperty('tiltDeg')
+  expect(file.looks[0].settings.render).not.toHaveProperty('quality')
+
+  await menu.click()
+  await page.getByTestId('look-delete').click()
+  await expect(select).toContainText('Custom')
+
+  // Pick Classic, then import the exported file back: added, not applied, Apply offered.
+  await select.click()
+  await page.getByRole('option', { name: 'Classic', exact: true }).click()
+  await page.getByTestId('look-file').setInputFiles(path)
+  await expect(toast('Imported look "Night drive"')).toBeVisible()
+  await expect(select).toContainText('Classic')
+  await page.getByTestId('toast-apply').click()
+  await expect(select).toContainText('Night drive')
+  const stored = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('pianomeister.settings') ?? '{}'))
+  await expect.poll(async () => (await stored()).settings.lines.nowStyle).toBe('neon')
+  await expect(page.getByTestId('look-status')).toBeHidden()
+  await page.getByTestId('toast-undo').click()
+  await expect(select).toContainText('Classic')
+
+  // Device cost was never touched by any look.
+  await openSidebarSection(page, 'render')
+  await expect(page.getByTestId('quality-status')).toBeHidden()
+  await expect(setting(page, 'render.quality')).toContainText('Low')
+
+  // A file that isn't a look changes nothing and says so.
+  await page.getByTestId('look-file').setInputFiles({
+    name: 'notes.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"hello": 1}'),
+  })
+  await expect(toast("That isn't a PianoMeister look file")).toBeVisible()
   expect(errors).toEqual([])
 })
 

@@ -5,6 +5,7 @@ import type { ImportReport } from '@/data/ImportReport'
 
 import { useImportStore } from '../stores/importStore'
 import { useLibraryStore } from '../stores/libraryStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useToastStore } from '../stores/toastStore'
 
 /**
@@ -15,6 +16,7 @@ export function useLibraryBackup() {
   const store = useLibraryStore()
   const imports = useImportStore()
   const toasts = useToastStore()
+  const settings = useSettingsStore()
   const busy = ref(false)
   const error = ref('')
 
@@ -51,8 +53,16 @@ export function useLibraryBackup() {
   function importFile(file: File): Promise<ImportReport | null> {
     return run(async () => {
       const report = await imports.run(new Uint8Array(await file.arrayBuffer()))
-      const profiles = report === null ? '' : formatImportSummary(report.profiles)
-      if (profiles !== '') toasts.show(`Imported: ${profiles}.`)
+      if (report === null) return report
+      // Saved looks from the backup were written to the database: show them in the picker.
+      if (report.looksAdded > 0) await settings.reloadLooks()
+      const parts = [
+        formatImportSummary(report.profiles),
+        report.looksAdded === 0
+          ? ''
+          : `added ${report.looksAdded} ${report.looksAdded === 1 ? 'look' : 'looks'}`,
+      ].filter((part) => part !== '')
+      if (parts.length > 0) toasts.show(`Imported: ${parts.join('; ')}.`)
       return report
     })
   }
