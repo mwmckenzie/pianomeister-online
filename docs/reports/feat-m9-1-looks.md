@@ -278,3 +278,38 @@ See plan §8. In short:
 - [ ] `docs/design/m9-1/all-looks.jpg`.
 - [ ] In the app: Notes → Note colours, every palette; Mono and Two-tone colour pickers; the pressed keys and labels follow.
 - [ ] Then the tuning session (step 7).
+
+## 2026-11-22 — Section C round 3: whiteouts, palettes, overview (stop for the tuning session)
+
+### What was done
+
+- **Inferno:** bloom strong → medium; flame burst size and count → subtle. Strong key spill, strong pulse, flames and hot core stay, so it is still the loudest fire look. On the dense passage the keys and the arriving notes read.
+- **Synthwave:**
+  - palette Two-tone: white-key notes `#FF4FD8`, black-key notes `#4FE3FF`;
+  - scaling sparks size and count → subtle;
+  - bloom strong → medium.
+  - No white blobs at the keys.
+- **Neon:** palette Neon. With strong bloom the bright Neon palette merged the sustains into white haze, so bloom went to medium. It now reads and looks nothing like Fireworks.
+- **Aurora:** palette Two-tone (`#7EE0C3` / `#B08CFF`). Its Secondary border glow is now strong and wider (width medium), and the teal halo is visible.
+- **Overview:** the piano roll and the loop editor's minimap follow the Note colours setting (they redraw on a change). Brief decision 122 is updated, and there's a new e2e test, "the piano roll follows the Note colours setting".
+- **Sheet:** `all-looks.jpg` re-rendered.
+
+### Checked myself (dense passage, Medium, full size and near the keys)
+
+- **Inferno, Synthwave, Neon, Fireworks and Aurora** were each checked at full size.
+- **Fireworks** has some glare where explosion rings start at the keys; the keys and notes still read, so I left it.
+- **No look whites out** the keys or the arriving notes anymore.
+
+### Results
+
+- **`npm run check`:** passed, 743 tests.
+- **E2e:** 170 tests. In the full run 168 passed and 2 failed (a `toBeVisible` timeout). Both passed when re-run with `--last-failed`. The full run took 7.1 min against 4.5 earlier, so the machine was under load, and I count them as flakes.
+
+### Decisions I made that weren't in the instructions
+
+- **Neon's bloom is now medium:** it whited out on the Neon palette.
+- **Aurora's border width** goes to medium, so the stronger glow has a line to sit on.
+
+### For the tuning session
+
+- Fireworks' explosion glare at the keys; the subtle-bloom level (Study, Night Focus); the octave-glow brightening from section B.
