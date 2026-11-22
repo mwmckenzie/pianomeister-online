@@ -524,3 +524,54 @@ Commits are local; not pushed (PR #21 is unchanged until you say so).
 - [ ] Long demo, names on Notes: a label once per bar per repeated pitch; First of a run and All still work.
 - [ ] Neon at Medium: the halo is the note colour.
 - [ ] `docs/roadmap.md`: Milestone 12.
+
+## 2026-11-22 — Round 7: final fills, Glass → Crystal, names within 60 %
+
+### What was done
+
+1. **Smoke is round 1's Smoke**, with the same scale and softness. The one change: where round 1 multiplied the colour down (`base × 0.55…`), the colour now stays at least the note colour and the note turns see-through by the same amount instead. Over the dark highway that looks the same, and yellow can never go olive. The "fixed" variant and `smokeRound1` are removed.
+2. **Glass is gone; Crystal, Bubbles and Liquid ship.**
+   - Settings **v8** migrates `glass` → `crystal` for head, sustain and pedal fills, in stored settings, saved looks and look files (they use the same migration). The temporary `smokeRound1` → `smoke`. Two new unit tests.
+   - **Bubbles:** the body is now the note colour at full brightness, alpha 0.72–0.84. It keeps 30 % against sustain transparency, so red and purple no longer go near-black at Off.
+   - **Liquid:** on bright colours (luma above ~0.5) the body steps down to 60 % of the full-brightness colour; ripples are lifted further toward white. Yellow ripples stay visible at High.
+   - **Crystal:** unchanged. Glass's "lighter top face" on 3D heads was dropped with it.
+   - Fill list, in order: Solid, Gradient, Hot core, Outline, Neon, Diagonal stripes, Smoke, Crystal, Bubbles, Liquid. Shader ids: crystal reuses 3, bubbles 8, liquid 9. The ids are internal and never stored.
+3. **Show within default → 60 %.** On the names sheet the defaults cell now shows once-per-bar labels from the bar line. A "40 % (the old default)" cell replaces the 60 % one, for comparison.
+4. **`docs/milestones/m9-1.md` section C:**
+   - A note at the top lists the fill substitutions.
+   - Blueprint uses the Outline fill, not Glass at low opacity.
+   - The Crystal look uses the Crystal fill.
+   - Stardust uses Bubbles heads.
+   - No other look named Glass.
+5. **Brief:**
+   - Decision 112 has the new Smoke, Crystal, Bubbles and Liquid definitions, the final list and order, and which fills animate.
+   - Decision 114 gives the 60 % default.
+   - Decision 120 adds v8.
+
+### Decisions I made that weren't in the instructions
+
+1. **Pedal-cage fills migrate too** (they share the fill list), and `smokeRound1` migrates to `smoke` for anyone who picked it in round 6.
+2. **Blueprint's edge glow:** Outline draws its own edge, so edge glow is greyed out for it. The look's "strong edge glow in `#6FA8FF`" becomes the Outline border in that colour; noted in m9-1.md.
+3. **The fills sheets now use the Fills demo** (yellow, red, green, purple) at quality Off and High, instead of the Pedal demo at Off and Medium. The candidate sheets are no longer generated; their round-6 JPEGs stay in `docs/design/m9/round6/` as history.
+
+### Results
+
+- `npm run check`: pass (661 unit tests). `npm run build`: pass.
+- **E2e full functional suite** (`chromium` + `polish`), `--retries=0`, 4.5 min: 165/166. The one failure was real and mine: the Copy-look test expected look-file `version: 7`. Fixed to 8; it passes on rerun. No load-timing flakes this run.
+- Visual: `fills`, `fills-compare` and `names-dense` (3/3), viewed.
+  - Bubbles' red and purple bodies read at Off.
+  - Liquid's yellow ripples show at High.
+  - At Off, yellow Smoke is as bright as yellow Solid; the remaining dimming is the default sustain transparency.
+
+### Open questions
+
+None new. Defaults stay provisional until the 9.1 tuning.
+
+### Manual review checklist (Round 7)
+
+- [ ] Fill lists: the ten fills in order; no Glass, no Smoke (round 1).
+- [ ] A browser with a stored Glass fill (or a look with one) loads it as Crystal.
+- [ ] Smoke on yellow at Off and High: never olive.
+- [ ] Bubbles on red and purple at Off: clearly the note colour.
+- [ ] Liquid on yellow at High: ripples visible.
+- [ ] Long demo, names on notes: once-per-bar labels appear by the bar line.
