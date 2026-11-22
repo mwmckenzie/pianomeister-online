@@ -111,6 +111,9 @@ export class Engine {
   private guides = false
   private reducedMotion = false
   private fixedAnimationTime: number | null = null
+  /** Capture mode (test seam): frames come only from captureStep(), on a synthetic clock. */
+  private capturing = false
+  private captureNow = 0
   /** The transport is playing (setPlaying); paused, the frame settles (brief decision 119). */
   private playing = false
   /** Playback resumed since the last frame: notes up to the paused position don't pulse. */
@@ -384,6 +387,56 @@ export class Engine {
     this.invalidate()
   }
 
+  /**
+   * Test seam (`?capture=1`, for the range contact sheets): stops the render loop for good and
+   * makes frames repeatable — spawns use a seeded random source and the animation clock starts
+   * at `loopTime`. Frames are then drawn only by captureStep().
+   */
+  startCapture(seed = 1, loopTime = 3): void {
+    cancelAnimationFrame(this.frame)
+    cancelAnimationFrame(this.pendingFrame)
+    this.pendingFrame = 0
+    this.capturing = true
+    this.frozen = true
+    this.fixedAnimationTime = null
+    this.loopClock = loopTime
+    this.captureNow = 100_000
+    this.lastFrameAt = null
+    let state = seed >>> 0
+    // mulberry32: small, fast and good enough for particle variation.
+    this.effects.setRandom(() => {
+      state = (state + 0x6d2b79f5) >>> 0
+      let t = state
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    })
+    this.effects.clear()
+    this.effects.resetParticleStats()
+    // The first captured frame is a jump: it fires no onsets crossed since the last real frame.
+    this.lastTick = null
+  }
+
+  /**
+   * Capture mode: draws one frame at song position `tick`, `dt` seconds after the previous
+   * one, as if playing (onsets crossed since the last step fire). The first step after
+   * startCapture() is a jump, so it fires nothing.
+   */
+  captureStep(tick: number, dt: number): void {
+    if (!this.capturing) return
+    const now = this.captureNow + dt * 1000
+    this.lastFrameAt = this.captureNow
+    this.captureNow = now
+    this.timeSource = () => tick
+    this.playing = true
+    this.draw(now)
+  }
+
+  /** Particle counts against the budget (capture mode's "where it hits the budget"). */
+  particleStats() {
+    return this.effects.particleStats()
+  }
+
   /** Debug review aid: marker lines at 1× and 1.5× look-ahead. */
   setGuides(visible: boolean): void {
     this.guides = visible
@@ -396,7 +449,7 @@ export class Engine {
    * and then only when invalidate() is called or its size, settings or song change.
    */
   setFrozen(frozen: boolean): void {
-    if (frozen === this.frozen) return
+    if (frozen === this.frozen || this.capturing) return
     this.frozen = frozen
     cancelAnimationFrame(this.frame)
     cancelAnimationFrame(this.pendingFrame)
@@ -410,6 +463,7 @@ export class Engine {
 
   /** While frozen, renders one more frame (e.g. after a seek); running, the loop already does. */
   invalidate(): void {
+    if (this.capturing) return
     if (!this.frozen || this.pipeline === null || this.pendingFrame !== 0) return
     this.pendingFrame = requestAnimationFrame((now) => {
       this.pendingFrame = 0
