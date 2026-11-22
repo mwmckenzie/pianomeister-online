@@ -129,6 +129,33 @@ describe('BUILT_IN_LOOKS (milestone 9.1, section C)', () => {
     })
   })
 
+  it('gives each look its note colours (Classic, Study, Night Focus on Default)', () => {
+    const palettes = Object.fromEntries(
+      BUILT_IN_LOOKS.map((l) => [
+        l.name,
+        l.values['notes.palette'] === 'mono'
+          ? `mono ${String(l.values['notes.paletteMono'])}`
+          : l.values['notes.palette'],
+      ]),
+    )
+    expect(palettes).toEqual({
+      Classic: 'default',
+      Study: 'default',
+      'Night Focus': 'default',
+      Blueprint: 'mono #6FA8FF',
+      Neon: 'default',
+      Ember: 'warm',
+      Crystal: 'cool',
+      Aurora: 'cool',
+      Synthwave: 'neon',
+      Inferno: 'warm',
+      Stardust: 'pastel',
+      Mist: 'mono #B8C7E0',
+      Fireworks: 'default',
+      Hazard: 'mono #FFC21A',
+    })
+  })
+
   it('has one onset effect at most where the spec names one', () => {
     const onsets = ['sparks', 'scalingSparks', 'flame', 'explosion', 'glitter']
     const busy = BUILT_IN_LOOKS.slice(1).filter(

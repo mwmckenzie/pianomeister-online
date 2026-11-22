@@ -1,4 +1,5 @@
 import type { SettingKey } from '../settings/SettingKey'
+import { sliderLevel } from '../settings/sliderLevel'
 import type { Look } from './Look'
 
 /**
@@ -8,6 +9,10 @@ import type { Look } from './Look'
  * was pinned (milestone 9.1).
  */
 const CLASSIC: Readonly<Record<SettingKey, unknown>> = {
+  'notes.palette': 'default',
+  'notes.paletteMono': '#8AB4FF',
+  'notes.paletteWhite': '#7EE0C3',
+  'notes.paletteBlack': '#C3A6FF',
   'camera.tiltDeg': 45,
   'camera.distanceOffset': 0,
   'camera.pan': 0,
@@ -181,6 +186,10 @@ const CLASSIC: Readonly<Record<SettingKey, unknown>> = {
  * every look below is this plus its own changes, so no later default change moves a look.
  */
 const BASE: Readonly<Record<SettingKey, unknown>> = {
+  'notes.palette': 'default',
+  'notes.paletteMono': '#8AB4FF',
+  'notes.paletteWhite': '#7EE0C3',
+  'notes.paletteBlack': '#C3A6FF',
   'camera.tiltDeg': 45,
   'camera.distanceOffset': 0,
   'camera.pan': 0,
@@ -348,7 +357,7 @@ const BASE: Readonly<Record<SettingKey, unknown>> = {
   'render.bloomThreshold': 0.1,
 } as Readonly<Record<SettingKey, unknown>>
 
-/** A look on the pinned base. Levels follow the trimmed ranges: subtle / medium / strong are 20 / 50 / 80 % of the slider (its log position for a log slider). */
+/** A look on the pinned base. Levels (sliderLevel) are 20 / 50 / 80 % of the slider's position. */
 const on = (changes: Readonly<Partial<Record<SettingKey, unknown>>>) => ({ ...BASE, ...changes })
 
 /** No onset effects and no sustain effect. */
@@ -361,55 +370,56 @@ const STUDY = on({
   'lines.borders': true,
   'lines.octaves': true,
   'lines.octavesEF': true,
-  'lines.octavesGlow': 0.1, // subtle
+  'lines.octavesGlow': sliderLevel('lines.octavesGlow', 'subtle'),
   'noteStyle.headFill': 'solid',
   'noteStyle.sustainFill': 'solid',
   'noteStyle.edgeGlow': true,
-  'noteStyle.edgeIntensity': 0.2, // subtle
+  'noteStyle.edgeIntensity': sliderLevel('noteStyle.edgeIntensity', 'subtle'),
   'lines.nowStyle': 'thin',
   'lines.nowColor': 'white',
   'effects.pulse': true,
-  'effects.pulseAmount': 0.25, // subtle
+  'effects.pulseAmount': sliderLevel('effects.pulseAmount', 'subtle'),
   'effects.soundingGlow': true,
   'effects.breathing': false,
   'effects.keySpill': false,
-  'render.bloomStrength': 0.1, // subtle
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'subtle'),
 })
 
 const NIGHT_FOCUS = on({
   ...QUIET,
   'colors.highway': '#05060A',
   'opacity.lane': 0.1, // barely visible
-  'highway.vignette': 0.8, // strong
+  'highway.vignette': sliderLevel('highway.vignette', 'strong'),
   'noteStyle.headFill': 'solid',
   'noteStyle.sustainFill': 'gradient',
-  'noteStyle.gradientEnd': 0.15, // a dim tail
+  'noteStyle.gradientEnd': sliderLevel('noteStyle.gradientEnd', 'subtle'), // a dim tail
   'lines.nowStyle': 'glowing',
   'lines.nowColor': 'primary', // #8AB4FF, the default primary
   'effects.soundingGlow': true,
-  'effects.soundingGlowAmount': 0.2, // subtle
+  'effects.soundingGlowAmount': sliderLevel('effects.soundingGlowAmount', 'subtle'),
   'effects.pulse': false,
-  'render.bloomStrength': 0.1, // subtle
-  'render.bloomThreshold': 0.32, // high: only the now line and sounding notes
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'subtle'),
+  'render.bloomThreshold': sliderLevel('render.bloomThreshold', 'strong'),
 })
 
 const BLUEPRINT_BLUE = '#6FA8FF'
 const BLUEPRINT = on({
+  'notes.palette': 'mono',
+  'notes.paletteMono': BLUEPRINT_BLUE,
   'colors.highway': '#07101F',
-  // Notes keep their pitch colours (there is no note colour setting); the blue is in the lines.
   'noteStyle.headFill': 'outline',
   'noteStyle.sustainFill': 'outline',
-  'opacity.bar': 0.8, // visible
-  'opacity.beat': 0.1, // subtle
+  'opacity.bar': sliderLevel('opacity.bar', 'strong'), // clearly visible
+  'opacity.beat': sliderLevel('opacity.beat', 'subtle'),
   'lines.borders': true,
   'lines.bordersColor': 'custom',
   'lines.bordersCustom': BLUEPRINT_BLUE,
-  'lines.bordersGlow': 0.4, // medium
+  'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'medium'),
   'lines.octaves': true,
   'lines.octavesEF': false,
   'lines.octavesColor': 'custom',
   'lines.octavesCustom': BLUEPRINT_BLUE,
-  'lines.octavesGlow': 0.4, // medium
+  'lines.octavesGlow': sliderLevel('lines.octavesGlow', 'medium'),
   'lines.nowStyle': 'thin',
   'lines.nowColor': 'white',
   'effects.sparks': false,
@@ -418,7 +428,7 @@ const BLUEPRINT = on({
   'pedal.border': true,
   'pedal.borderColor': 'custom',
   'pedal.borderCustom': BLUEPRINT_BLUE,
-  'render.bloomStrength': 0.4, // medium
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'),
 })
 
 const NEON = on({
@@ -428,11 +438,12 @@ const NEON = on({
   'lines.nowColor': 'pitch',
   'effects.sparks': true,
   'lines.borders': true,
-  'lines.bordersGlow': 0.4, // glowing: medium
-  'render.bloomStrength': 1.3, // strong
+  'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'medium'),
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
 })
 
 const EMBER = on({
+  'notes.palette': 'warm',
   'noteStyle.headFill': 'hotCore',
   'noteStyle.sustainFill': 'gradient',
   'effects.sustain': 'embers',
@@ -442,10 +453,11 @@ const EMBER = on({
   'lines.nowColor': 'custom',
   'lines.nowCustom': '#FFB46B',
   'effects.keySpill': true,
-  'render.bloomStrength': 0.4, // medium
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'),
 })
 
 const CRYSTAL = on({
+  'notes.palette': 'cool',
   'noteStyle.headFill': 'crystal',
   'noteStyle.sustainFill': 'crystal',
   'effects.sparks': false,
@@ -455,11 +467,12 @@ const CRYSTAL = on({
   'lines.borders': true,
   'lines.bordersColor': 'primary',
   'effects.keyCone': true,
-  'render.bloomStrength': 0.4, // medium
-  'render.bloomThreshold': 0.08, // low
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'),
+  'render.bloomThreshold': sliderLevel('render.bloomThreshold', 'subtle'),
 })
 
 const AURORA = on({
+  'notes.palette': 'cool',
   'noteStyle.headFill': 'gradient',
   'noteStyle.sustainFill': 'gradient',
   'effects.sustain': 'smoke',
@@ -467,27 +480,28 @@ const AURORA = on({
   // "Glow in Secondary": the borders glow in Secondary (#7EE0C3, the default secondary).
   'lines.borders': true,
   'lines.bordersColor': 'secondary',
-  'lines.bordersGlow': 0.4, // medium
+  'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'medium'),
   'lines.nowStyle': 'neon',
   'lines.nowColor': 'secondary',
   'effects.soundingGlow': true,
   'effects.breathing': true,
-  'render.bloomRadius': 0.8, // wide
-  'render.bloomStrength': 0.4, // medium
+  'render.bloomRadius': sliderLevel('render.bloomRadius', 'strong'),
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'),
 })
 
 const SYNTH_PINK = '#FF4FD8'
 const SYNTH_CYAN = '#4FE3FF'
 const SYNTHWAVE = on({
+  'notes.palette': 'neon',
   'colors.highway': '#0A0612',
   'lines.borders': true,
   'lines.bordersColor': 'custom',
   'lines.bordersCustom': SYNTH_PINK,
-  'lines.bordersGlow': 0.4, // glowing: medium
+  'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'medium'),
   'lines.octaves': true,
   'lines.octavesColor': 'custom',
   'lines.octavesCustom': SYNTH_CYAN,
-  'lines.octavesGlow': 0.4, // glowing: medium
+  'lines.octavesGlow': sliderLevel('lines.octavesGlow', 'medium'),
   'noteStyle.headFill': 'neon',
   'noteStyle.sustainFill': 'stripes',
   'lines.nowStyle': 'neon',
@@ -507,10 +521,11 @@ const SYNTHWAVE = on({
   'pedal.borderColor': 'custom',
   'pedal.borderCustom': SYNTH_CYAN,
   'effects.keyCone': true,
-  'render.bloomStrength': 1.3, // strong
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
 })
 
 const INFERNO = on({
+  'notes.palette': 'warm',
   'noteStyle.headFill': 'hotCore',
   'noteStyle.sustainFill': 'hotCore',
   'effects.sparks': false,
@@ -520,15 +535,16 @@ const INFERNO = on({
   'lines.nowColor': 'custom',
   'lines.nowCustom': '#FF8A3D',
   'effects.keySpill': true,
-  'effects.keySpillStrength': 0.8, // strong
+  'effects.keySpillStrength': sliderLevel('effects.keySpillStrength', 'strong'),
   'effects.keyCone': true,
   'effects.pulse': true,
-  'effects.pulseAmount': 0.95, // strong
-  'render.bloomStrength': 1.3, // strong
-  'highway.vignette': 0.5, // medium
+  'effects.pulseAmount': sliderLevel('effects.pulseAmount', 'strong'),
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
+  'highway.vignette': sliderLevel('highway.vignette', 'medium'),
 })
 
 const STARDUST = on({
+  'notes.palette': 'pastel',
   'colors.highway': '#04040A',
   'noteStyle.headFill': 'bubbles',
   'noteStyle.sustainFill': 'gradient',
@@ -541,14 +557,17 @@ const STARDUST = on({
   'effects.breathing': true,
   'lines.nowStyle': 'glowing',
   'lines.nowColor': 'pitch',
-  'render.bloomStrength': 0.4, // medium
-  'render.bloomThreshold': 0.08, // low
-  'render.bloomRadius': 0.8, // wide
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'),
+  'render.bloomThreshold': sliderLevel('render.bloomThreshold', 'subtle'),
+  'render.bloomRadius': sliderLevel('render.bloomRadius', 'strong'),
 })
 
+const MIST_GREY = '#B8C7E0'
 const MIST = on({
+  'notes.palette': 'mono',
+  'notes.paletteMono': MIST_GREY,
   'noteStyle.headFill': 'gradient',
-  'noteStyle.gradientEnd': 0.4, // soft
+  'noteStyle.gradientEnd': sliderLevel('noteStyle.gradientEnd', 'medium'),
   'noteStyle.sustainFill': 'smoke',
   'effects.sustain': 'smoke',
   'effects.sparks': false, // not named; a soft look
@@ -560,31 +579,33 @@ const MIST = on({
   'opacity.beat': 0,
   'lines.nowStyle': 'thin',
   'lines.nowColor': 'custom',
-  'lines.nowCustom': '#B8C7E0',
+  'lines.nowCustom': MIST_GREY,
   'pedal.show': true,
   'pedal.fill': 'smoke',
-  'render.bloomRadius': 0.8, // wide
-  'render.bloomStrength': 0.1, // low
+  'render.bloomRadius': sliderLevel('render.bloomRadius', 'strong'),
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'subtle'),
 })
 
 const FIREWORKS = on({
   'effects.sparks': false,
   'effects.glitter': false,
   'effects.explosion': true,
-  'effects.explosionCount': 1.65, // strong
+  'effects.explosionCount': sliderLevel('effects.explosionCount', 'strong'),
   'noteStyle.headFill': 'neon',
   'noteStyle.sustainFill': 'solid',
   'effects.pulse': true,
-  'effects.pulseAmount': 0.95, // strong
+  'effects.pulseAmount': sliderLevel('effects.pulseAmount', 'strong'),
   'lines.nowStyle': 'glowing',
   'lines.nowColor': 'white',
-  'render.bloomStrength': 1.3, // strong
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
   'highway.lookAheadBeats': 10, // a little more than the default 8: room for the bursts
 })
 
 const HAZARD_YELLOW = '#FFC21A'
 const HAZARD_BLACK = '#141414'
 const HAZARD = on({
+  'notes.palette': 'mono',
+  'notes.paletteMono': HAZARD_YELLOW,
   ...QUIET,
   'colors.highway': '#0B0B0D',
   'noteStyle.headFill': 'stripes',
