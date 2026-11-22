@@ -16,6 +16,8 @@ export function formatSettingValue(def: NumberSetting, value: number): string {
       return `${trimZeros(value.toFixed(def.digits))}%`
     case 'seconds':
       return `${trimZeros(value.toFixed(def.digits))} s`
+    case 'ms':
+      return `${Math.round(value)} ms`
     case 'deg':
       return `${value.toFixed(def.digits)}°`
     case 'beats':

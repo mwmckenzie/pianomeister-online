@@ -3,7 +3,16 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
 import { charKey } from '../commands/keyBindings'
-import { loadSettings, loadShortcuts, SETTINGS_VERSION, storedSettings } from './loadSettings'
+import { EMPTY_LOOKS } from '../looks/EMPTY_LOOKS'
+import { captureLook } from '../looks/lookValues'
+import {
+  loadDeviceClass,
+  loadLooks,
+  loadSettings,
+  loadShortcuts,
+  SETTINGS_VERSION,
+  storedSettings,
+} from './loadSettings'
 import { SETTINGS_REGISTRY as R } from './SETTINGS_REGISTRY'
 
 const stored = (settings: unknown, version = SETTINGS_VERSION) => ({ version, settings })
@@ -15,8 +24,8 @@ describe('loadSettings', () => {
     expect(loadSettings('garbage')).toEqual(DEFAULT_SETTINGS)
     expect(DEFAULT_SETTINGS.camera.tiltDeg).toBe(45)
     expect(DEFAULT_SETTINGS.highway.lookAheadBeats).toBe(8)
-    expect(DEFAULT_SETTINGS.colors.background).toBe('#05070F')
-    expect(DEFAULT_SETTINGS.colors.highway).toBe('#0A0F1E')
+    expect(DEFAULT_SETTINGS.colors.background).toBe('#03050B')
+    expect(DEFAULT_SETTINGS.colors.highway).toBe('#070B16')
   })
 
   it('round-trips stored settings', () => {
@@ -51,7 +60,7 @@ describe('loadSettings', () => {
     )
     expect(loaded.camera.tiltDeg).toBe(45)
     expect(loaded.camera.pan).toBe(0)
-    expect(loaded.colors.background).toBe('#05070F')
+    expect(loaded.colors.background).toBe('#03050B')
     expect(loaded.colors.lane).toBe(DEFAULT_SETTINGS.colors.lane)
     expect(loaded.colors.bar).toBe('#A1B2C3')
     expect(loaded.effects.enabled).toBe(true)
@@ -176,7 +185,7 @@ describe('loadSettings', () => {
     const loaded = loadSettings(stored(v2, 2))
     expect(loaded.camera).toEqual(v2.camera)
     expect(loaded.keyboard).toEqual(v2.keyboard)
-    expect(loaded.render).toEqual(v2.render)
+    expect(loaded.render).toMatchObject(v2.render)
     expect(loaded.audio).toEqual(DEFAULT_SETTINGS.audio)
     expect(loaded.practice).toEqual(DEFAULT_SETTINGS.practice)
     expect(loaded.appearance).toEqual(DEFAULT_SETTINGS.appearance)
@@ -231,9 +240,152 @@ describe('loadSettings', () => {
     expect(loadShortcuts(v4)).toEqual({})
     const overrides = { playPause: [charKey('k')], stop: [] }
     const stored = JSON.parse(JSON.stringify(storedSettings(loadSettings(v4), overrides)))
-    expect(stored.version).toBe(5)
+    expect(stored.version).toBe(SETTINGS_VERSION)
     expect(loadShortcuts(stored)).toEqual(overrides)
-    expect(loadShortcuts({ ...stored, version: 6 })).toEqual({})
+    expect(loadShortcuts({ ...stored, version: SETTINGS_VERSION + 1 })).toEqual({})
     expect(loadShortcuts(null)).toEqual({})
+  })
+
+  it('migrates v5 to v6: the pedal band becomes the pedal cage fill, shortcuts are kept', () => {
+    const overrides = { playPause: [charKey('k')] }
+    const v5 = {
+      version: 5,
+      settings: {
+        colors: { background: '#010203', pedal: '#112233' },
+        opacity: { lane: 0.5, pedal: 0.4 },
+        effects: { enabled: false },
+      },
+      shortcuts: overrides,
+    }
+    const loaded = loadSettings(v5)
+    expect(loaded.pedal).toEqual({
+      ...DEFAULT_SETTINGS.pedal,
+      fillColor: '#112233',
+      fillOpacity: 0.4,
+    })
+    expect(loaded.colors.background).toBe('#010203')
+    expect(loaded.opacity.lane).toBe(0.5)
+    expect(loaded.effects.enabled).toBe(false)
+    expect(loaded.lines).toEqual(DEFAULT_SETTINGS.lines)
+    expect(loadShortcuts(v5)).toEqual(overrides)
+    expect(loadLooks(v5)).toEqual(EMPTY_LOOKS)
+  })
+
+  it('uses the tablet defaults for values a tablet has stored nothing for', () => {
+    expect(loadSettings(null, 'tablet').render).toMatchObject({
+      quality: 'low',
+      bloomResolution: 'quarter',
+      particleBudget: 1024,
+      shaderDetail: 'low',
+    })
+    const partial = loadSettings(stored({ render: { quality: 'high' } }), 'tablet')
+    expect(partial.render.quality).toBe('high')
+    expect(partial.render.particleBudget).toBe(1024)
+    expect(loadSettings(null).render.quality).toBe('medium')
+  })
+
+  it('keeps the device class the defaults were chosen for', () => {
+    const tablet = JSON.parse(
+      JSON.stringify(storedSettings(DEFAULT_SETTINGS, {}, EMPTY_LOOKS, 'tablet')),
+    )
+    expect(loadDeviceClass(tablet, 'desktop')).toBe('tablet')
+    expect(loadDeviceClass({ ...tablet, deviceClass: 'phone' }, 'desktop')).toBe('desktop')
+    expect(loadDeviceClass({ version: 5, settings: {} }, 'tablet')).toBe('tablet')
+    expect(loadDeviceClass(null, 'desktop')).toBe('desktop')
+  })
+
+  it('round-trips saved looks', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Neon night')
+    const state = { active: 'look-1', saved: [look] }
+    const raw = JSON.parse(JSON.stringify(storedSettings(DEFAULT_SETTINGS, {}, state)))
+    expect(loadLooks(raw)).toEqual(state)
+    expect(loadLooks({ ...raw, version: SETTINGS_VERSION + 1 })).toEqual(EMPTY_LOOKS)
+  })
+
+  it('migrates v6 to v7: old Neon becomes Outline, the shared stripes move into each use', () => {
+    const v6 = stored(
+      {
+        noteStyle: {
+          headFill: 'neon',
+          sustainFill: 'stripes',
+          stripeWidth: 0.6,
+          stripeDrift: true,
+        },
+        pedal: { fill: 'neon' },
+      },
+      6,
+    )
+    const s = loadSettings(v6)
+    expect(s.noteStyle.headFill).toBe('outline')
+    expect(s.noteStyle.sustainFill).toBe('stripes')
+    expect(s.pedal.fill).toBe('outline')
+    for (const use of ['head', 'sustain'] as const) {
+      expect(s.noteStyle[`${use}StripeWidth`]).toBe(0.6)
+      expect(s.noteStyle[`${use}StripeDrift`]).toBe(true)
+    }
+    expect(s.pedal.stripeWidth).toBe(0.6)
+    expect(s.pedal.stripeDrift).toBe(true)
+    // In v7, Neon is the new fill and stays Neon.
+    expect(loadSettings(stored({ noteStyle: { headFill: 'neon' } })).noteStyle.headFill).toBe(
+      'neon',
+    )
+  })
+
+  it('migrates v7 to v8: Glass becomes Crystal, the round-1 Smoke candidate becomes Smoke', () => {
+    const v7 = stored(
+      {
+        noteStyle: { headFill: 'glass', sustainFill: 'smokeRound1' },
+        pedal: { fill: 'glass' },
+      },
+      7,
+    )
+    const s = loadSettings(v7)
+    expect(s.noteStyle.headFill).toBe('crystal')
+    expect(s.noteStyle.sustainFill).toBe('smoke')
+    expect(s.pedal.fill).toBe('crystal')
+    // Other fills are kept.
+    const kept = loadSettings(
+      stored({ noteStyle: { headFill: 'bubbles', sustainFill: 'neon' } }, 7),
+    )
+    expect(kept.noteStyle.headFill).toBe('bubbles')
+    expect(kept.noteStyle.sustainFill).toBe('neon')
+  })
+
+  it('migrates saved looks with Glass to Crystal', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Old glass')
+    const values = {
+      ...look.values,
+      'noteStyle.headFill': 'glass',
+      'noteStyle.sustainFill': 'glass',
+      'pedal.fill': 'glass',
+    }
+    for (const version of [6, 7]) {
+      const raw = { version, settings: {}, looks: { active: null, saved: [{ ...look, values }] } }
+      const [migrated] = loadLooks(raw).saved
+      expect(migrated?.values['noteStyle.headFill']).toBe('crystal')
+      expect(migrated?.values['noteStyle.sustainFill']).toBe('crystal')
+      expect(migrated?.values['pedal.fill']).toBe('crystal')
+    }
+  })
+
+  it('keeps the pedal its new, wider stripes when the old shared width was the default', () => {
+    const s = loadSettings(stored({ noteStyle: { stripeWidth: 0.35 } }, 6))
+    expect(s.noteStyle.headStripeWidth).toBe(0.35)
+    expect(s.pedal.stripeWidth).toBe(R['pedal.stripeWidth'].default)
+    expect(R['pedal.stripeWidth'].default).toBeGreaterThan(0.35)
+  })
+
+  it('migrates saved looks stored by v6 the same way', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Old neon')
+    const values = {
+      ...look.values,
+      'noteStyle.headFill': 'neon',
+      'noteStyle.stripeWidth': 0.8,
+    }
+    const raw = { version: 6, settings: {}, looks: { active: null, saved: [{ ...look, values }] } }
+    const [migrated] = loadLooks(raw).saved
+    expect(migrated?.values['noteStyle.headFill']).toBe('outline')
+    expect(migrated?.values['noteStyle.headStripeWidth']).toBe(0.8)
+    expect(migrated?.values['pedal.stripeWidth']).toBe(0.8)
   })
 })

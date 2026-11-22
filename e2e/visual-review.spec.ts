@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
-import { test, expect, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 import { practiceHistory } from './practiceHistory'
 import { choose, seedBookmark, seedPractice, SONG_IDS } from './support'
@@ -819,3 +820,148 @@ for (const viewport of M6_VIEWPORTS) {
     })
   }
 }
+
+// Milestone 9: a fixed frame of the pedal demo — paused mid-chord on bar 2 with the sustain
+// pedal down — with the animation clock pinned (?animTime), so flicker and noise render the
+// same every run. "Classic + Off" is the milestone 8 look (compare with pedal-demo-bar2 of an
+// m8 run); every other shot changes one thing over the provisional defaults.
+const M9_FIXED = './#/?animTime=3'
+const CLASSIC = {
+  colors: { background: '#05070F', highway: '#0A0F1E' },
+  highway: { vignette: 0 },
+  lines: { nowStyle: 'thin', nowGlow: 0, borders: false },
+  noteStyle: { edgeGlow: false },
+  effects: { pulse: false, soundingGlow: false, keySpill: false },
+  render: { bloomStrength: 0 },
+}
+const QUALITY = {
+  off: { quality: 'off', bloomResolution: 'off', particleBudget: 512, shaderDetail: 'minimal' },
+  low: { quality: 'low', bloomResolution: 'quarter', particleBudget: 1024, shaderDetail: 'low' },
+  medium: {
+    quality: 'medium',
+    bloomResolution: 'half',
+    particleBudget: 2048,
+    shaderDetail: 'medium',
+  },
+  high: { quality: 'high', bloomResolution: 'full', particleBudget: 4096, shaderDetail: 'high' },
+} as const
+
+async function seed6(page: Page, settings: Settings) {
+  await page.addInitScript(
+    (value) => localStorage.setItem('pianomeister.settings', value),
+    JSON.stringify({ version: 6, settings }),
+  )
+}
+
+async function m9Frame(page: Page, settings: Settings, name: string) {
+  await seed6(page, settings)
+  await openUpload(page, PEDAL_DEMO, 'Pedal demo')
+  await page.goto(M9_FIXED)
+  await page.reload()
+  await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
+  await page.getByRole('button', { name: 'Next bar' }).click()
+  await expect(page.getByTestId('hud-bar-beat')).toHaveText('2:1')
+  await settle(page, 30)
+  await shoot(page, name)
+}
+
+const M9_SHOTS: readonly { readonly name: string; readonly settings: Settings }[] = [
+  { name: 'classic-off', settings: { ...CLASSIC, render: { ...CLASSIC.render, ...QUALITY.off } } },
+  { name: 'defaults', settings: {} },
+  {
+    name: 'effects-off',
+    settings: {
+      ...CLASSIC,
+      effects: { ...CLASSIC.effects, enabled: false },
+    },
+  },
+  ...(
+    [
+      'solid',
+      'gradient',
+      'hotCore',
+      'outline',
+      'neon',
+      'stripes',
+      'smoke',
+      'crystal',
+      'bubbles',
+      'liquid',
+    ] as const
+  ).map((fill) => ({
+    name: `fill-${fill}`,
+    settings: { noteStyle: { headFill: fill, sustainFill: fill } },
+  })),
+  ...(['thin', 'glowing', 'neon'] as const).map((style) => ({
+    name: `now-${style}`,
+    settings: { lines: { nowStyle: style, nowGlow: 1 } },
+  })),
+  {
+    name: 'now-neon-pitch',
+    settings: { lines: { nowStyle: 'neon', nowColor: 'pitch', nowGlow: 1.2 } },
+  },
+  {
+    name: 'lines-octaves-borders',
+    settings: {
+      lines: { borders: true, bordersGlow: 1, octaves: true, octavesEF: true, octavesGlow: 0.8 },
+    },
+  },
+  { name: 'pedal-default', settings: {} },
+  {
+    name: 'pedal-border-stripes',
+    settings: {
+      pedal: {
+        fill: 'stripes',
+        fillOpacity: 0.3,
+        border: true,
+        borderColor: 'primary',
+        borderGlow: 1.2,
+        cornerRadius: 0.3,
+      },
+    },
+  },
+  {
+    name: 'pedal-smoke',
+    settings: {
+      pedal: { fill: 'smoke', fillOpacity: 0.35, border: true, borderColor: 'secondary' },
+    },
+  },
+  ...(['notes', 'keys', 'both'] as const).map((mode) => ({
+    name: `names-${mode}`,
+    settings: { names: { mode, octave: 'all' }, highway: { lookAheadBeats: 4 } },
+  })),
+  {
+    name: 'key-light',
+    settings: {
+      effects: { keySpillStrength: 0.6, keyCone: true, keyConeStrength: 0.8 },
+      render: QUALITY.high,
+    },
+  },
+  ...(['off', 'low', 'medium', 'high'] as const).map((q) => ({
+    name: `quality-${q}`,
+    settings: { render: QUALITY[q] },
+  })),
+]
+
+test.describe('m9 1280x720', () => {
+  test.use({ viewport: { width: 1280, height: 720 } })
+  for (const shot of M9_SHOTS) {
+    test(`@visual m9 ${shot.name} 1280x720`, async ({ page }) => {
+      await m9Frame(page, shot.settings, `m9-${shot.name}-1280x720`)
+      await expect(page.getByTestId('hud-title')).toHaveText('Pedal demo')
+    })
+  }
+})
+
+test.describe('m9 1024x768', () => {
+  test.use({ viewport: { width: 1024, height: 768 } })
+  for (const name of ['defaults', 'now-neon-pitch', 'names-both', 'quality-high']) {
+    const shot = M9_SHOTS.find((s) => s.name === name)
+    if (shot === undefined) continue
+
+    test(`@visual m9 ${shot.name} 1024x768`, async ({ page }) => {
+      await m9Frame(page, shot.settings, `m9-${shot.name}-1024x768`)
+      await expect(page.getByTestId('hud-title')).toHaveText('Pedal demo')
+    })
+  }
+})

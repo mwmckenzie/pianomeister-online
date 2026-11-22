@@ -56,6 +56,7 @@ import { useLibraryStore } from '../stores/libraryStore'
 import { usePracticeStore } from '../stores/practiceStore'
 import { useProfileStore } from '../stores/profileStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useReducedMotion } from '../theme/useReducedMotion'
 import { useToastStore } from '../stores/toastStore'
 import { useUiStateStore } from '../stores/uiStateStore'
 
@@ -74,6 +75,7 @@ const loadLoopEditor = () => import('./LoopEditorView.vue')
 const route = useRoute()
 const router = useRouter()
 const settingsStore = useSettingsStore()
+const reducedMotion = useReducedMotion()
 const library = useLibraryStore()
 const toasts = useToastStore()
 const ui = useUiStateStore()
@@ -735,6 +737,14 @@ const PLAYER_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
 /** Shortcuts (decision 60); ignored while typing, and while a dialog has the keyboard. */
 function onKeyDown(event: KeyboardEvent): void {
   if (session === null || event.defaultPrevented || isTypingTarget(event.target)) return
+  // Controls that own Space and Enter (accordion headers toggle with them).
+  if (
+    (event.key === ' ' || event.key === 'Enter') &&
+    event.target instanceof HTMLElement &&
+    event.target.closest('[data-own-keys]') !== null
+  ) {
+    return
+  }
   // Behind Welcome the player's keys rest; Welcome has its own (Enter resumes).
   if (onWelcome.value) return
   if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return
@@ -756,6 +766,9 @@ function renderStatus(): RenderStatus | null {
 }
 
 watch(() => [practice.current, practice.loopJump], applyPractice)
+watch(reducedMotion, (reduced) => engine?.setReducedMotion(reduced))
+// Paused, the scene settles and holds still (brief decision 119).
+watch(playing, (now) => engine?.setPlaying(now))
 watch(
   () => settingsStore.settings,
   (settings, previous) => {
@@ -785,11 +798,23 @@ onMounted(() => {
   engine = new Engine()
   engine.applySettings(settingsStore.snapshot())
   engine.setGuides(route.query.guides === '1')
+  engine.setReducedMotion(reducedMotion.value)
+  engine.setPlaying(playing.value)
+  // Debug-only (like ?guides=1): pins the animation clock so visual shots are repeatable.
+  const animTime = Number(route.query.animTime)
+  if (route.query.animTime !== undefined && Number.isFinite(animTime)) {
+    engine.setFixedAnimationTime(animTime)
+  }
   if (route.query.stats === '1') {
     // Debug-only (like ?guides=1): lets a test harness read frame timings for perf reports.
     const stats = () => engine?.stats()
     const renderInfo = () => engine?.renderInfo()
-    Object.assign(window, { pianomeisterEngineStats: stats, pianomeisterRenderInfo: renderInfo })
+    const labels = () => engine?.labelSnapshot()
+    Object.assign(window, {
+      pianomeisterEngineStats: stats,
+      pianomeisterRenderInfo: renderInfo,
+      pianomeisterLabels: labels,
+    })
   }
   engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {

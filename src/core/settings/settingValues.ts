@@ -1,4 +1,6 @@
+import { applyQualityPreset } from './applyQualityPreset'
 import { constrainKeyboard } from './constrainKeyboard'
+import type { DeviceClass } from './DeviceClass'
 import type { PlayerSettings } from './PlayerSettings'
 import type { AnySettingDefinition } from './SettingDefinition'
 import type { SettingKey } from './SettingKey'
@@ -31,20 +33,34 @@ export function withSetting<K extends SettingKey>(
 ): PlayerSettings {
   const [section, field] = key.split('.') as [keyof PlayerSettings, string]
   const next = { ...settings, [section]: { ...settings[section], [field]: value } }
-  return { ...next, keyboard: constrainKeyboard(next.keyboard) }
+  // Choosing a quality preset sets its cost settings (brief decision 110), however it's chosen.
+  const render =
+    key === 'render.quality' ? applyQualityPreset(next.render, next.render.quality) : next.render
+  return { ...next, render, keyboard: constrainKeyboard(next.keyboard) }
+}
+
+/** A setting's default on a kind of device (brief decision 110). */
+export function defaultValue(key: SettingKey, device: DeviceClass = 'desktop'): unknown {
+  const def = settingDefinition(key)
+  return device === 'tablet' && def.tabletDefault !== undefined ? def.tabletDefault : def.default
 }
 
 /**
  * True when a value counts as the default. Numbers within half a slider step count: defaults
  * such as 12/23.5 aren't on the step grid, so dragging back to them can't land exactly.
  */
-export function isDefaultValue(key: SettingKey, value: unknown): boolean {
+export function isDefaultValue(
+  key: SettingKey,
+  value: unknown,
+  device: DeviceClass = 'desktop',
+): boolean {
   const def = settingDefinition(key)
+  const fallback = defaultValue(key, device)
   if (def.kind === 'number') {
-    return typeof value === 'number' && Math.abs(value - def.default) < def.step / 2
+    return typeof value === 'number' && Math.abs(value - (fallback as number)) < def.step / 2
   }
   if (def.kind === 'color') {
-    return typeof value === 'string' && value.toUpperCase() === def.default.toUpperCase()
+    return typeof value === 'string' && value.toUpperCase() === (fallback as string).toUpperCase()
   }
-  return value === def.default
+  return value === fallback
 }

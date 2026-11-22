@@ -3,7 +3,9 @@ import { computed } from 'vue'
 
 import type { SettingKey } from '@/core/settings/SettingKey'
 import { settingGroupKeys } from '@/core/settings/settingGroups'
+import { isQualityModified } from '@/core/settings/applyQualityPreset'
 import { SETTINGS_LAYOUT } from '@/core/settings/SETTINGS_LAYOUT'
+import { settingDefinition } from '@/core/settings/settingValues'
 
 import AppAccordion from '../components/AppAccordion.vue'
 import AppButton from '../components/AppButton.vue'
@@ -13,12 +15,13 @@ import SettingsSection from '../components/SettingsSection.vue'
 import { useResetWithUndo } from '../settings/useResetWithUndo'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUiStateStore } from '../stores/uiStateStore'
+import LookPicker from './LookPicker.vue'
 import RenderReadout from './RenderReadout.vue'
 import type { RenderStatus } from './RenderStatus'
 
 /**
  * The playfield panel (decision 50): every setting that changes the highway, beside the live
- * view, in accordion sections. Rows come from the registry; the highway's colour rows are
+ * view, in accordion sections (one open at a time, brief decision 50). Rows come from the registry; the highway's colour rows are
  * grouped under their own heading.
  */
 defineProps<{ readonly renderStatus?: () => RenderStatus | null }>()
@@ -36,12 +39,38 @@ const sections = computed(() =>
   })),
 )
 
-const keysOf = (id: (typeof SETTINGS_LAYOUT.sidebar)[number]['id']): readonly SettingKey[] =>
-  settingGroupKeys({ kind: 'section', id })
+type SectionId = (typeof SETTINGS_LAYOUT.sidebar)[number]['id']
 
-const isColorRow = (key: SettingKey) => key.startsWith('colors.') || key.startsWith('opacity.')
-const highwayMain = computed(() => keysOf('highway').filter((k) => !isColorRow(k)))
-const highwayColors = computed(() => keysOf('highway').filter(isColorRow))
+/**
+ * A section's rows split at each subheading (the registry's `group`); a subheading shows only
+ * while one of its rows is visible.
+ */
+function blocksOf(id: SectionId): readonly { title?: string; keys: readonly SettingKey[] }[] {
+  const blocks: { title?: string; keys: SettingKey[] }[] = []
+  for (const key of settingGroupKeys({ kind: 'section', id })) {
+    const title = settingDefinition(key).group
+    const last = blocks.at(-1)
+    if (last !== undefined && last.title === title) last.keys.push(key)
+    else blocks.push({ title, keys: [key] })
+  }
+  return blocks
+}
+
+const qualityModified = computed(() => isQualityModified(settings.settings.render))
+const qualityLabel = computed(() => {
+  const q = settings.settings.render.quality
+  return q.charAt(0).toUpperCase() + q.slice(1)
+})
+
+const isVisible = (key: SettingKey) => settingDefinition(key).visible?.(settings.settings) ?? true
+const blocks = computed(() =>
+  Object.fromEntries(
+    SETTINGS_LAYOUT.sidebar.map((s) => [
+      s.id,
+      blocksOf(s.id).map((b) => ({ ...b, shown: b.keys.some(isVisible) })),
+    ]),
+  ),
+)
 </script>
 
 <template>
@@ -60,8 +89,10 @@ const highwayColors = computed(() => keysOf('highway').filter(isColorRow))
       />
     </header>
 
+    <!-- Outside the sections and the scroll area: always at the top. -->
+    <LookPicker />
     <div class="scroll">
-      <AppAccordion v-model="ui.sidebarSections" :items="sections">
+      <AppAccordion v-model="ui.sidebarSection" :items="sections">
         <template v-for="section in SETTINGS_LAYOUT.sidebar" :key="section.id" #[section.id]>
           <SettingsSection
             :section-id="section.id"
@@ -69,13 +100,18 @@ const highwayColors = computed(() => keysOf('highway').filter(isColorRow))
             :reset-label="'resetLabel' in section ? section.resetLabel : undefined"
             :show-title="false"
           >
-            <template v-if="section.id === 'highway'">
-              <SettingRow v-for="key in highwayMain" :key="key" :setting-key="key" />
-              <h4 class="section-caps sub">Colors</h4>
-              <SettingRow v-for="key in highwayColors" :key="key" :setting-key="key" />
-            </template>
-            <template v-else>
-              <SettingRow v-for="key in keysOf(section.id)" :key="key" :setting-key="key" />
+            <template v-for="(block, i) in blocks[section.id]" :key="i">
+              <h4 v-if="block.title !== undefined && block.shown" class="section-caps sub">
+                {{ block.title }}
+              </h4>
+              <SettingRow v-for="key in block.keys" :key="key" :setting-key="key" />
+              <p
+                v-if="section.id === 'render' && block.title === 'Quality' && qualityModified"
+                class="modified"
+                data-testid="quality-status"
+              >
+                {{ qualityLabel }} · modified
+              </p>
             </template>
             <RenderReadout v-if="section.id === 'render'" :render-status="renderStatus" />
           </SettingsSection>
@@ -142,6 +178,12 @@ const highwayColors = computed(() => keysOf('highway').filter(isColorRow))
 
 .sub {
   margin: var(--space-4) 0 var(--space-1);
+}
+
+.modified {
+  margin: var(--space-1) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
 }
 
 .bottom {

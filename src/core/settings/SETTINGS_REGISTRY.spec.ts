@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { constrainKeyboard } from './constrainKeyboard'
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
+import { disabledHintOf } from './disabledHintOf'
 import { loadSettings, storedSettings } from './loadSettings'
 import type { SettingKey } from './SettingKey'
 import { SETTING_KEYS } from './SETTING_KEYS'
@@ -43,6 +44,16 @@ describe('SETTINGS_REGISTRY', () => {
       (key) => readSetting(DEFAULT_SETTINGS, key) !== settingDefinition(key).default,
     )
     expect(differing).toEqual([])
+  })
+
+  it('says why a setting is disabled wherever it can be', () => {
+    const missing = SETTING_KEYS.filter((key) => {
+      const def = settingDefinition(key)
+      return (
+        def.enabled !== undefined && (disabledHintOf(def, DEFAULT_SETTINGS) ?? '').trim() === ''
+      )
+    })
+    expect(missing).toEqual([])
   })
 
   it('places every setting in a section the layout shows', () => {

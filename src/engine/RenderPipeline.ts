@@ -14,50 +14,98 @@ import { CopyShader } from 'three/addons/shaders/CopyShader.js'
 
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
+import { GpuTimer } from './GpuTimer'
+import { createMixPass } from './postprocessing/createMixPass'
+import { SelectiveBloomPass } from './postprocessing/SelectiveBloomPass'
 import type { RenderInfo } from './RenderInfo'
 
 type RenderSettings = PlayerSettings['render']
+type Antialias = RenderSettings['antialias']
 
 const MSAA_SAMPLES = 4
 
+const BLOOM_SCALE: { readonly [R in RenderSettings['bloomResolution']]: number } = {
+  off: 0,
+  quarter: 0.25,
+  half: 0.5,
+  full: 1,
+}
+
+/** What the pass chain is built from; a change rebuilds it. */
+interface Chain {
+  readonly antialias: Antialias
+  readonly bloom: boolean
+  readonly mix: boolean
+}
+
 /**
- * The renderer and anti-aliasing (brief decision 48). Every material writes display-space
- * colour itself, so the renderer's output colour space is set to linear, which turns off all
- * of three's conversions: colours are identical on the canvas and in render targets, and the
- * anti-aliasing mode can change at runtime without recreating the WebGL context:
- * - off: draw straight to the canvas;
- * - msaa: draw into a multisampled render target, then copy to the canvas;
+ * The renderer, anti-aliasing (brief decision 48) and selective bloom (decision 109). Every
+ * material writes display-space colour itself, so the renderer's output colour space is set to
+ * linear, which turns off all of three's conversions: colours are identical on the canvas and
+ * in render targets, and the chain can change at runtime without recreating the WebGL context.
+ * - nothing to post-process (no anti-aliasing pass, no bloom, no vignette): straight to the
+ *   canvas — with Off and the Classic look this is exactly the milestone 8 pipeline;
+ * - msaa: draw into a multisampled render target, then copy (or mix) to the canvas;
  * - fxaa / smaa: draw into a render target, then three's FXAA or SMAA pass. Those passes are
  *   loaded on first use (SMAA carries its lookup textures), keeping them out of the main
- *   bundle; the previous mode keeps rendering until the pass has arrived.
+ *   bundle; the previous chain keeps rendering until the pass has arrived;
+ * - bloom: the glow scene is drawn and blurred first (SelectiveBloomPass), and a mix pass
+ *   adds the blur and the vignette after the main pass.
  */
 export class RenderPipeline {
   readonly renderer: WebGLRenderer
   private composer: EffectComposer | null = null
+  private bloomPass: SelectiveBloomPass | null = null
+  private mixPass: ShaderPass | null = null
   private settings: RenderSettings | null = null
-  /** Bumped per mode change, so a pass that arrives after a newer change is dropped. */
+  private vignette = 0
+  private chain: Chain | null = null
+  /** Bumped per chain change, so a pass that arrives after a newer change is dropped. */
   private build = 0
   private cssWidth = 1
   private cssHeight = 1
+  private readonly halfFloat: boolean
+  private readonly gpu: GpuTimer
 
   constructor(
     canvas: HTMLCanvasElement,
     private readonly scene: Scene,
+    /** The glow twins (brief decision 109), drawn by the bloom pass. */
+    private readonly glowScene: Scene,
     private readonly camera: Camera,
   ) {
     this.renderer = new WebGLRenderer({
       canvas,
       antialias: false,
+      // Notes mask the cages through the stencil buffer (NoteMask).
+      stencil: true,
       powerPreference: 'high-performance',
     })
     this.renderer.outputColorSpace = LinearSRGBColorSpace
+    // Counted per frame (all passes), not per render() call.
+    this.renderer.info.autoReset = false
+    const ext = this.renderer.extensions
+    this.halfFloat = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float')
+    this.gpu = new GpuTimer(this.renderer.getContext() as WebGL2RenderingContext)
   }
 
-  /** Applies render settings; rebuilds the pass chain only when the anti-aliasing mode changes. */
-  configure(settings: RenderSettings): void {
-    const modeChanged = this.settings?.antialias !== settings.antialias
+  /** Applies render settings and the vignette; rebuilds the pass chain only when its shape changes. */
+  configure(settings: RenderSettings, vignette: number): void {
     this.settings = settings
-    if (modeChanged) this.buildComposer(settings.antialias)
+    this.vignette = vignette
+    const bloom = this.bloomOn()
+    const chain: Chain = { antialias: settings.antialias, bloom, mix: bloom || vignette > 0 }
+    const old = this.chain
+    if (
+      old === null ||
+      old.antialias !== chain.antialias ||
+      old.bloom !== chain.bloom ||
+      old.mix !== chain.mix
+    ) {
+      this.chain = chain
+      this.buildComposer(chain)
+    }
+    this.applyLook()
     this.resize(this.cssWidth, this.cssHeight)
   }
 
@@ -80,54 +128,113 @@ export class RenderPipeline {
       this.composer.setPixelRatio(ratio)
       this.composer.setSize(this.cssWidth, this.cssHeight)
     }
+    const aspect = this.uniform('uAspect')
+    if (aspect) aspect.value = this.cssWidth / this.cssHeight
   }
 
   render(): void {
+    this.renderer.info.reset()
+    this.gpu.begin()
     if (this.composer === null) this.renderer.render(this.scene, this.camera)
     else this.composer.render()
+    this.gpu.end()
+  }
+
+  /** True while the glow scene is drawn: glow twins are shown only then. */
+  get bloomActive(): boolean {
+    return this.bloomPass !== null
   }
 
   info(): RenderInfo {
     const canvas = this.renderer.domElement
+    const scale = this.bloomPass === null ? 0 : BLOOM_SCALE[this.settings?.bloomResolution ?? 'off']
     return {
       width: canvas.width,
       height: canvas.height,
       pixelRatio: this.renderer.getPixelRatio(),
       antialias: this.settings?.antialias ?? 'off',
+      bloom: this.bloomPass !== null ? 'on' : this.bloomWanted() ? 'unavailable' : 'off',
+      bloomWidth: Math.round(canvas.width * scale),
+      bloomHeight: Math.round(canvas.height * scale),
+      gpuMs: this.gpu.averageMs(),
+      drawCalls: this.renderer.info.render.calls,
     }
   }
 
   dispose(): void {
     this.disposeComposer()
+    this.gpu.dispose()
     this.renderer.dispose()
   }
 
-  private buildComposer(mode: RenderSettings['antialias']): void {
+  private bloomWanted(): boolean {
+    return (this.settings?.bloomResolution ?? 'off') !== 'off'
+  }
+
+  private bloomOn(): boolean {
+    return this.bloomWanted() && this.halfFloat
+  }
+
+  private applyLook(): void {
+    const s = this.settings
+    if (s === null) return
+    this.bloomPass?.configure(
+      BLOOM_SCALE[s.bloomResolution],
+      s.bloomStrength,
+      s.bloomRadius,
+      s.bloomThreshold,
+    )
+    const bloom = this.uniform('uBloom')
+    if (bloom) bloom.value = this.bloomPass === null ? 0 : 1
+    const vignette = this.uniform('uVignette')
+    if (vignette) vignette.value = this.vignette
+  }
+
+  private uniform(name: string): { value: unknown } | undefined {
+    return this.mixPass?.uniforms[name]
+  }
+
+  private buildComposer(chain: Chain): void {
     const build = ++this.build
-    if (mode !== 'fxaa' && mode !== 'smaa') {
-      this.installComposer(mode, null)
+    const { antialias } = chain
+    if (antialias !== 'fxaa' && antialias !== 'smaa') {
+      this.installComposer(chain, null)
       return
     }
-    loadPostPass(mode).then(
+    loadPostPass(antialias).then(
       (pass) => {
         if (build !== this.build) pass.dispose()
-        else this.installComposer(mode, pass)
+        else this.installComposer(chain, pass)
       },
-      (e: unknown) => console.error(`[render] Couldn't load the ${mode} pass:`, e),
+      (e: unknown) => console.error(`[render] Couldn't load the ${antialias} pass:`, e),
     )
   }
 
-  private installComposer(mode: RenderSettings['antialias'], postPass: Pass | null): void {
+  private installComposer(chain: Chain, postPass: Pass | null): void {
     this.disposeComposer()
-    if (mode === 'off') return
+    if (chain.antialias === 'off' && !chain.mix) return
     const target = new WebGLRenderTarget(1, 1, {
       type: UnsignedByteType,
-      samples: mode === 'msaa' ? MSAA_SAMPLES : 0,
+      samples: chain.antialias === 'msaa' ? MSAA_SAMPLES : 0,
+      stencilBuffer: true,
     })
     const composer = new EffectComposer(this.renderer, target)
+    if (chain.bloom) {
+      this.bloomPass = new SelectiveBloomPass(this.glowScene, this.camera)
+      composer.addPass(this.bloomPass)
+    }
     composer.addPass(new RenderPass(this.scene, this.camera))
-    composer.addPass(postPass ?? new ShaderPass(CopyShader))
+    if (chain.mix) {
+      const mix = createMixPass()
+      const bloomTexture = mix.uniforms.tBloom
+      if (bloomTexture && this.bloomPass !== null) bloomTexture.value = this.bloomPass.bloomTexture
+      this.mixPass = mix
+      composer.addPass(mix)
+    }
+    if (postPass !== null) composer.addPass(postPass)
+    else if (!chain.mix) composer.addPass(new ShaderPass(CopyShader))
     this.composer = composer
+    this.applyLook()
     this.resize(this.cssWidth, this.cssHeight)
   }
 
@@ -136,6 +243,8 @@ export class RenderPipeline {
     for (const pass of this.composer.passes) pass.dispose()
     this.composer.dispose()
     this.composer = null
+    this.bloomPass = null
+    this.mixPass = null
   }
 }
 

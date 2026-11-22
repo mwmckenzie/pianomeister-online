@@ -15,7 +15,7 @@ const STRIP = {
 
 /**
  * Instanced geometry for notes: per-instance lane (left x, width), ticks (start, end, head end)
- * and pitch colour. With no `shape`, each instance is a unit strip; a shape supplies its own
+ * pitch colour and velocity. With no `shape`, each instance is a unit strip; a shape supplies its own
  * per-vertex attributes (e.g. a bevel template for 3D heads).
  */
 export function noteGeometry(
@@ -32,15 +32,18 @@ export function noteGeometry(
   const lane = new Float32Array(notes.length * 2)
   const ticks = new Float32Array(notes.length * 3)
   const color = new Float32Array(notes.length * 3)
+  const velocity = new Float32Array(notes.length)
   notes.forEach((n, i) => {
     lane.set([n.x, n.width], i * 2)
     ticks.set([n.startTick, n.endTick, n.headEndTick], i * 3)
     const c = PALETTE[n.colorIndex]
     color.set([c?.r ?? 1, c?.g ?? 1, c?.b ?? 1], i * 3)
+    velocity[i] = n.velocity
   })
   geometry.setAttribute('aLane', new InstancedBufferAttribute(lane, 2))
   geometry.setAttribute('aTicks', new InstancedBufferAttribute(ticks, 3))
   geometry.setAttribute('aColor', new InstancedBufferAttribute(color, 3))
+  geometry.setAttribute('aVelocity', new InstancedBufferAttribute(velocity, 1))
   geometry.instanceCount = notes.length
   return geometry
 }

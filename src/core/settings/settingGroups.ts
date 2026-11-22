@@ -1,5 +1,6 @@
 import { constrainKeyboard } from './constrainKeyboard'
-import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
+import { defaultSettings } from './DEFAULT_SETTINGS'
+import type { DeviceClass } from './DeviceClass'
 import type { PlayerSettings } from './PlayerSettings'
 import type { SettingGroup } from './SettingGroup'
 import type { SettingKey } from './SettingKey'
@@ -24,24 +25,29 @@ export function settingGroupKeys(group: SettingGroup): readonly SettingKey[] {
   })
 }
 
-/** How many settings in the group differ from their defaults. */
-export function changedCount(settings: PlayerSettings, group: SettingGroup): number {
-  return settingGroupKeys(group).filter((key) => !isDefaultValue(key, readSetting(settings, key)))
-    .length
+/** How many settings in the group differ from their defaults (on this kind of device). */
+export function changedCount(
+  settings: PlayerSettings,
+  group: SettingGroup,
+  device: DeviceClass = 'desktop',
+): number {
+  return settingGroupKeys(group).filter(
+    (key) => !isDefaultValue(key, readSetting(settings, key), device),
+  ).length
 }
 
 /** Sets a group back to its defaults; `previous` holds the values it replaced, for Undo. */
 export function resetGroup(
   settings: PlayerSettings,
   group: SettingGroup,
+  device: DeviceClass = 'desktop',
 ): { readonly settings: PlayerSettings; readonly previous: SettingValues } {
   const keys = settingGroupKeys(group)
   const previous = new Map<SettingKey, unknown>(
     keys.map((key) => [key, readSetting(settings, key)]),
   )
-  const defaults = new Map<SettingKey, unknown>(
-    keys.map((key) => [key, readSetting(DEFAULT_SETTINGS, key)]),
-  )
+  const base = defaultSettings(device)
+  const defaults = new Map<SettingKey, unknown>(keys.map((key) => [key, readSetting(base, key)]))
   return { settings: assignValues(settings, defaults), previous }
 }
 

@@ -1,7 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { test, expect, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { expect, test } from './fixtures'
+
+import { openSidebarSection, segment } from './support'
 
 /**
  * Performance and render diagnostics (npm run test:perf, headed locally so a real GPU is used).
@@ -181,7 +184,7 @@ test('@perf Welcome open vs closed: frames and main-thread time over 10 s', asyn
 
 /**
  * Milestone 8: the overview strip while playing the longest song we have (a generated 340-bar,
- * 9,520-note demo): the engine's frame time and the main thread's busy time with the strip
+ * 12,688-note demo): the engine's frame time and the main thread's busy time with the strip
  * closed vs open (whole song, then zoomed to 8 bars and following), and the notes layer's
  * redraw time across zoom steps.
  */
@@ -273,7 +276,7 @@ test('@perf overview strip on a 340-bar song: closed vs open while playing, redr
     maxMs: Number(Math.max(0, ...xs).toFixed(2)),
   })
   const result = {
-    song: '340 bars, 9,520 notes',
+    song: '340 bars, 12,688 notes (dense opening since milestone 9)',
     closed,
     openWhole,
     openZoomed,
@@ -282,4 +285,194 @@ test('@perf overview strip on a 340-bar song: closed vs open while playing, redr
   }
   save('overview-long-demo', result)
   expect(result.zoomRedraw.maxMs).toBeLessThan(16)
+})
+
+/**
+ * Milestone 9: frame times per quality preset (brief decision 110) — Canon with the default
+ * look, and the long demo's dense opening (ten-note chords on every sixteenth, pedal down) with
+ * a stress look: every onset effect, embers while held, pulse, sounding glow and key light.
+ * Engine CPU per frame, the frame interval, and GPU time where the browser measures it.
+ */
+const PRESETS = {
+  off: { quality: 'off', bloomResolution: 'off', particleBudget: 512, shaderDetail: 'minimal' },
+  low: { quality: 'low', bloomResolution: 'quarter', particleBudget: 1024, shaderDetail: 'low' },
+  medium: {
+    quality: 'medium',
+    bloomResolution: 'half',
+    particleBudget: 2048,
+    shaderDetail: 'medium',
+  },
+  high: { quality: 'high', bloomResolution: 'full', particleBudget: 4096, shaderDetail: 'high' },
+} as const
+
+const STRESS_EFFECTS = {
+  sparks: true,
+  scalingSparks: true,
+  flame: true,
+  explosion: true,
+  glitter: true,
+  sustain: 'embers',
+  pulse: true,
+  soundingGlow: true,
+  keySpill: true,
+  keyCone: true,
+}
+
+interface PresetStats extends EngineStats {
+  readonly gpuMs: number | null
+}
+
+async function sampleFrames(page: Page, seconds: number) {
+  await pause(page, 1500)
+  const samples: PresetStats[] = []
+  for (let second = 0; second < seconds; second++) {
+    await pause(page, 1000)
+    samples.push(
+      await page.evaluate(() => {
+        const w = window as {
+          pianomeisterEngineStats?: () => EngineStats
+          pianomeisterRenderInfo?: () => { gpuMs: number | null } | null
+        }
+        const stats = w.pianomeisterEngineStats?.() ?? {
+          averageFrameMs: 0,
+          averageIntervalMs: 0,
+          frames: 0,
+        }
+        return { ...stats, gpuMs: w.pianomeisterRenderInfo?.()?.gpuMs ?? null }
+      }),
+    )
+  }
+  const valid = samples.filter((s) => s.frames > 0)
+  const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length)
+  const gpu = valid.flatMap((s) => (s.gpuMs === null ? [] : [s.gpuMs]))
+  return {
+    averageFrameMs: Number(mean(valid.map((s) => s.averageFrameMs)).toFixed(3)),
+    averageIntervalMs: Number(mean(valid.map((s) => s.averageIntervalMs)).toFixed(3)),
+    gpuMs: gpu.length === 0 ? null : Number(mean(gpu).toFixed(3)),
+    samples: valid.length,
+  }
+}
+
+for (const preset of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
+  test(`@perf m9 Canon, ${preset} preset`, async ({ page }) => {
+    await seed(page, { version: 6, settings: { render: PRESETS[preset] } })
+    await openCanon(page)
+    await page.getByRole('button', { name: 'Next bar' }).click()
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
+    await expect(page.getByTestId('transport-state')).toHaveText('playing')
+    const result = { song: 'Canon in D', preset, ...(await sampleFrames(page, 10)) }
+    save(`m9-canon-${preset}`, result)
+    expect(result.samples).toBeGreaterThan(5)
+  })
+
+  test(`@perf m9 dense chords (long demo), ${preset} preset, stress look`, async ({ page }) => {
+    await seed(page, {
+      version: 6,
+      settings: { render: PRESETS[preset], effects: STRESS_EFFECTS },
+    })
+    await page.goto('./#/library')
+    await page
+      .getByTestId('upload-input')
+      .setInputFiles(fileURLToPath(new URL('../test-fixtures/midi/long-demo.mid', import.meta.url)))
+    await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
+    await page.getByTestId('details-play').click()
+    await expect(page.getByTestId('hud-bars')).toHaveText('340')
+    await page.goto('./#/?stats=1')
+    await page.reload()
+    await expect(page.getByTestId('hud-bars')).toHaveText('340')
+    await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+    await page.getByTestId('play-pause').click()
+    await expect(page.getByTestId('transport-state')).toHaveText('playing')
+    // Bars 1–24 are dense: ~44 s at 132 bpm, so 10 s of samples stay inside them.
+    const result = {
+      song: 'long demo, dense opening (10-note chords per sixteenth, pedal down)',
+      preset,
+      ...(await sampleFrames(page, 10)),
+    }
+    save(`m9-dense-${preset}`, result)
+    expect(result.samples).toBeGreaterThan(5)
+  })
+}
+
+/**
+ * Milestone 9 round 2: the presets interleaved in one page (Off, Low, Medium, High, three
+ * rounds), each from the start of the song, so slow drift (clocks, heat, background work)
+ * hits every preset alike. Reports the median CPU per frame over the rounds and the draw
+ * calls per frame — exact, unlike timings near the browser's ~0.1 ms timer resolution.
+ */
+async function interleaved(page: Page, song: string, name: string) {
+  const labels = { off: 'Off', low: 'Low', medium: 'Medium', high: 'High' } as const
+  const rounds: Record<string, { cpu: number[]; gpu: number[]; calls: number[] }> = {}
+  for (let round = 0; round < 3; round++) {
+    for (const preset of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
+      await openSidebarSection(page, 'render')
+      await segment(page, 'render.quality', labels[preset])
+      // Closed again, so every preset draws the same canvas size.
+      await page.getByTestId('close-sidebar').click()
+      await page.getByRole('button', { name: 'Stop', exact: true }).click()
+      await page.getByTestId('play-pause').click()
+      await expect(page.getByTestId('transport-state')).toHaveText('playing')
+      const result = await sampleFrames(page, 4)
+      const calls = await page.evaluate(
+        () =>
+          (
+            window as { pianomeisterRenderInfo?: () => { drawCalls: number } | null }
+          ).pianomeisterRenderInfo?.()?.drawCalls ?? 0,
+      )
+      const entry = (rounds[preset] ??= { cpu: [], gpu: [], calls: [] })
+      entry.cpu.push(result.averageFrameMs)
+      if (result.gpuMs !== null) entry.gpu.push(result.gpuMs)
+      entry.calls.push(calls)
+    }
+  }
+  const median = (xs: readonly number[]) => {
+    const sorted = [...xs].sort((a, b) => a - b)
+    return sorted.length === 0 ? null : (sorted[Math.floor(sorted.length / 2)] ?? null)
+  }
+  const result = {
+    song,
+    presets: Object.fromEntries(
+      Object.entries(rounds).map(([preset, r]) => [
+        preset,
+        {
+          cpuMsMedian: median(r.cpu),
+          cpuMsRounds: r.cpu,
+          gpuMsMedian: median(r.gpu),
+          drawCalls: median(r.calls),
+        },
+      ]),
+    ),
+  }
+  save(name, result)
+  return result
+}
+
+test('@perf m9 presets interleaved: Canon, default look', async ({ page }) => {
+  test.setTimeout(300_000)
+  // Controls stay up while playing, so the preset can be switched between samples.
+  await seed(page, { version: 6, settings: { appearance: { hideControls: false } } })
+  await openCanon(page)
+  const result = await interleaved(page, 'Canon in D', 'm9-interleaved-canon')
+  expect(Object.keys(result.presets)).toHaveLength(4)
+})
+
+test('@perf m9 presets interleaved: dense chords, stress look', async ({ page }) => {
+  test.setTimeout(300_000)
+  await seed(page, {
+    version: 6,
+    settings: { effects: STRESS_EFFECTS, appearance: { hideControls: false } },
+  })
+  await page.goto('./#/library')
+  await page
+    .getByTestId('upload-input')
+    .setInputFiles(fileURLToPath(new URL('../test-fixtures/midi/long-demo.mid', import.meta.url)))
+  await expect(page.getByTestId('upload-summary')).toHaveText('1 added')
+  await page.getByTestId('details-play').click()
+  await expect(page.getByTestId('hud-bars')).toHaveText('340')
+  await page.goto('./#/?stats=1')
+  await page.reload()
+  await expect(page.getByTestId('hud-bars')).toHaveText('340')
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  const result = await interleaved(page, 'long demo, dense opening', 'm9-interleaved-dense')
+  expect(Object.keys(result.presets)).toHaveLength(4)
 })

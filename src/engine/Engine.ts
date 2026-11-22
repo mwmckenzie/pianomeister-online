@@ -3,8 +3,9 @@ import { PerspectiveCamera, Scene } from 'three'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
+import { CageLayer } from './cages/CageLayer'
 import { createTimeUniforms } from './createTimeUniforms'
-import { Effects } from './Effects'
+import { NowLineEffects } from './effects/NowLineEffects'
 import type { EngineSong } from './EngineSong'
 import { Highway } from './Highway'
 import { Keyboard } from './Keyboard'
@@ -12,14 +13,25 @@ import { blackLaneLift } from './model/blackLaneLift'
 import type { CameraPlacement } from './model/CameraPlacement'
 import { cameraFit } from './model/cameraFit'
 import { KeyStates } from './model/KeyStates'
+import { lineColor } from './model/lineColor'
+import { mergeSpans } from './model/mergeSpans'
 import type { NoteInstance } from './model/NoteInstance'
 import { noteInstances } from './model/noteInstances'
+import { songClock } from './model/songClock'
 import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
+import type { GlowTwin } from './GlowTwin'
+import { NoteMask } from './notes/NoteMask'
 import { ContactShadow } from './notes/ContactShadow'
+import { NoteLabelAtlas } from './names/NoteLabelAtlas'
+import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
+import { BAR_START, labelRepeatRanks, RUN_START } from './model/labelRepeatRanks'
+import { labelStackSlots } from './model/labelStackSlots'
+import { placeLabels } from './model/placeLabels'
+import type { LabelSnapshot } from './names/LabelSnapshot'
 import { HeadLayer } from './notes/HeadLayer'
+import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/noteStyle'
 import { SustainLayer } from './notes/SustainLayer'
-import { PedalBands } from './PedalBands'
 import type { RenderInfo } from './RenderInfo'
 import { RenderPipeline } from './RenderPipeline'
 import { srgb } from './srgb'
@@ -32,17 +44,23 @@ const STATS_WINDOW = 120
 const PRE_SONG_BARS = 4
 /** White-lane notes sit just above the highway surface and its lines. */
 const WHITE_LANE_Y = 0.01
+/** "Paused for ages": with a pinned animation clock, paused frames show every pulse settled. */
+const SETTLED_SECONDS = 1e3
 
 /**
  * Draw order of the scene's transparent layers (lower first). Black-lane notes draw after the
  * contact shadow, which draws after the white-lane notes.
  */
 const ORDER = {
+  noteMasks: 0.5,
+  cages: 1,
   whiteSustains: 3,
   whiteHeads: 3.1,
   shadow: 3.5,
   blackSustains: 3.6,
   blackHeads: 3.7,
+  whiteNames: 3.15,
+  blackNames: 3.75,
 } as const
 
 interface Onset {
@@ -54,10 +72,13 @@ interface Onset {
 interface SongParts {
   readonly ppq: number
   readonly highway: Highway
-  readonly pedals: PedalBands
+  readonly pedals: CageLayer
   readonly sustains: { readonly white: SustainLayer; readonly black: SustainLayer }
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
   readonly shadow: ContactShadow
+  readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
+  /** The notes in the stencil buffer, so cages never draw under them. */
+  readonly masks: readonly NoteMask[]
   readonly keyStates: KeyStates
   /** Note onsets sorted by tick, for sparks and key re-strikes. */
   readonly onsets: readonly Onset[]
@@ -72,16 +93,35 @@ interface SongParts {
 export class Engine {
   private pipeline: RenderPipeline | null = null
   private readonly scene = new Scene()
+  /** Glow twins only (brief decision 109): the bloom pass draws this, not the main scene. */
+  private readonly glowScene = new Scene()
+  /** Bloom state the twins were last synced for; null = sync on the next frame. */
+  private glowSyncedFor: boolean | null = null
   private readonly camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 1000)
   private readonly time = createTimeUniforms()
-  private readonly keyboard = new Keyboard()
-  private readonly effects = new Effects()
+  private readonly noteStyle = createNoteStyleUniforms()
+  private readonly atlas = new NoteLabelAtlas()
+  private readonly keyboard = new Keyboard(this.atlas.texture)
+  private readonly effects = new NowLineEffects(this.time, DEFAULT_SETTINGS.render.particleBudget)
   private song: SongParts | null = null
   private settings: PlayerSettings = DEFAULT_SETTINGS
   private keyboardKey = ''
   private placement: CameraPlacement | null = null
   private timeSource: () => number = () => 0
   private guides = false
+  private reducedMotion = false
+  private fixedAnimationTime: number | null = null
+  /** The transport is playing (setPlaying); paused, the frame settles (brief decision 119). */
+  private playing = false
+  /** Playback resumed since the last frame: notes up to the paused position don't pulse. */
+  private resumed = false
+  /** Overlap-pass frame number and the label layout it was placed for (layoutNames). */
+  private labelFrame = 0
+  private labelLayoutKey = ''
+  /** Seconds of looping animation (advances only while playing). */
+  private loopClock = 0
+  /** Wall-clock seconds since playback paused. */
+  private pausedFor = 0
   private frame = 0
   /** While frozen the loop stops; changes ask for a single frame instead (Welcome's backdrop). */
   private frozen = false
@@ -98,10 +138,13 @@ export class Engine {
   constructor() {
     this.scene.add(this.keyboard.group, this.effects.group)
     this.effects.setKeyTops(this.keyboard.keyBodies)
+    // Key labels fit their key by the names' widths, which change once the font has loaded.
+    this.atlas.onDraw = () => this.keyboard.setGlyphWidths(this.atlas.glyphEms)
+    this.keyboard.setGlyphWidths(this.atlas.glyphEms)
   }
 
   mount(canvas: HTMLCanvasElement): void {
-    this.pipeline = new RenderPipeline(canvas, this.scene, this.camera)
+    this.pipeline = new RenderPipeline(canvas, this.scene, this.glowScene, this.camera)
     this.applySettings(this.settings)
     // Size changes in device pixels (window resize, browser zoom); where the browser can't
     // observe the device-pixel box, the CSS box. A device-pixel-ratio change alone is also
@@ -125,24 +168,88 @@ export class Engine {
     const instances = noteInstances(song.notes, song.ppq)
     const white = instances.filter((n) => !n.isBlack)
     const black = instances.filter((n) => n.isBlack)
+    // Label stack slots and runs of repeated notes come from the music, across both lane
+    // colours (brief decision 114); by default the first of a run in each bar is labelled.
+    const ranks = labelRepeatRanks(
+      instances,
+      song.ppq,
+      (tick) => song.barMap.tickToPosition(tick).bar,
+    )
+    const lanes = instances.map((n) => ({ startTick: n.startTick, centre: n.x + n.width / 2 }))
+    /** Stack slots among the notes ranked at least `rank` (the ones a choice labels). */
+    const slotsFrom = (rank: number) => {
+      const labelled = instances.flatMap((_, i) => ((ranks[i] ?? 0) >= rank ? [i] : []))
+      const slots = new Uint8Array(instances.length)
+      labelStackSlots(labelled.map((i) => lanes[i] ?? { startTick: 0, centre: 0 })).forEach(
+        (slot, k) => (slots[labelled[k] ?? 0] = slot),
+      )
+      return slots
+    }
+    const choiceSlots = {
+      first: slotsFrom(RUN_START),
+      bar: slotsFrom(BAR_START),
+      all: slotsFrom(0),
+    }
+    const pick = (slots: Uint8Array, black: boolean) =>
+      Uint8Array.from(slots.filter((_, i) => instances[i]?.isBlack === black))
+    const slotsOf = (black: boolean) => ({
+      first: pick(choiceSlots.first, black),
+      bar: pick(choiceSlots.bar, black),
+      all: pick(choiceSlots.all, black),
+    })
+    const ranksOf = (black: boolean) => pick(ranks, black)
     const { barMap } = song
     const barTicks = song.ppq * 4
     const beats = barMap
       .beatTicksBetween(-PRE_SONG_BARS * barTicks, song.endTick + barTicks)
       .map((tick) => ({ tick, isBar: barMap.tickToPosition(tick).beat === 1 }))
+    const sustains = {
+      white: new SustainLayer(white, this.time, this.noteStyle, ORDER.whiteSustains),
+      black: new SustainLayer(black, this.time, this.noteStyle, ORDER.blackSustains),
+    }
+    const heads = {
+      white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads),
+      black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
+    }
     this.song = {
       ppq: song.ppq,
       highway: new Highway(beats, this.time),
-      pedals: new PedalBands(song.pedalIntervals, this.time),
-      sustains: {
-        white: new SustainLayer(white, this.time, ORDER.whiteSustains),
-        black: new SustainLayer(black, this.time, ORDER.blackSustains),
-      },
-      heads: {
-        white: new HeadLayer(white, this.time, ORDER.whiteHeads),
-        black: new HeadLayer(black, this.time, ORDER.blackHeads),
-      },
+      // The pedal cage (brief decision 116): full width while the pedal is down.
+      pedals: new CageLayer(
+        mergeSpans(song.pedalIntervals).map((s) => ({
+          startTick: s.startTick,
+          endTick: s.endTick,
+          lowMidi: null,
+          highMidi: null,
+        })),
+        this.time,
+        this.noteStyle,
+        { y: 0.003, renderOrder: ORDER.cages },
+      ),
+      sustains,
+      heads,
+      masks: [sustains.white, sustains.black, heads.white, heads.black].map(
+        (layer) => new NoteMask(layer.mesh, ORDER.noteMasks),
+      ),
       shadow: new ContactShadow(black, this.time, ORDER.shadow),
+      names: {
+        white: new NoteNameLayer(
+          white,
+          this.time,
+          this.atlas.texture,
+          ORDER.whiteNames,
+          slotsOf(false),
+          ranksOf(false),
+        ),
+        black: new NoteNameLayer(
+          black,
+          this.time,
+          this.atlas.texture,
+          ORDER.blackNames,
+          slotsOf(true),
+          ranksOf(true),
+        ),
+      },
       keyStates: new KeyStates(instances),
       onsets: onsetsOf(instances),
     }
@@ -155,6 +262,9 @@ export class Engine {
       s.shadow.mesh,
       s.sustains.black.mesh,
       s.heads.black.mesh,
+      s.names.white.mesh,
+      s.names.black.mesh,
+      ...s.masks.map((m) => m.mesh),
     )
     this.lastTick = null
     this.effects.clear()
@@ -165,19 +275,46 @@ export class Engine {
   applySettings(settings: PlayerSettings): void {
     this.settings = settings
     this.scene.background = srgb(settings.colors.background)
+    applyNoteStyle(this.noteStyle, settings)
+    this.atlas.draw(settings.names)
     this.effects.group.visible = settings.effects.enabled
+    this.effects.setBudget(settings.render.particleBudget)
     const keyboardKey = JSON.stringify(settings.keyboard)
     if (keyboardKey !== this.keyboardKey) {
       this.keyboardKey = keyboardKey
       this.keyboard.rebuild(settings.keyboard)
       this.effects.setKeyTops(this.keyboard.keyBodies)
     }
+    this.keyboard.applySettings(settings)
     const song = this.song
     if (song !== null) {
       const { notes } = settings
       const lift = blackLaneLift(notes, settings.keyboard)
       song.highway.applySettings(settings)
-      song.pedals.setStyle(settings.colors.pedal, settings.opacity.pedal)
+      const { pedal, appearance } = settings
+      song.pedals.mesh.visible = pedal.show
+      song.pedals.setStyle({
+        fill: pedal.fill,
+        fillColor: pedal.fillColor,
+        fillOpacity: pedal.fillOpacity,
+        border: pedal.border,
+        borderColor: lineColor(pedal.borderColor, pedal.borderCustom, appearance),
+        borderWidth: pedal.borderWidth,
+        borderGlow: pedal.borderGlow,
+        cornerRadius: pedal.cornerRadius,
+        stripes: {
+          a: { mode: 'custom', color: pedal.stripeA },
+          b: { mode: 'custom', color: pedal.stripeB },
+          aOpacity: pedal.stripeAOpacity,
+          bOpacity: pedal.stripeBOpacity,
+          width: pedal.stripeWidth,
+          balance: pedal.stripeBalance,
+          angleDeg: pedal.stripeAngle,
+          drift: pedal.stripeDrift,
+        },
+      })
+      const emit = notesEmit(settings)
+      for (const layer of [song.sustains.white, song.sustains.black]) layer.twin.enabled = emit
       // Floating below the white heads' tops, black-lane notes would intersect them: draw them on
       // top instead, so black-lane notes always win (brief decision 39).
       const onTop = lift < WHITE_LANE_Y + (notes.heads3d ? notes.headHeight : 0.01)
@@ -198,12 +335,52 @@ export class Engine {
         layer.setShape(notes.headHeight, notes.headRounded)
       }
       song.shadow.set(notes.contactShadow, notes.shadowStrength, lift)
+      const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
+      const headTop = notes.heads3d ? notes.headHeight : 0
+      for (const [layer, y, top] of [
+        [song.names.white, WHITE_LANE_Y, false],
+        [song.names.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
+      ] as const) {
+        layer.mesh.visible = namesOnNotes
+        layer.setLift(y, top)
+        layer.applySettings(settings.names, headTop)
+      }
+      const cageShown = pedal.show && (pedal.fillOpacity > 0 || pedal.border)
+      for (const mask of song.masks) mask.sync(cageShown)
     }
     if (this.pipeline !== null) {
-      this.pipeline.configure(settings.render)
+      this.pipeline.configure(settings.render, settings.highway.vignette)
       this.resize()
     }
     this.placeCamera()
+    this.syncGlow()
+    this.invalidate()
+  }
+
+  /** Reduced motion (brief decision 54): no flicker, breathing, drift or moving particles. */
+  setReducedMotion(reduced: boolean): void {
+    this.reducedMotion = reduced
+    this.time.uReducedMotion.value = reduced ? 1 : 0
+    this.invalidate()
+  }
+
+  /**
+   * Whether the transport is playing. Paused, pulses and particles in flight finish on the wall
+   * clock, looping animation and sustain spawning stop, and seeking starts no pulses, so the
+   * frame settles and then holds still (brief decision 119).
+   */
+  setPlaying(playing: boolean): void {
+    if (playing === this.playing) return
+    if (playing) this.resumed = true
+    this.playing = playing
+  }
+
+  /**
+   * Test seam for the visual shots: pins the animation clock (seconds) so flicker, noise and
+   * breathing render the same frame every run; null follows the frame timestamps again.
+   */
+  setFixedAnimationTime(seconds: number | null): void {
+    this.fixedAnimationTime = seconds
     this.invalidate()
   }
 
@@ -253,6 +430,9 @@ export class Engine {
     this.placeCamera()
     const bufferHeight = height * pipeline.renderer.getPixelRatio()
     this.effects.setScale(bufferHeight / (2 * Math.tan(((FOV_DEG / 2) * Math.PI) / 180)))
+    const ratio = pipeline.renderer.getPixelRatio()
+    const sized = [this.keyboard, ...(this.song === null ? [] : Object.values(this.song.names))]
+    for (const layer of sized) layer.setViewport(width * ratio, bufferHeight, ratio)
     this.invalidate()
   }
 
@@ -307,6 +487,7 @@ export class Engine {
     this.disposeSong()
     this.keyboard.dispose()
     this.effects.dispose()
+    this.atlas.dispose()
     this.pipeline?.dispose()
     this.pipeline = null
   }
@@ -328,22 +509,119 @@ export class Engine {
     this.lastFrameAt = now
 
     const tick = this.timeSource()
+    const playing = this.playing
+    if (playing) {
+      this.loopClock += dt
+      this.pausedFor = 0
+    } else {
+      this.pausedFor += dt
+    }
+    const fixed = this.fixedAnimationTime
     this.time.uTick.value = tick
+    this.time.uTime.value = fixed ?? now / 1000
+    this.time.uLoopTime.value = fixed ?? this.loopClock
+    this.time.uPausedFor.value = fixed === null || playing ? this.pausedFor : SETTLED_SECONDS
+    const clock = songClock(
+      this.lastTick,
+      tick,
+      dt,
+      this.song?.ppq ?? 480,
+      this.time.uTicksPerSecond.value,
+      playing,
+    )
+    this.time.uTicksPerSecond.value = clock.rate
+    if (clock.jumped) this.time.uJumpTick.value = tick
+    else if (this.resumed) this.time.uJumpTick.value = this.lastTick ?? tick
+    this.resumed = false
     const song = this.song
     if (song !== null) {
       const { keys, effects } = this.settings
-      for (const onset of this.crossedOnsets(song, tick)) {
-        this.keyboard.restrike(onset.midi)
-        if (effects.enabled) this.effects.spawn(onset.midi, velocityScale(onset.velocity, effects))
+      const crossed = playing ? this.crossedOnsets(song, tick) : []
+      for (const onset of crossed) {
+        this.keyboard.restrike(onset.midi, velocityScale(onset.velocity, effects))
+        if (effects.enabled) {
+          this.effects.onset(
+            onset.midi,
+            velocityScale(onset.velocity, effects),
+            effects,
+            this.reducedMotion,
+          )
+        }
       }
       const states = song.keyStates.at(tick, keys.fadeBeats * song.ppq, keys.maxApproachAlpha)
       this.keyboard.update(states, dt)
-      if (effects.enabled) this.effects.update(dt, states, (v) => velocityScale(v, effects))
+      if (effects.enabled) {
+        this.effects.update(
+          dt,
+          states,
+          effects,
+          (v) => velocityScale(v, effects),
+          this.reducedMotion,
+          playing,
+        )
+      }
     }
+    if (song !== null) this.layoutNames(song, tick, dt, clock.jumped)
     this.lastTick = tick
+    // The chain can change after applySettings (FXAA/SMAA passes load asynchronously).
+    if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()
     pipeline.render()
     this.rendered++
     this.record(this.frameMs, performance.now() - started)
+  }
+
+  /** Labels placed in the last overlap pass, for tests (`?stats=1`). */
+  labelSnapshot(): LabelSnapshot[] {
+    const out: LabelSnapshot[] = []
+    this.song?.names.white.snapshot(this.labelFrame, 'w', out)
+    this.song?.names.black.snapshot(this.labelFrame, 'b', out)
+    return out
+  }
+
+  /**
+   * The overlap pass (brief decision 114), across both lane colours, nearest first: one-way, so
+   * a shown label stays shown and a hidden one shows once there's room. A seek, or a change to
+   * how labels are laid out, places every label afresh, at once (no fades).
+   */
+  private layoutNames(song: SongParts, tick: number, dt: number, jumped: boolean): void {
+    const { names } = this.settings
+    const onNotes = names.mode === 'notes' || names.mode === 'both'
+    if (!onNotes || !names.avoidOverlaps) return
+    const layoutKey = JSON.stringify([
+      names.style,
+      names.textSize,
+      names.anchor,
+      names.offset,
+      names.height,
+      names.showWithin,
+      names.fadeLength,
+      names.repeats,
+      this.settings.notes.heads3d,
+      this.settings.notes.headHeight,
+    ])
+    // Skipping a frame number makes every label new.
+    this.labelFrame += jumped || layoutKey !== this.labelLayoutKey ? 2 : 1
+    this.labelLayoutKey = layoutKey
+    const canvas = this.pipeline?.renderer.domElement
+    const view: LabelView = {
+      camera: this.camera,
+      tick,
+      unitsPerTick: this.time.uUnitsPerTick.value,
+      nowZ: this.time.uNowZ.value,
+      lookAheadTicks: this.time.uLookAheadTicks.value,
+      width: canvas?.clientWidth ?? 1,
+      height: canvas?.clientHeight ?? 1,
+      frame: this.labelFrame,
+    }
+    const labels: LabelCandidate[] = []
+    song.names.white.candidates(view, labels)
+    song.names.black.candidates(view, labels)
+    labels.sort((a, b) => a.ahead - b.ahead)
+    placeLabels(labels).forEach((state, i) => {
+      const label = labels[i]
+      label?.layer.place(label.index, state, this.labelFrame)
+    })
+    for (const layer of [song.names.white, song.names.black]) layer.update(dt, this.reducedMotion)
   }
 
   /** Onsets reached since the last frame, unless the position jumped (seek, loop wrap). */
@@ -392,6 +670,35 @@ export class Engine {
     )
   }
 
+  /**
+   * Refills the glow scene and syncs every twin with its mesh (brief decision 109). Only when
+   * settings, the song or the pass chain change: per-frame changes reach twins through shared
+   * uniforms and buffers, so frames don't pay for it.
+   */
+  private syncGlow(): void {
+    const bloomActive = this.pipeline?.bloomActive ?? false
+    this.glowSyncedFor = this.pipeline === null ? null : bloomActive
+    const song = this.song
+    const twins: GlowTwin[] = [...this.keyboard.twins, ...this.effects.twins]
+    if (song !== null) {
+      twins.push(
+        ...song.highway.twins,
+        song.pedals.twin,
+        song.sustains.white.twin,
+        song.sustains.black.twin,
+        song.heads.white.twin,
+        song.heads.black.twin,
+        song.names.white.twin,
+        song.names.black.twin,
+      )
+    }
+    this.glowScene.clear()
+    for (const twin of twins) {
+      twin.sync(bloomActive)
+      this.glowScene.add(twin.mesh)
+    }
+  }
+
   private disposeSong(): void {
     const song = this.song
     if (song === null) return
@@ -402,11 +709,19 @@ export class Engine {
       song.heads.black,
       song.shadow,
       song.pedals,
+      song.names.white,
+      song.names.black,
     ]
-    this.scene.remove(song.highway.group, ...parts.map((p) => p.mesh))
+    this.scene.remove(
+      song.highway.group,
+      ...parts.map((p) => p.mesh),
+      ...song.masks.map((m) => m.mesh),
+    )
+    for (const mask of song.masks) mask.dispose()
     song.highway.dispose()
     for (const part of parts) part.dispose()
     this.song = null
+    this.syncGlow()
   }
 
   private record(window: number[], value: number): void {

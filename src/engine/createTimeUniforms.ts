@@ -6,5 +6,11 @@ export function createTimeUniforms(): TimeUniforms {
     uUnitsPerTick: { value: 0.01 },
     uNowZ: { value: 0 },
     uLookAheadTicks: { value: 3840 },
+    uTime: { value: 0 },
+    uLoopTime: { value: 0 },
+    uPausedFor: { value: 0 },
+    uTicksPerSecond: { value: 0 },
+    uJumpTick: { value: -1e9 },
+    uReducedMotion: { value: 0 },
   }
 }

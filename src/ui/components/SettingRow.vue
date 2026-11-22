@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, inject, onBeforeUnmount, useId, watchEffect } from 'vue'
 
+import { disabledHintOf } from '@/core/settings/disabledHintOf'
 import { formatSettingValue } from '@/core/settings/formatSettingValue'
 import type { SettingKey } from '@/core/settings/SettingKey'
 
@@ -10,6 +11,7 @@ import { settingDefinition } from '@/core/settings/settingValues'
 
 import { useSettingsStore } from '../stores/settingsStore'
 import ColorField from './ColorField.vue'
+import { sectionHintsKey } from './sectionHintsKey'
 import ResetButton from './ResetButton.vue'
 import SegmentedControl from './SegmentedControl.vue'
 import SelectField from './SelectField.vue'
@@ -40,6 +42,18 @@ const store = useSettingsStore()
 const def = computed(() => settingDefinition(props.settingKey))
 const visible = computed(() => def.value.visible?.(store.settings) ?? true)
 const enabled = computed(() => def.value.enabled?.(store.settings) ?? true)
+/** Why the control is greyed out (e.g. "Needs shader detail Medium or High"). */
+const reason = computed(() =>
+  enabled.value || !visible.value ? null : disabledHintOf(def.value, store.settings),
+)
+// The section shows a reason that three or more rows share once, at its top.
+const section = inject(sectionHintsKey, null)
+const row = Symbol(props.settingKey)
+watchEffect(() => section?.report(row, reason.value))
+onBeforeUnmount(() => section?.forget(row))
+const hint = computed(() =>
+  reason.value !== null && section?.shared.value.includes(reason.value) ? null : reason.value,
+)
 const value = computed(() =>
   props.override === undefined ? store.get(props.settingKey) : props.override.value,
 )
@@ -107,6 +121,7 @@ function reset(): void {
         :data-testid="`${testid}-control`"
         @update:model-value="set"
       />
+      <p v-if="hint" class="hint" :data-testid="`${testid}-hint`">{{ hint }}</p>
     </template>
 
     <div v-else class="inline">
@@ -122,6 +137,7 @@ function reset(): void {
             :id="id"
             :model-value="value as boolean"
             :label="def.label"
+            :disabled="!enabled"
             :data-testid="`${testid}-control`"
             @update:model-value="set"
           />
@@ -131,6 +147,7 @@ function reset(): void {
             :model-value="value as string"
             :options="def.options"
             :label="def.label"
+            :disabled="!enabled"
             :data-testid="`${testid}-control`"
             @update:model-value="set"
           />
@@ -139,6 +156,7 @@ function reset(): void {
             :model-value="value as string"
             :options="def.options"
             :label="def.label"
+            :disabled="!enabled"
             :data-testid="`${testid}-control`"
             @update:model-value="set"
           />
@@ -157,6 +175,7 @@ function reset(): void {
           @reset="reset"
         />
       </span>
+      <p v-if="hint" class="hint" :data-testid="`${testid}-hint`">{{ hint }}</p>
     </div>
   </div>
 </template>
@@ -213,6 +232,13 @@ function reset(): void {
 
 .control {
   display: inline-flex;
+}
+
+.hint {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .head + .slider {
