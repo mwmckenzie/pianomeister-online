@@ -13,6 +13,7 @@ import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import { GlowTwin } from './GlowTwin'
 import { NowLine } from './lines/NowLine'
+import type { NoteColors } from './NoteColors'
 import { keyLayout } from './model/keyLayout'
 import { KEYBOARD } from './model/KEYBOARD'
 import { type BoundaryKind, laneBoundaries } from './model/laneBoundaries'
@@ -442,6 +443,11 @@ export class Highway {
       lines.octavesGlow,
     )
     this.nowLine.applySettings(lines, appearance)
+  }
+
+  /** The now line's pitch colours follow the shared note colours. */
+  recolor(colors: NoteColors): void {
+    this.nowLine.recolor(colors)
   }
 
   /** Glow twins of the grid, the glowing lines and the now line (for the glow scene). */

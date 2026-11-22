@@ -1,12 +1,10 @@
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Points, ShaderMaterial } from 'three'
 
-import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
-
 import type { KeyBody } from '../model/KeyBody'
 import { keyLayout } from '../model/keyLayout'
 import { KEYBOARD } from '../model/KEYBOARD'
 import type { KeyState } from '../model/KeyState'
-import { srgb } from '../srgb'
+import { NoteColors } from '../NoteColors'
 
 const VERTEX = /* glsl */ `
 uniform float uScale;
@@ -34,6 +32,9 @@ void main() {
 }
 `
 
+/** The default palette, until the engine hands over the shared one. */
+const DEFAULT_COLORS = new NoteColors()
+
 /**
  * The milestone 8 held-note glow ("Glow" while a note sustains, brief decision 117): one
  * additive point per key at the now line, gently pulsing while its note sounds (steady under
@@ -58,8 +59,6 @@ export class HeldGlow {
         [key.x + key.width / 2, key.raised + 0.15, -KEYBOARD.whiteLength - 0.1],
         i * 3,
       )
-      const c = srgb(PITCH_CLASS_COLORS[key.midi % 12]?.hex ?? '#FFFFFF')
-      this.color.set([c.r, c.g, c.b], i * 3)
       this.baseSize[i] = key.isBlack ? 1.6 : 2.2
       this.size[i] = this.baseSize[i] as number
     })
@@ -81,6 +80,7 @@ export class HeldGlow {
     )
     this.points.frustumCulled = false
     this.points.renderOrder = 7
+    this.recolor(DEFAULT_COLORS)
   }
 
   /** Pixel scale for point sizes: drawing-buffer height / (2·tan(fov/2)). */
@@ -124,6 +124,15 @@ export class HeldGlow {
     this.level.fill(0)
     this.alpha.fill(0)
     this.markDirty(false)
+  }
+
+  /** Takes the note colours of the palette (each key's glow is its note colour). */
+  recolor(colors: NoteColors): void {
+    keyLayout().forEach((key, i) => {
+      const c = colors.at(key.midi % 12)
+      this.color.set([c.r, c.g, c.b], i * 3)
+    })
+    this.points.geometry.getAttribute('aColor').needsUpdate = true
   }
 
   dispose(): void {

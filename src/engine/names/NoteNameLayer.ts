@@ -9,7 +9,6 @@ import {
   Vector3,
 } from 'three'
 
-import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import { GlowTwin } from '../GlowTwin'
@@ -18,14 +17,12 @@ import type { LabelRect } from '../model/LabelRect'
 import type { LabelState } from '../model/LabelState'
 import { BAR_START, RUN_START } from '../model/labelRepeatRanks'
 import type { NoteInstance } from '../model/NoteInstance'
-import { srgb } from '../srgb'
+import { NoteColors } from '../NoteColors'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
 import type { LabelSlots } from './LabelSlots'
 import type { LabelSnapshot } from './LabelSnapshot'
 import { ATLAS_FONT_PX, atlasCell, CELL_H, CELL_W } from './NoteLabelAtlas'
-
-const PALETTE = PITCH_CLASS_COLORS.map((c) => srgb(c.hex))
 
 /** World gap between a label's anchor and the head, ahead of or behind it. */
 const GAP = 0.15
@@ -191,6 +188,9 @@ export interface LabelView {
   readonly frame: number
 }
 
+/** The default palette, until the engine hands over the shared one. */
+const DEFAULT_COLORS = new NoteColors()
+
 /**
  * Note names on notes (brief decision 114), one instanced draw per lane colour: facing the
  * camera at a constant screen size (or flat on the note), in the note's tinted colour with a
@@ -267,8 +267,8 @@ export class NoteNameLayer {
       new InstancedBufferAttribute(
         new Float32Array(
           notes.flatMap((n) => {
-            const c = PALETTE[n.colorIndex]
-            return [c?.r ?? 1, c?.g ?? 1, c?.b ?? 1]
+            const c = DEFAULT_COLORS.at(n.colorIndex)
+            return [c.r, c.g, c.b]
           }),
         ),
         3,
@@ -436,6 +436,17 @@ export class NoteNameLayer {
       hi = i
     }
     if (hi >= 0) this.markShown(lo, hi)
+  }
+
+  /** Labels' Auto and Note colours follow the shared note colours. */
+  recolor(colors: NoteColors): void {
+    const attribute = this.mesh.geometry.getAttribute('aColor')
+    const data = attribute.array as Float32Array
+    this.notes.forEach((n, i) => {
+      const c = colors.at(n.colorIndex)
+      data.set([c.r, c.g, c.b], i * 3)
+    })
+    attribute.needsUpdate = true
   }
 
   dispose(): void {

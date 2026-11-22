@@ -1,5 +1,6 @@
 import { PerspectiveCamera, Scene } from 'three'
 
+import { notePaletteColors } from '@/core/color/notePaletteColors'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
@@ -34,6 +35,7 @@ import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/note
 import { SustainLayer } from './notes/SustainLayer'
 import type { RenderInfo } from './RenderInfo'
 import { RenderPipeline } from './RenderPipeline'
+import { NoteColors } from './NoteColors'
 import { srgb } from './srgb'
 
 const FOV_DEG = 40
@@ -101,7 +103,11 @@ export class Engine {
   private readonly time = createTimeUniforms()
   private readonly noteStyle = createNoteStyleUniforms()
   private readonly atlas = new NoteLabelAtlas()
-  private readonly keyboard = new Keyboard(this.atlas.texture)
+  /** Note colours (the palette), shared by everything drawn in a note's colour. */
+  private readonly noteColors = new NoteColors()
+  /** The song whose baked colours match `noteColors`, and at which palette version. */
+  private recolored: { song: SongParts | null; version: number } = { song: null, version: -1 }
+  private readonly keyboard = new Keyboard(this.atlas.texture, this.noteColors)
   private readonly effects = new NowLineEffects(this.time, DEFAULT_SETTINGS.render.particleBudget)
   private song: SongParts | null = null
   private settings: PlayerSettings = DEFAULT_SETTINGS
@@ -141,6 +147,7 @@ export class Engine {
   constructor() {
     this.scene.add(this.keyboard.group, this.effects.group)
     this.effects.setKeyTops(this.keyboard.keyBodies)
+    this.effects.recolor(this.noteColors)
     // Key labels fit their key by the names' widths, which change once the font has loaded.
     this.atlas.onDraw = () => this.keyboard.setGlyphWidths(this.atlas.glyphEms)
     this.keyboard.setGlyphWidths(this.atlas.glyphEms)
@@ -207,12 +214,24 @@ export class Engine {
       .beatTicksBetween(-PRE_SONG_BARS * barTicks, song.endTick + barTicks)
       .map((tick) => ({ tick, isBar: barMap.tickToPosition(tick).beat === 1 }))
     const sustains = {
-      white: new SustainLayer(white, this.time, this.noteStyle, ORDER.whiteSustains),
-      black: new SustainLayer(black, this.time, this.noteStyle, ORDER.blackSustains),
+      white: new SustainLayer(
+        white,
+        this.time,
+        this.noteStyle,
+        ORDER.whiteSustains,
+        this.noteColors,
+      ),
+      black: new SustainLayer(
+        black,
+        this.time,
+        this.noteStyle,
+        ORDER.blackSustains,
+        this.noteColors,
+      ),
     }
     const heads = {
-      white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads),
-      black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
+      white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads, this.noteColors),
+      black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads, this.noteColors),
     }
     this.song = {
       ppq: song.ppq,
@@ -275,11 +294,40 @@ export class Engine {
     this.invalidate()
   }
 
+  /**
+   * Note colours from the palette setting: what reads them per frame follows by itself; the held
+   * glow and the song's baked colours (notes, labels, the pitch now line) are rewritten once per
+   * change, and once for each new song.
+   */
+  private applyNoteColors(settings: PlayerSettings): void {
+    if (this.noteColors.set(notePaletteColors(settings.notes))) {
+      this.effects.recolor(this.noteColors)
+    }
+    const song = this.song
+    const { version } = this.noteColors
+    if (song === null || (this.recolored.song === song && this.recolored.version === version)) {
+      return
+    }
+    this.recolored = { song, version }
+    for (const layer of [
+      song.sustains.white,
+      song.sustains.black,
+      song.heads.white,
+      song.heads.black,
+    ]) {
+      layer.recolor()
+    }
+    song.names.white.recolor(this.noteColors)
+    song.names.black.recolor(this.noteColors)
+    song.highway.recolor(this.noteColors)
+  }
+
   applySettings(settings: PlayerSettings): void {
     this.settings = settings
     this.scene.background = srgb(settings.colors.background)
     applyNoteStyle(this.noteStyle, settings)
     this.atlas.draw(settings.names)
+    this.applyNoteColors(settings)
     this.effects.group.visible = settings.effects.enabled
     this.effects.setBudget(settings.render.particleBudget)
     const keyboardKey = JSON.stringify(settings.keyboard)

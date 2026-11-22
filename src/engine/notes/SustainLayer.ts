@@ -5,7 +5,8 @@ import type { NoteInstance } from '../model/NoteInstance'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
 import { NOTE_FILL_GLSL } from './NOTE_FILL_GLSL'
-import { noteGeometry } from './noteGeometry'
+import type { NoteColors } from '../NoteColors'
+import { noteGeometry, recolorNotes } from './noteGeometry'
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
 
 const VERTEX = /* glsl */ `
@@ -127,15 +128,18 @@ void main() {
 export class SustainLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
   readonly twin: GlowTwin<InstancedBufferGeometry>
+  private readonly notes: readonly NoteInstance[]
 
   constructor(
     notes: readonly NoteInstance[],
     time: TimeUniforms,
     style: NoteStyleUniforms,
     renderOrder: number,
+    private readonly colors: NoteColors,
   ) {
+    this.notes = notes
     this.mesh = new Mesh(
-      noteGeometry(notes),
+      noteGeometry(notes, undefined, colors),
       new ShaderMaterial({
         vertexShader: VERTEX,
         fragmentShader: FRAGMENT,
@@ -161,6 +165,11 @@ export class SustainLayer {
   setLift(y: number, onTop = false): void {
     this.uniform('uLift', y)
     this.mesh.material.depthTest = !onTop
+  }
+
+  /** Takes the palette's current colours (after a change of note colours). */
+  recolor(): void {
+    recolorNotes(this.mesh.geometry, this.notes, this.colors)
   }
 
   setFlatHeads(flat: boolean): void {

@@ -15,7 +15,8 @@ import { LIGHT_GLSL } from '../sceneLight'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
 import { NOTE_FILL_GLSL } from './NOTE_FILL_GLSL'
-import { noteGeometry } from './noteGeometry'
+import type { NoteColors } from '../NoteColors'
+import { noteGeometry, recolorNotes } from './noteGeometry'
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
 
 /** Rounded-edge radius of 3D heads, in world units (brief decision 39). */
@@ -141,12 +142,13 @@ export class HeadLayer {
     time: TimeUniforms,
     style: NoteStyleUniforms,
     renderOrder: number,
+    private readonly colors: NoteColors,
   ) {
     // Far to near: when drawn on top without depth testing (see setLift), nearer heads must
     // land last to overlap farther ones correctly.
     this.notes = [...notes].sort((a, b) => b.startTick - a.startTick)
     this.mesh = new Mesh(
-      noteGeometry(this.notes, shape(true)),
+      noteGeometry(this.notes, shape(true), colors),
       new ShaderMaterial({
         vertexShader: VERTEX,
         fragmentShader: FRAGMENT,
@@ -177,12 +179,17 @@ export class HeadLayer {
     this.mesh.material.depthFunc = onTop ? AlwaysDepth : LessEqualDepth
   }
 
+  /** Takes the palette's current colours (after a change of note colours). */
+  recolor(): void {
+    recolorNotes(this.mesh.geometry, this.notes, this.colors)
+  }
+
   setShape(height: number, rounded: boolean): void {
     this.uniform('uHeight', height)
     const wasRounded = this.mesh.geometry.getAttribute('aOffset').count === shapeCount(true)
     if (wasRounded !== rounded) {
       const old = this.mesh.geometry
-      this.mesh.geometry = noteGeometry(this.notes, shape(rounded))
+      this.mesh.geometry = noteGeometry(this.notes, shape(rounded), this.colors)
       old.dispose()
     }
     this.uniform('uRadius', rounded ? HEAD_EDGE_RADIUS : 0)
