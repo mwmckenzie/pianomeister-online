@@ -19,6 +19,7 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 | 9.5 | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                       |             |
 | 10  | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                    |             |
 | 11  | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                               |             |
+| 12  | **Benchmark mode** _(spec first)_            | A built-in, repeatable performance test for any device (PC, laptop, iPad, desktop build): scripted songs and presets, frame/CPU/GPU timings, device info, results screen with export and local history                                                                                    |             |
 
 ### Why this order
 
@@ -27,7 +28,8 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 - **Loop editor after bookmarks (7 → 8):** an A–B selection and a bookmark are the same thing in different clothes; the overview is the natural place to create and edit them.
 - **Visual polish after the features settle (9):** post-processing and shader styles change how everything looks; doing them once the screens and scene are stable avoids re-tuning. Quality presets keep tablets smooth.
 - **Hand caging (10)** is exploratory and independent — it can move earlier if it becomes the priority.
-- **Tablet pass last (11)**, but with a quick iPad check at the end of every milestone so problems surface early.
+- **Tablet pass (11)**, with a quick iPad check at the end of every milestone so problems surface early.
+- **Benchmark mode last (12):** it measures the finished app on every device, so it comes after the tablet and performance pass.
 
 ## Backlog — idea details
 
@@ -141,6 +143,30 @@ Play full songs back-to-back as background music, with the piano and highway as 
 
 - Look-ahead visualization of where each hand needs to be per bar (a "cage" spanning the hand's key range).
 - Design session first: review the approach from the Unity app (code to be provided), decide range computation, transitions between bars, and how it's drawn on the highway/keyboard.
+
+### Benchmark mode _(milestone 12, the final milestone; spec to be written when we reach it)_
+
+A built-in, repeatable performance test that can be run on any device (PC, laptop, iPad, a desktop build), with results collected.
+
+- **Where:** main Settings, in a "Benchmark" area under Render/Performance (exact place decided in the spec). A Start button with a short explanation; Esc cancels.
+- **What it runs:** a fixed, scripted sequence:
+  - bundled test songs: a normal piece and the dense-chord stress passage;
+  - a fixed camera and a fixed look;
+  - each quality preset (Off / Low / Medium / High), interleaved and repeated so drift hits all presets alike;
+  - a short warm-up first.
+- **What it measures:**
+  - frame interval (median, p95, p99, dropped frames);
+  - engine CPU per frame, and GPU time where the timer query exists;
+  - draw calls, particle counts, bloom availability;
+  - load times (song, samples).
+- **Device info:**
+  - browser and user agent, GPU renderer string (where available);
+  - screen size and pixel ratio, CPU cores, device memory;
+  - device class (desktop/tablet), app version and commit.
+- **Output:**
+  - a results screen (a table per preset);
+  - Export (.json, a stable documented format) and Copy summary (short text);
+  - results kept locally with a history, so runs can be compared.
 
 ## Other ideas (unscheduled)
 
