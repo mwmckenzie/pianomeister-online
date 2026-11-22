@@ -456,3 +456,71 @@ Contact sheets (JPEG, committed): `docs/design/m9/round3/`. Full-size PNGs are r
 - [ ] Text colour Dark and Note colour on the Pedal demo: both readable on their notes.
 - [ ] Render quality Off: Hot core, Glass, Outline and Neon each recognisable, near and far. Then Medium: bloom adds a halo only.
 - [ ] Names → Off: the section shows only "Needs note names on".
+
+## 2026-11-22 — Round 6: Smoke fix, Glass candidates, once-per-bar labels, Neon halo, Milestone 12
+
+Commits are local; not pushed (PR #21 is unchanged until you say so).
+
+### What was done
+
+**1. Smoke fixed** (`c67158f`)
+
+- The round-3 Smoke darkened its gaps toward black over the note colour (`base * 0.55`), which turned yellow olive and red brown at High. It also sampled noise 4.6× longer along the note than across it.
+- The new Smoke starts from round 1's soft clouds, with only the requested changes:
+  - The gaps are see-through: their alpha falls toward the highway (0.18), and nothing is ever darkened.
+  - The puffs are the clean note colour, lifted up to 28 % toward white at their centres.
+  - The noise is isotropic in world space, scaled to the lane width, with a gentle domain warp so it billows rather than tiles.
+  - Slow drift toward the tail; the puffs keep a little opacity when the note is set see-through.
+- Round 1 itself (it also darkened, to `base * 0.55…1.15`, and was 2.5× stretched) is kept for this round only, as the temporary fill "Smoke (round 1)", so the sheet can compare them.
+
+**2. Glass candidates** (each reads at quality Off, follows both transparency settings, and is still while paused and under reduced motion through `animTime()`):
+
+- **Crystal:** Voronoi shards about a note-width across, each in a lighter or darker tint of the note colour and lit from one side as if angled, with bright facet edges. Far away the facets blend to their average. Still.
+- **Bubbles:** a translucent note-coloured body with bubbles of varied sizes (about one across the note). Each has a thin bright rim and a soft highlight, rising slowly toward the tail with a slight sway.
+- **Liquid:** a soft network of bright ripples moving slowly over the note colour, like light through water. Ripples narrower than a few pixels settle to an even glow.
+- Glass stays in place until you pick. Then stored and look `glass` values migrate to the pick, and the other candidates and "Smoke (round 1)" are removed.
+
+**3. Candidate sheets:** `docs/design/m9/round6/candidate-*.jpg`, one per candidate:
+
+- Rows: quality Off and High, each with 3D heads on and off. Animated fills get three frames, 0.5 s apart, at `animTime` 3, 3.5 and 4.
+- New fixture `test-fixtures/midi/fills-demo.mid` (`scripts/make-fills-demo.mjs`): long yellow (D), red (C), green (G) and purple (A) notes near the keys, a second set further up, and short notes for heads, at bar 2.
+- Each sheet holds heads and sustains near and far in one frame, rather than separate near/far cells.
+
+**4. Label repeated notes: Once per bar (default) / First of a run / All** (`20a79af`)
+
+- `labelRepeatRanks` replaces `labelRunStarts`, with unit tests. Each note is ranked from the music: run start (2), first of the run in a later bar (1), or other (0).
+- Each choice labels down to its rank and has its own stack slots, counting only the notes it labels.
+- **On the sheet:** at Show within 40 % with an 8-beat look-ahead, the next bar's first notes, 4 beats ahead, sit in the fade at a bar line, so the default cell taken exactly on bar 2's downbeat shows them only faintly; they strengthen through the bar. The added "once per bar, show within 60 %" cell shows them clearly.
+
+**5. Neon halo:** fills now carry a separate glow colour (`Fill.glow`; `glowColor(f)` in the head, sustain and cage glow passes). Neon emits the tube's saturated note colour (emission 0.9), so near-white stays in the core line only. The Neon column of `fills-compare.jpg` shows the coloured halo at Medium.
+
+**6. Roadmap:** Milestone 12, Benchmark mode, added as the final milestone after 11: a row in the plan table, a backlog section with your description, and a line in "Why this order".
+
+### Decisions I made that weren't in the instructions
+
+1. **Candidates are temporary settings values** (`smokeRound1`, `crystal`, `bubbles`, `liquid`) and selectable in the app, so you can try them live. The ones not picked are removed, along with their values. No settings version change until then.
+2. **Smoke's puffs keep 25 % of their opacity against transparency** (`keep`), so the clouds don't fade to nothing at high sustain transparency.
+3. **Bubbles and Crystal are scaled to the note width.** At the default camera a note is only about 12 px wide, so smaller shards or bubbles didn't read at all.
+4. **At quality Off every fill on the sheets looks dimmer than at High**, yellow included. That is the default sustain transparency over the dark highway, not the fill: round 1 and Solid show the same.
+
+### Results
+
+- `npm run check`: pass (659 unit tests). `npm run build`: pass.
+- **E2e full functional suite** (`chromium` + `polish`), `--retries=0`: **165/166 in each of two runs**, each failing a different test, and each passes alone.
+  - Run 1: loopBounds, the song's bar count not there within 5 s.
+  - Run 2: loopEditor, the HUD bookmark name within 5 s.
+  - Both are load timing, not this round's changes. Runs took 6.2–6.6 min against about 4 min last round, so the machine was busier.
+- **Visual:** five candidate sheets, `names-dense`, `fills-compare` (7/7).
+
+### Open questions
+
+1. **Which fills ship?** Smoke (fixed) or round 1, and which of Crystal, Bubbles, Liquid replace Glass. I'll migrate `glass` to your pick and remove the rest.
+2. **Once per bar with the default Show within (40 %):** labels appear about a beat into each bar. Raising the default to 50–60 % would show them from the bar line; I've left it for the 9.1 tuning.
+
+### Manual review checklist (Round 6)
+
+- [ ] Note style → Sustain fill → Smoke at High on yellow and red notes: clean colour, see-through gaps, puffs not streaks.
+- [ ] Try Crystal, Bubbles and Liquid (temporary choices in the fill lists), at Off and High; pause, then turn on reduced motion: Bubbles and Liquid stop.
+- [ ] Long demo, names on Notes: a label once per bar per repeated pitch; First of a run and All still work.
+- [ ] Neon at Medium: the halo is the note colour.
+- [ ] `docs/roadmap.md`: Milestone 12.
