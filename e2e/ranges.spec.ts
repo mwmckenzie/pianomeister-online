@@ -6,6 +6,7 @@ import { expect, test } from './fixtures'
 import { COST_KEYS } from '../src/core/looks/COST_KEYS'
 import type { SettingKey } from '../src/core/settings/SettingKey'
 import { SETTING_KEYS } from '../src/core/settings/SETTING_KEYS'
+import { formatSettingValue } from '../src/core/settings/formatSettingValue'
 import { settingDefinition } from '../src/core/settings/settingValues'
 import {
   type Cell,
@@ -110,18 +111,41 @@ function withValue(base: Settings, key: SettingKey, value: unknown): Settings {
   return { ...base, [section]: { ...base[section], [field]: value } }
 }
 
-const KEYS_CROP: Crop = { x: 140, y: 440, width: 1000, height: 280 }
+/*
+ * Crops near 1:1 (CSS px of the 1280×720 frame), so thin lines, small heads and keys can be
+ * judged: each setting is shown where it acts. Whole-frame settings (camera, look-ahead,
+ * vignette, bloom) keep the full frame.
+ */
+/** The pressed keys on the left of the Pedal demo at bar 2. */
+const KEYS_CROP: Crop = { x: 240, y: 540, width: 440, height: 180 }
 const LABELS_CROP: Crop = { x: 300, y: 260, width: 680, height: 460 }
-
-/** The now line, where onsets, sustain particles and key light happen. */
-const NOW_CROP: Crop = { x: 140, y: 300, width: 1000, height: 340 }
+/** The now line where it meets the keyboard. */
+const NOW_LINE_CROP: Crop = { x: 340, y: 520, width: 600, height: 200 }
+/** The highway's left border, near to far. */
+const BORDER_CROP: Crop = { x: 20, y: 240, width: 440, height: 400 }
+/** Lane, bar, beat and octave lines and lane shading, mid-highway. */
+const GRID_CROP: Crop = { x: 300, y: 120, width: 680, height: 420 }
+/** The near notes: sustains and heads. */
+const NOTES_CROP: Crop = { x: 260, y: 260, width: 520, height: 420 }
+/** The now line on the long demo's dense chords: onsets and sustain particles. */
+const PARTICLES_CROP: Crop = { x: 190, y: 360, width: 900, height: 320 }
+/** The Pedal demo's notes reaching the keys: pulse, sounding glow, key light. */
+const ARRIVAL_CROP: Crop = { x: 240, y: 380, width: 560, height: 340 }
 
 function cropOf(key: SettingKey): Crop | undefined {
-  if (motionOf(key) !== null || /keyCone|soundingGlow/.test(key)) return NOW_CROP
-  if (key.startsWith('keyboard.') || key.startsWith('keys.') || key.includes('keySpill')) {
+  const field = key.split('.')[1] ?? ''
+  if (motionOf(key)?.song === 'long') return PARTICLES_CROP
+  if (/pulse|soundingGlow|keySpill|keyCone/.test(field)) return ARRIVAL_CROP
+  if (key.startsWith('keyboard.') || key.startsWith('keys.') || key === 'notes.blackLift') {
     return KEYS_CROP
   }
   if (key.startsWith('names.')) return LABELS_CROP
+  if (field.startsWith('now')) return NOW_LINE_CROP
+  if (field.startsWith('borders')) return BORDER_CROP
+  if (/octaves|barGlow|beatGlow|blackLaneShading/.test(field) || key.startsWith('opacity.')) {
+    return GRID_CROP
+  }
+  if (key.startsWith('notes.') || key.startsWith('noteStyle.')) return NOTES_CROP
   return undefined
 }
 
@@ -151,11 +175,14 @@ function sectionOf(key: SettingKey): string {
   return home.area === 'sidebar' ? home.section : 'other'
 }
 
+/** As the slider shows it, with the stored value when they differ (so ranges.md can quote it). */
 function label(key: SettingKey, value: number): string {
   const def = settingDefinition(key)
-  const unit = def.kind === 'number' && def.unit !== 'none' ? ` ${def.unit}` : ''
-  const mark = def.kind === 'number' && round(def.default) === value ? '  (default)' : ''
-  return `${value}${unit}${mark}`
+  if (def.kind !== 'number') return String(value)
+  const shown = formatSettingValue(def, value)
+  const raw = shown === String(value) ? '' : ` [${value}]`
+  const mark = round(def.default) === value ? '  (default)' : ''
+  return `${shown}${raw}${mark}`
 }
 
 function title(key: SettingKey, extra = ''): string {
@@ -189,13 +216,14 @@ async function rangeSheet(page: Page, browser: Parameters<typeof writeSheet>[0],
     ;(budgets[key] ??= []).push({ value, load })
   }
   const crop = cropOf(key)
-  const width = crop === undefined ? 400 : Math.min(400, crop.width)
+  // Near 1:1 for crops (at most 640 px), two rows of four for still frames.
+  const width = Math.min(640, crop?.width ?? 640)
   await writeSheet(
     browser,
     `${OUT}/${sectionOf(key)}/${key}.png`,
     title(key, motion === null ? '' : ' — playing, fixed step'),
     cells,
-    motion === null ? cells.length : motion.moments.length,
+    motion === null ? 4 : motion.moments.length,
     width,
   )
   return cells.length
@@ -276,6 +304,7 @@ async function pairSheet(
   columns: PairAxis,
   base: Settings,
   motion: { moment: number } | null,
+  crop?: Crop,
 ) {
   const cells: Cell[] = []
   for (const r of rows.values) {
@@ -283,9 +312,9 @@ async function pairSheet(
       const settings = withValue(withValue(base, rows.key, r), columns.key, c)
       const text = `${rows.key.split('.')[1]} ${String(r)} · ${columns.key.split('.')[1]} ${String(c)}`
       if (motion === null) {
-        cells.push({ label: text, png: await frameWith(page, settings, 2) })
+        cells.push({ label: text, png: await frameWith(page, settings, 2, crop) })
       } else {
-        const { pngs } = await captureWith(page, settings, 2, [motion.moment])
+        const { pngs } = await captureWith(page, settings, 2, [motion.moment], crop)
         cells.push({ label: `${text} · t ${motion.moment} s`, png: pngs[0] as Buffer })
       }
     }
@@ -296,7 +325,7 @@ async function pairSheet(
     `${rows.key} (rows) × ${columns.key} (columns)`,
     cells,
     columns.values.length,
-    360,
+    Math.min(520, crop?.width ?? 520),
   )
   return cells.length
 }
@@ -334,6 +363,7 @@ test('@visual range pairs: bloom, edges, vignette', async ({ page, browser }) =>
     axis('noteStyle.edgeIntensity'),
     { noteStyle: { edgeGlow: true } },
     null,
+    NOTES_CROP,
   )
   await pairSheet(
     page,
@@ -361,6 +391,7 @@ test('@visual range pairs: particle count × lifetime', async ({ page, browser }
       },
       { effects: onsetOnly(e) },
       { moment: 0.5 },
+      PARTICLES_CROP,
     )
   }
   expect(
@@ -372,6 +403,7 @@ test('@visual range pairs: particle count × lifetime', async ({ page, browser }
       { key: 'effects.sustainLifetime', values: four('effects.sustainLifetime') },
       { effects: { ...onsetOnly(null), sustain: 'embers' } },
       { moment: 1.2 },
+      PARTICLES_CROP,
     ),
   ).toBe(16)
 })
