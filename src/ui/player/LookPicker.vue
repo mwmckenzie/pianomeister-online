@@ -32,7 +32,7 @@ const NONE = 'none'
 
 const active = computed(() => activeLook(settings.looks))
 const modified = computed(() =>
-  active.value === null ? false : isLookModified(settings.settings, active.value),
+  active.value === null ? false : isLookModified(settings.settings, active.value, settings.deviceClass),
 )
 const options = computed(() => [
   ...(active.value === null
@@ -52,7 +52,7 @@ function pick(id: string): void {
   const look = allLooks(settings.looks).find((l) => l.id === id)
   if (look === undefined) return
   const before = settings.looks
-  const { settings: next, previous } = applyLook(settings.settings, look)
+  const { settings: next, previous } = applyLook(settings.settings, look, settings.deviceClass)
   settings.replace(next)
   settings.setLooks({ ...settings.looks, active: look.id })
   toasts.showUndo(`Look "${look.name}" applied`, () => {
@@ -65,7 +65,13 @@ function pick(id: string): void {
 function save(): void {
   const look = active.value
   if (look === null || look.builtIn) return
-  const updated = captureLook(settings.settings, look.id, look.name)
+  const updated = captureLook(
+    settings.settings,
+    look.id,
+    look.name,
+    new Date().toISOString(),
+    look.createdAt,
+  )
   settings.setLooks({
     ...settings.looks,
     saved: settings.looks.saved.map((l) => (l.id === look.id ? updated : l)),
@@ -83,7 +89,7 @@ async function startNaming(): Promise<void> {
 function saveNew(): void {
   const trimmed = name.value.trim().slice(0, 60)
   if (trimmed === '') return
-  const look: Look = captureLook(settings.settings, `look:${Date.now().toString(36)}`, trimmed)
+  const look: Look = captureLook(settings.settings, crypto.randomUUID(), trimmed)
   settings.setLooks({ active: look.id, saved: [...settings.looks.saved, look] })
   naming.value = false
   toasts.show(`Saved look "${trimmed}"`)
@@ -98,7 +104,7 @@ async function copy(): Promise<void> {
   const same = picked !== null && !modified.value
   const name = picked === null ? 'My look' : same ? picked.name : `${picked.name} (modified)`
   const look = captureLook(settings.settings, same ? picked.id : crypto.randomUUID(), name)
-  const text = JSON.stringify(toLookFile([{ look, createdAt: new Date().toISOString() }]), null, 2)
+  const text = JSON.stringify(toLookFile([look]), null, 2)
   try {
     await navigator.clipboard.writeText(text)
     toasts.show(`Copied look "${name}"`)

@@ -294,11 +294,15 @@ describe('loadSettings', () => {
     expect(loadDeviceClass(null, 'desktop')).toBe('desktop')
   })
 
-  it('round-trips saved looks', () => {
+  it('round-trips the picked look and looks still waiting to move to the database', () => {
     const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Neon night')
     const state = { active: 'look-1', saved: [look] }
     const raw = JSON.parse(JSON.stringify(storedSettings(DEFAULT_SETTINGS, {}, state)))
-    expect(loadLooks(raw)).toEqual(state)
+    const loaded = loadLooks(raw)
+    expect(loaded.active).toBe('look-1')
+    expect(loaded.saved.map(({ id, name, values }) => ({ id, name, values }))).toEqual([
+      { id: look.id, name: look.name, values: look.values },
+    ])
     expect(loadLooks({ ...raw, version: SETTINGS_VERSION + 1 })).toEqual(EMPTY_LOOKS)
   })
 

@@ -140,7 +140,11 @@ export function migrateLookValues(values: Raw, from: number): Raw {
   return flat
 }
 
-/** The persisted shape: `{ version, settings, shortcuts, looks, deviceClass }`. */
+/**
+ * The persisted shape: `{ version, settings, shortcuts, looks, deviceClass }`. `looks.active` is
+ * the picked look; saved looks live in the database (milestone 9.1), so `looks.saved` only
+ * holds looks still waiting to move there.
+ */
 export function storedSettings(
   settings: PlayerSettings,
   shortcuts: ShortcutOverrides = {},
@@ -165,7 +169,10 @@ export function loadShortcuts(raw: unknown): ShortcutOverrides {
   return readShortcutOverrides(raw.shortcuts)
 }
 
-/** Saved looks (brief decision 121): none before v6 or from a newer version. */
+/**
+ * The picked look, and saved looks still in localStorage from before milestone 9.1 (they move
+ * to the database): none before v6 or from a newer version.
+ */
 export function loadLooks(raw: unknown): LooksState {
   if (!isKnownVersion(raw, 6)) return EMPTY_LOOKS
   return readLooks(raw.looks, (values) => migrateLookValues(values, raw.version as number))
