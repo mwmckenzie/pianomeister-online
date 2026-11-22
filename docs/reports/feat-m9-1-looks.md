@@ -157,3 +157,66 @@ See plan §8. In short:
 - [ ] Samples: embers (`effects.sustainSize.jpg`), glitter, beat and bar glow, the low-camera JPEGs.
 - [ ] In the app: drag a glow slider (log, 0 stop), arrow keys at the low end; set Size at loudest below softest and see the hint.
 - [ ] Classic still looks like Classic (only its black pivot moved 8.04 → 8).
+
+## 2026-11-22 — Section C: built-in looks (stop for review)
+
+### What was done
+
+- **Looks (`b30dca4`):** `BUILT_IN_LOOKS` has the thirteen new looks after Classic, in the spec's picker order, with ids `builtin:<slug>`.
+  - Each is a pinned copy of the 9.1 defaults (`BASE`) plus its own changes, so a later default change never moves a look; Classic stays pinned as before.
+  - Levels use the trimmed ranges: subtle / medium / strong = 20 / 50 / 80 % of the slider, its log position for log sliders. They are written as literals, with the level in a comment.
+- **Unit tests (`BUILT_IN_LOOKS.spec.ts`):**
+  - order and ids;
+  - complete (every look key, nothing else);
+  - default camera, with Fireworks' longer look-ahead;
+  - the options the spec names, per look;
+  - at most one onset effect;
+  - every look in range (already in `trimmedRanges.spec.ts`).
+- **Visual test (`9acc6d3`, `e2e/looks.spec.ts`, `npm run test:visual -- -g looks`):**
+  - each look at 1280×720 at quality Off and Medium, captured playing on the fixed step (Pedal demo bar 2, 0.4 s in), so effects show;
+  - files `test-results/visual/looks/<slug>.<off|medium>.png`, plus `all-looks.png` (Medium).
+  - JPEG in the repo: `docs/design/m9-1/all-looks.jpg`.
+- **Brief (`c89f0cd`):** decision 121 lists the built-ins.
+
+### Substitutions (a named option that isn't a setting)
+
+- **Blueprint "Outline fill in `#6FA8FF`":** there is no note colour setting, so the notes keep their pitch colours in Outline. The `#6FA8FF` goes on the borders, octave lines and pedal border.
+- **Stardust "Gradient sustains in `#E9E4FF`-ish light":** a light gradient tail (gradient end 0.65) instead of a colour.
+- **Aurora "Glow in Secondary":** the highway borders glow in Secondary (medium).
+- **Crystal "Cool lines in Primary":** the now line and the borders in Primary.
+- **Fireworks "all in Pitch colour":** notes are always pitch-coloured; nothing to set.
+- **Night Focus "lanes barely visible":** lane opacity 0.1.
+- **Mist "no lines except a thin now line":** borders and octaves off, and lane, bar and beat opacity 0.
+- **Primary and Secondary** are referenced as the menu colours (`primary`, `secondary`), which default to the named hexes. A user who changes their menu colours changes those lines too; that is decision 111's existing rule.
+
+### Decisions I made that weren't in the instructions
+
+- **Onsets:** "Scaling sparks", "Glitter", "Flame burst" and "Explosion" looks turn the default Sparks off, so the named effect reads on its own. Aurora and Mist name no onsets; as soft looks they have Sparks off too.
+- **Cage stripes:** Synthwave's and Hazard's pedal-cage stripes are quiet (stripe A at 0.25 / 0.2, B at 0.5). The Pedal demo holds the pedal almost throughout, and at full strength Hazard's yellow cage stripes hid its yellow-striped notes. Synthwave's stripe colours aren't named; I used the border cyan on the highway colour.
+- **Fireworks look-ahead:** 10 beats (default 8).
+- **Bloom "subtle" is 0.1** (20% of the log travel from 0 to 3, against a default of 0.8), so Study and Night Focus barely bloom. That follows the rule literally; worth a look in the tuning session.
+- **Key cones** (Crystal, Synthwave, Inferno) only show at shader detail Medium or High; at Off they're absent by design.
+
+### Results
+
+- **`npm run check`:** passed, 727 tests.
+- **`npm run build`:** passed.
+- **E2e:** 168 passed (148 `chromium` + 20 `polish`).
+- **`@visual looks`:** passed.
+- **Viewed by me:**
+  - `all-looks.png`;
+  - at full size: Hazard (Off), Synthwave (Medium), Neon (Off), Night Focus (Off).
+  - Every look reads at Off; Neon at Off loses some colour to its white tube cores, but the notes stay clear.
+
+### Known issues and open questions
+
+- **Similar at full frame:** at 1280×720 full frame, the head fills (Crystal, Bubbles, Hot core, Outline) are small, so several looks look alike in `all-looks.png`. The differences show up close and in motion.
+- **Static capture:** the sheet is a single moment; onset effects are only partly visible at 0.4 s on the Pedal demo.
+- **Tuning session (step 7):** the subtle-bloom level and the shared octave-glow brightening from round 2.
+
+### Manual review checklist
+
+- [ ] `docs/design/m9-1/all-looks.jpg`, and the full-size `test-results/visual/looks/*.png` (Off and Medium).
+- [ ] In the app: open the Look picker and try each built-in, with Undo, on a song with the pedal down; check Hazard and Synthwave notes over the cage.
+- [ ] The substitutions above.
+- [ ] Next: the tuning session (step 7).
