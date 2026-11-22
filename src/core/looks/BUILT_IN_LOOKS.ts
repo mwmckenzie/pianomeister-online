@@ -432,6 +432,7 @@ const BLUEPRINT = on({
 })
 
 const NEON = on({
+  'notes.palette': 'neon',
   'noteStyle.headFill': 'neon',
   'noteStyle.sustainFill': 'neon',
   'lines.nowStyle': 'neon',
@@ -439,7 +440,8 @@ const NEON = on({
   'effects.sparks': true,
   'lines.borders': true,
   'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'medium'),
-  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
+  // Medium: the bright Neon palette under strong bloom merged the sustains into white haze.
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'),
 })
 
 const EMBER = on({
@@ -472,7 +474,9 @@ const CRYSTAL = on({
 })
 
 const AURORA = on({
-  'notes.palette': 'cool',
+  'notes.palette': 'twoTone',
+  'notes.paletteWhite': '#7EE0C3',
+  'notes.paletteBlack': '#B08CFF',
   'noteStyle.headFill': 'gradient',
   'noteStyle.sustainFill': 'gradient',
   'effects.sustain': 'smoke',
@@ -480,7 +484,9 @@ const AURORA = on({
   // "Glow in Secondary": the borders glow in Secondary (#7EE0C3, the default secondary).
   'lines.borders': true,
   'lines.bordersColor': 'secondary',
-  'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'medium'),
+  // Strong and wider, so the Secondary glow reads (medium barely showed).
+  'lines.bordersGlow': sliderLevel('lines.bordersGlow', 'strong'),
+  'lines.bordersWidth': sliderLevel('lines.bordersWidth', 'medium'),
   'lines.nowStyle': 'neon',
   'lines.nowColor': 'secondary',
   'effects.soundingGlow': true,
@@ -492,7 +498,10 @@ const AURORA = on({
 const SYNTH_PINK = '#FF4FD8'
 const SYNTH_CYAN = '#4FE3FF'
 const SYNTHWAVE = on({
-  'notes.palette': 'neon',
+  // Two-tone in the look's line colours: pink white-key notes, cyan black-key notes.
+  'notes.palette': 'twoTone',
+  'notes.paletteWhite': SYNTH_PINK,
+  'notes.paletteBlack': SYNTH_CYAN,
   'colors.highway': '#0A0612',
   'lines.borders': true,
   'lines.bordersColor': 'custom',
@@ -509,6 +518,9 @@ const SYNTHWAVE = on({
   'lines.nowCustom': SYNTH_PINK,
   'effects.sparks': false,
   'effects.scalingSparks': true,
+  // Small, few sparks: at full size they piled into white blobs over the keys on dense chords.
+  'effects.scalingSparksSize': sliderLevel('effects.scalingSparksSize', 'subtle'),
+  'effects.scalingSparksCount': sliderLevel('effects.scalingSparksCount', 'subtle'),
   'pedal.show': true,
   'pedal.fill': 'stripes',
   // Stripe colours aren't named: the cyan of the border on the highway colour.
@@ -521,7 +533,7 @@ const SYNTHWAVE = on({
   'pedal.borderColor': 'custom',
   'pedal.borderCustom': SYNTH_CYAN,
   'effects.keyCone': true,
-  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'), // strong whited out the keys
 })
 
 const INFERNO = on({
@@ -530,6 +542,10 @@ const INFERNO = on({
   'noteStyle.sustainFill': 'hotCore',
   'effects.sparks': false,
   'effects.flame': true,
+  // Smaller, fewer bursts: at full size with strong bloom they whited out the keys and the
+  // arriving notes on dense chords. Strong pulse, spill and flames keep it the loudest look.
+  'effects.flameSize': sliderLevel('effects.flameSize', 'subtle'),
+  'effects.flameCount': sliderLevel('effects.flameCount', 'subtle'),
   'effects.sustain': 'flames',
   'lines.nowStyle': 'neon',
   'lines.nowColor': 'custom',
@@ -539,7 +555,7 @@ const INFERNO = on({
   'effects.keyCone': true,
   'effects.pulse': true,
   'effects.pulseAmount': sliderLevel('effects.pulseAmount', 'strong'),
-  'render.bloomStrength': sliderLevel('render.bloomStrength', 'strong'),
+  'render.bloomStrength': sliderLevel('render.bloomStrength', 'medium'), // strong whited out
   'highway.vignette': sliderLevel('highway.vignette', 'medium'),
 })
 

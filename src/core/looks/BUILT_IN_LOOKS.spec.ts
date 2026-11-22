@@ -129,13 +129,15 @@ describe('BUILT_IN_LOOKS (milestone 9.1, section C)', () => {
     })
   })
 
-  it('gives each look its note colours (Classic, Study, Night Focus on Default)', () => {
+  it('gives each look its note colours (Classic, Study, Night Focus, Fireworks on Default)', () => {
     const palettes = Object.fromEntries(
       BUILT_IN_LOOKS.map((l) => [
         l.name,
         l.values['notes.palette'] === 'mono'
           ? `mono ${String(l.values['notes.paletteMono'])}`
-          : l.values['notes.palette'],
+          : l.values['notes.palette'] === 'twoTone'
+            ? `twoTone ${String(l.values['notes.paletteWhite'])}/${String(l.values['notes.paletteBlack'])}`
+            : l.values['notes.palette'],
       ]),
     )
     expect(palettes).toEqual({
@@ -143,11 +145,11 @@ describe('BUILT_IN_LOOKS (milestone 9.1, section C)', () => {
       Study: 'default',
       'Night Focus': 'default',
       Blueprint: 'mono #6FA8FF',
-      Neon: 'default',
+      Neon: 'neon',
       Ember: 'warm',
       Crystal: 'cool',
-      Aurora: 'cool',
-      Synthwave: 'neon',
+      Aurora: 'twoTone #7EE0C3/#B08CFF',
+      Synthwave: 'twoTone #FF4FD8/#4FE3FF',
       Inferno: 'warm',
       Stardust: 'pastel',
       Mist: 'mono #B8C7E0',
