@@ -220,3 +220,61 @@ See plan §8. In short:
 - [ ] In the app: open the Look picker and try each built-in, with Undo, on a song with the pedal down; check Hazard and Synthwave notes over the cage.
 - [ ] The substitutions above.
 - [ ] Next: the tuning session (step 7).
+
+## 2026-11-22 — Section C round 2: note colours, levels by slider position, a new all-looks sheet (stop for review)
+
+### What was done
+
+- **Note colours (`6d9b25d`, `899450a`):** a new Notes setting, part of looks: Default / Warm / Cool / Neon / Pastel / Mono (one custom colour) / Two-tone (white-key and black-key colours).
+  - **Core:** `core/color/notePaletteColors.ts` (pure, tested). In the pitch-class palettes each sharp is a darker shade of the natural below it, as in Default.
+  - **Engine:** one shared `NoteColors` (12 `Color`s updated in place). Everything that reads it per frame follows at once: pressed and approaching keys, the key light, cones, new particles. What bakes colours is recoloured once per palette change and once per new song: note geometry, labels (Auto and Note colours), the held glow and the Pitch now line.
+  - **Brief:** new decision 122.
+  - **Classic** pins Default; a look without the setting gets Default.
+- **Levels (`6129968`):**
+  - `core/settings/sliderLevel.ts` returns 20 / 50 / 80 % of the slider position (log mapping for log sliders, with its 0 stop), tested.
+  - Every built-in level now calls it instead of a hand-written literal. The values come out the same as round 1, which already took them from the slider position (e.g. bloom subtle 0.1, medium 0.4, strong 1.3). Now the rule is enforced in code.
+- **Palettes per look:**
+
+  | Look                                         | Palette        |
+  | -------------------------------------------- | -------------- |
+  | Ember, Inferno                               | Warm           |
+  | Crystal, Aurora                              | Cool           |
+  | Synthwave                                    | Neon           |
+  | Stardust                                     | Pastel         |
+  | Mist                                         | Mono `#B8C7E0` |
+  | Blueprint                                    | Mono `#6FA8FF` |
+  | Hazard                                       | Mono `#FFC21A` |
+  | Classic, Study, Night Focus, Neon, Fireworks | Default        |
+
+- **Sheet (`ae3622b`):** `e2e/looks.spec.ts` now plays the long demo's dense chords (bar 2) on the fixed step, 0.2 s in, with each look's own camera. Each look gets two cells at Medium (the full frame, and a 16:9 crop near the keys), then a row at Off for Neon, Synthwave, Inferno and Fireworks. Every look's Off and Medium frames are still saved individually. JPEG: `docs/design/m9-1/all-looks.jpg`.
+- **E2e:** "note colours recolour the notes and the keys": Mono changes the highway's notes and the keys' approach colours, Two-tone shows its two colour rows, and Default restores the frame.
+
+### Decisions I made that weren't in the instructions
+
+- **Aurora → Cool**, not Pastel, because Stardust is Pastel. Aurora keeps its Secondary border glow. **Mist → Mono `#B8C7E0`**, which matches its now line.
+- **The Neon look stays on Default:** the spec gave the Neon palette to Synthwave and listed no change for Neon.
+- **Overview piano roll** keeps the Default palette (brief decision 101 names the pitch-class palette); it's a UI view, not the scene. It can follow later if you want.
+- **Mono and Two-tone defaults:** Mono `#8AB4FF` (the default primary); Two-tone `#7EE0C3` / `#C3A6FF`.
+- **"Camera per look"** means each look renders with its own camera, which looks hold; only Fireworks differs from the default (look-ahead 10).
+- **`changedPixels`** in `visualPolish.spec.ts` now takes an optional row band.
+
+### Results
+
+- **`npm run check`:** passed, 743 tests.
+- **`npm run build`:** passed.
+- **E2e:** 169 passed (149 `chromium` + 20 `polish`).
+- **`@visual looks`:** passed.
+- **Viewed:** `all-looks.png`. The looks now differ clearly: warm Ember and Inferno, blue Blueprint, grey Mist, yellow Hazard, neon Synthwave, pastel Stardust.
+
+### Known issues (for the tuning session)
+
+- **Inferno at Medium washes out on dense chords:** the strong bloom on top of hot-core fills and both flame effects whites out the keys and arriving notes. It reads at Off. Candidates: bloom medium, or flame count subtle.
+- **Synthwave's** scaling sparks make white blobs at the keys on dense chords.
+- **Crystal and Aurora** both use Cool and look alike at this distance; Aurora's secondary border glow barely shows. Pastel or a stronger border glow would separate them.
+- **Commit `6d9b25d`** (the setting) on its own fails two look tests, because Classic gains the palette keys in `6129968`. The branch tip is green.
+
+### Manual review checklist
+
+- [ ] `docs/design/m9-1/all-looks.jpg`.
+- [ ] In the app: Notes → Note colours, every palette; Mono and Two-tone colour pickers; the pressed keys and labels follow.
+- [ ] Then the tuning session (step 7).
