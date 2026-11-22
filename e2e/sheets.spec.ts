@@ -35,11 +35,13 @@ const FILLS = [
   'solid',
   'gradient',
   'hotCore',
-  'glass',
   'outline',
   'neon',
   'stripes',
   'smoke',
+  'crystal',
+  'bubbles',
+  'liquid',
 ] as const
 
 /** The notes' part of the frame (with the short look-ahead below), near and far. */
@@ -57,28 +59,41 @@ function fillSettings(fill: string, extra: Settings = {}): Settings {
   }
 }
 
-test('@visual sheet fills: every fill, 3D heads on/off, quality Off/Medium', async ({
+/** Yellow, red, green and purple lanes of the fills demo, near and far. */
+const LANES: Crop = { x: 300, y: 120, width: 700, height: 520 }
+/** The fills demo's look-ahead: near and far notes in one frame. */
+const LANES_AHEAD = { lookAheadBeats: 5 }
+
+test('@visual sheet fills: every fill, 3D heads on/off, quality Off/High', async ({
   page,
   browser,
 }) => {
-  test.setTimeout(600_000)
-  await openSong(page, PEDAL_DEMO, 'Pedal demo')
+  test.setTimeout(900_000)
+  await openSong(page, FILLS_DEMO, 'Fills demo')
   const cells: Cell[] = []
   for (const fill of FILLS) {
     for (const heads3d of [true, false]) {
-      for (const quality of ['off', 'medium'] as const) {
+      for (const quality of ['off', 'high'] as const) {
         const settings = fillSettings(fill, {
+          highway: LANES_AHEAD,
           notes: { heads3d },
           render: QUALITY[quality],
         })
         cells.push({
           label: `${fill} · 3D heads ${heads3d ? 'on' : 'off'} · ${quality}`,
-          png: await frameWith(page, settings, 2, NEAR),
+          png: await frameWith(page, settings, 2, LANES),
         })
       }
     }
   }
-  await writeSheet(browser, `${OUT}/fills.png`, 'Fills — edge glow off', cells, 4, 360)
+  await writeSheet(
+    browser,
+    `${OUT}/fills.png`,
+    'Fills — Fills demo (yellow D, red C, green G, purple A), edge glow off, quality Off / High',
+    cells,
+    4,
+    400,
+  )
   expect(cells.length).toBeGreaterThan(0)
 })
 
@@ -109,20 +124,27 @@ test('@visual sheet fills: transparency 0/25/50/75/90 %', async ({ page, browser
   expect(cells.length).toBeGreaterThan(0)
 })
 
-test('@visual sheet fills: Hot core, Glass, Outline, Neon side by side', async ({
+/** The fills with their own look beyond a colour ramp, compared side by side. */
+const COMPARE = ['hotCore', 'outline', 'neon', 'smoke', 'crystal', 'bubbles', 'liquid'] as const
+
+test('@visual sheet fills: Hot core, Outline, Neon, Smoke, Crystal, Bubbles, Liquid', async ({
   page,
   browser,
 }) => {
-  test.setTimeout(300_000)
-  await openSong(page, PEDAL_DEMO, 'Pedal demo')
+  test.setTimeout(600_000)
+  await openSong(page, FILLS_DEMO, 'Fills demo')
   const cells: Cell[] = []
-  for (const quality of ['off', 'medium'] as const) {
+  for (const quality of ['off', 'high'] as const) {
     for (const heads3d of [true, false]) {
-      for (const fill of ['hotCore', 'glass', 'outline', 'neon']) {
-        const settings = fillSettings(fill, { notes: { heads3d }, render: QUALITY[quality] })
+      for (const fill of COMPARE) {
+        const settings = fillSettings(fill, {
+          highway: LANES_AHEAD,
+          notes: { heads3d },
+          render: QUALITY[quality],
+        })
         cells.push({
           label: `${fill} · 3D heads ${heads3d ? 'on' : 'off'} · ${quality}`,
-          png: await frameWith(page, settings, 2, NEAR),
+          png: await frameWith(page, settings, 2, LANES),
         })
       }
     }
@@ -130,10 +152,10 @@ test('@visual sheet fills: Hot core, Glass, Outline, Neon side by side', async (
   await writeSheet(
     browser,
     `${OUT}/fills-compare.png`,
-    'Hot core, Glass, Outline, Neon — quality Off and Medium, default transparency',
+    'Hot core, Outline, Neon, Smoke, Crystal, Bubbles, Liquid — quality Off and High, default transparency',
     cells,
-    4,
-    480,
+    7,
+    400,
   )
   expect(cells.length).toBeGreaterThan(0)
 })
@@ -224,7 +246,7 @@ const LABELS: Crop = { x: 300, y: 260, width: 680, height: 460 }
 
 const NAMES_CASES: readonly { readonly label: string; readonly names: Record<string, unknown> }[] =
   [
-    { label: 'defaults (facing camera, once per bar)', names: {} },
+    { label: 'defaults (facing camera, once per bar, within 60 %)', names: {} },
     { label: 'flat on note', names: { style: 'flat' } },
     { label: 'colour: note', names: { textColor: 'note' } },
     { label: 'colour: white', names: { textColor: 'white' } },
@@ -236,7 +258,7 @@ const NAMES_CASES: readonly { readonly label: string; readonly names: Record<str
     { label: 'text 18 px, glow subtle', names: { textSize: 18, glow: 'subtle' } },
     { label: 'Both (handover at the keys)', names: { mode: 'both' } },
     { label: 'Both, key labels 16 px', names: { mode: 'both', keySize: 16 } },
-    { label: 'once per bar, show within 60 %', names: { showWithin: 0.6 } },
+    { label: 'show within 40 % (the old default)', names: { showWithin: 0.4 } },
     { label: 'repeated notes: first of a run', names: { repeats: 'first' } },
     { label: 'repeated notes: all', names: { repeats: 'all' } },
   ]
@@ -266,50 +288,5 @@ for (const song of [
       680,
     )
     expect(cells).toHaveLength(NAMES_CASES.length)
-  })
-}
-
-/** Round-6 fill candidates: animated ones get three frames half a second apart. */
-const CANDIDATES = [
-  { fill: 'smokeRound1', label: 'Smoke (round 1)', times: [3, 3.5, 4] },
-  { fill: 'smoke', label: 'Smoke (fixed)', times: [3, 3.5, 4] },
-  { fill: 'crystal', label: 'Crystal', times: [3] },
-  { fill: 'bubbles', label: 'Bubbles', times: [3, 3.5, 4] },
-  { fill: 'liquid', label: 'Liquid', times: [3, 3.5, 4] },
-] as const
-
-/** Yellow, red, green and purple lanes of the fills demo, near and far. */
-const LANES: Crop = { x: 300, y: 120, width: 700, height: 520 }
-
-for (const c of CANDIDATES) {
-  test(`@visual sheet fills: candidate ${c.label}`, async ({ page, browser }) => {
-    test.setTimeout(600_000)
-    await openSong(page, FILLS_DEMO, 'Fills demo')
-    const cells: Cell[] = []
-    for (const quality of ['off', 'high'] as const) {
-      for (const heads3d of [true, false]) {
-        for (const t of c.times) {
-          const settings: Settings = {
-            highway: { lookAheadBeats: 5 },
-            notes: { heads3d },
-            render: QUALITY[quality],
-            noteStyle: { headFill: c.fill, sustainFill: c.fill, edgeGlow: false },
-          }
-          cells.push({
-            label: `${quality} · 3D heads ${heads3d ? 'on' : 'off'} · t ${t} s`,
-            png: await frameWith(page, settings, 2, LANES, t),
-          })
-        }
-      }
-    }
-    await writeSheet(
-      browser,
-      `${OUT}/candidate-${c.fill}.png`,
-      `${c.label} — Fills demo (yellow D, red C, green G, purple A), bar 2, quality Off / High`,
-      cells,
-      Math.max(2, c.times.length),
-      560,
-    )
-    expect(cells.length).toBeGreaterThan(0)
   })
 }
