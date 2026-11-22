@@ -101,3 +101,59 @@ See plan §8. In short:
 - [ ] Skim `test-results/visual/ranges.zip`, especially the effects and pairs.
 - [ ] Answer the six open questions.
 - [ ] Once approved, I'll do step 5: registry ranges, log sliders, clamping tests.
+
+## 2026-11-22 — Section B round 2: review answers, engine strengths, registry ranges
+
+### What was done
+
+- **Roadmap:** 9.2 replaced by "Practice clarity", covering loop visibility, black notes back on the highway, deeper black keys, open Home on a new session, and the pickers opening on the current song. The "bookmarks can have a look" idea was already under 9.5. Commit `7d55ba2`.
+- **Engine (`df85440`):**
+  - **Line glow:** borders, octaves, bar and beat lines now glow in the line's hue at full brightness, plus a soft aura for the bloom.
+  - **Vignette:** reaches full strength in the corners.
+  - **Embers:** about 3× bigger, with white-hot cores.
+  - **Glitter:** 7 big white flecks per onset instead of 14 small dim ones.
+- **Settings (`aa449e1`, `f4e4408`):**
+  - **Log sliders:** registry `scale: 'log'`, with a pure position ↔ value mapping in `core/settings/logSlider.ts`, a 0 stop where 0 means off, and arrow keys that never stall.
+  - **Size at softest clamp:** `velocityScaleBounds` clamps Size at softest to Size at loudest in the engine, and the slider shows "Limited by Size at loudest" (a new `limitHint` on the setting definition).
+  - **Ranges:** every approved range is applied. Stored settings and imported looks clamp into them, and the defaults and built-in looks sit inside them (`trimmedRanges.spec.ts`).
+  - **Defaults:** black pivot default 8; Classic's pinned 8.04 → 8.
+- **Range sheets (`8930370`):** a low-camera pass at 25° (keys mid-press, the cone in motion, crops), plus look-ahead and label sizes from 25° and 85°. Spacing now follows the registry's slider scale. The hidden-setting guard also fails on disabled settings.
+- **Docs (`097c73e`):** `docs/design/m9-1/ranges.md` is now the final table, with a round-2 section and 14 new sample JPEGs. The brief is updated: decision 46 (pivot 8), 47 (the clamp), 108 (ranges and log sliders), and 114 (label height 0–18, key label size 9–16).
+
+### Decisions I made that weren't in the instructions
+
+- **Glitter count max is 2, not 2.5.** After the fix, 2.5 still cuts 62 particles short in onset bursts, even though the per-frame peak (1790) stays under 2048. Lifetime max is 2.5 (peak 1045, none cut).
+- **Ember ranges** after the fix: size 0.35–1.5, count 0.35–3, lifetime 0.35–2.5.
+- **Beat glow** max is 2: at 3 it washes the highway in bands. Bar glow stays at 3.
+- **Low-camera results:**
+  - head height 0.1–0.8;
+  - pivots 0–8 (no visible difference at the default press depth past about one key length);
+  - white key depth range kept;
+  - shadow strength and cone ranges kept.
+- **Shadow strength has no visible effect** on the default dark highway: a black shadow on `#070B16` has nothing to darken. I didn't change it, since 9.2 reworks black notes.
+- **Octave glow** got stronger at the same value, because it shares the line shader. Classic has octaves off, so Classic is unchanged.
+- **Steps that fell off the grid:** the black key depth limit (0.52) is now off the 0.05 grid, so End lands on 0.5. Three e2e tests were updated for the coarser steps.
+- **Playwright artifacts** now go to `test-results/playwright` (from round 1). Sheets survive any run.
+
+### Results
+
+- **`npm run check`:** passed, 722 tests in 103 files.
+- **`npm run build`:** passed.
+- **`npm run test:e2e` (chromium project):** 148 passed.
+  - In the first full run, 4 failed: three needed the step updates above, and one was the picker's hover popover, which passed on re-run. I count that one as a flake under load.
+- **`polish` project:** 20 passed, including the new "log sliders step through the dense low end; a limited size says why".
+  - **Correction to round 1:** `npm run test:e2e` runs only the `chromium` project. The round-1 claim that 148 included the looks round trip was wrong. That test is in `polish`, which passes now (20 of 20).
+- **Range sheets re-rendered:** lines, highway, glitter, effects-motion, pairs and the low-camera pass, all passing. I reviewed every touched sheet myself this round (glows, vignette, embers, glitter, all low-camera and 25°/85° sheets).
+- **Viewed:** the "Limited by Size at loudest" hint and log thumb positions in the production preview.
+
+### Known issues and open questions
+
+- Shadow strength and the pivots still have little visible effect (see `ranges.md` § Open points).
+- The Vite warning about `toLookFile`/`readLookFile` being both dynamically and statically imported remains (harmless).
+
+### Manual review checklist
+
+- [ ] `docs/design/m9-1/ranges.md`: the final table and round 2.
+- [ ] Samples: embers (`effects.sustainSize.jpg`), glitter, beat and bar glow, the low-camera JPEGs.
+- [ ] In the app: drag a glow slider (log, 0 stop), arrow keys at the low end; set Size at loudest below softest and see the hint.
+- [ ] Classic still looks like Classic (only its black pivot moved 8.04 → 8).
