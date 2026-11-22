@@ -2,6 +2,7 @@ import type { HandAudio } from '../practice/HandAudio'
 import type { PreRollMode } from '../transport/PreRollMode'
 import type { LineColor } from './LineColor'
 import type { NoteFill } from './NoteFill'
+import type { NotePalette } from './NotePalette'
 import type { QualityPreset } from './QualityPreset'
 import type { StripeColor } from './StripeColor'
 
@@ -64,6 +65,14 @@ export interface PlayerSettings {
     readonly pivotOffsetBlack: number
   }
   readonly notes: {
+    /** Note colours: what notes, pressed keys, note-coloured effects and labels use. */
+    readonly palette: NotePalette
+    /** Mono: the colour of every note. */
+    readonly paletteMono: string
+    /** Two-tone: notes on white keys. */
+    readonly paletteWhite: string
+    /** Two-tone: notes on black keys. */
+    readonly paletteBlack: string
     readonly sustainCenterTransparency: number
     readonly sustainEdgeTransparency: number
     /** Heads as raised blocks instead of flat strips. */

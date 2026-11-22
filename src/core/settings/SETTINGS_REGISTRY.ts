@@ -37,6 +37,7 @@ const color = (label: string, value: string, home: SettingHome) =>
 const percent = { unit: 'percent', digits: 0 } as const
 
 const COLORS = 'Colors'
+const NOTE_COLOURS = 'Note colours'
 
 const LINE_COLORS = [
   { value: 'white', label: 'White' },
@@ -431,6 +432,39 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'lines.beatGlow': { ...glow(0, 'Beat line glow', 2), group: 'Bar & beat lines' },
 
     // Notes (decisions 19, 39–41) and the key colour fade-in
+    // Note colours (milestone 9.1 §C round 2): the palette the whole scene's note colour follows.
+    'notes.palette': {
+      kind: 'choice',
+      label: 'Note colours',
+      default: 'default',
+      home: sidebar('notes'),
+      group: NOTE_COLOURS,
+      control: 'select',
+      options: [
+        { value: 'default', label: 'Default' },
+        { value: 'warm', label: 'Warm' },
+        { value: 'cool', label: 'Cool' },
+        { value: 'neon', label: 'Neon' },
+        { value: 'pastel', label: 'Pastel' },
+        { value: 'mono', label: 'Mono' },
+        { value: 'twoTone', label: 'Two-tone' },
+      ],
+    },
+    'notes.paletteMono': {
+      ...color('Colour', '#8AB4FF', sidebar('notes')),
+      group: NOTE_COLOURS,
+      visible: (s) => s.notes.palette === 'mono',
+    },
+    'notes.paletteWhite': {
+      ...color('White-key notes', '#7EE0C3', sidebar('notes')),
+      group: NOTE_COLOURS,
+      visible: (s) => s.notes.palette === 'twoTone',
+    },
+    'notes.paletteBlack': {
+      ...color('Black-key notes', '#C3A6FF', sidebar('notes')),
+      group: NOTE_COLOURS,
+      visible: (s) => s.notes.palette === 'twoTone',
+    },
     'notes.heads3d': bool('3D note heads', true, sidebar('notes')),
     'notes.headHeight': {
       ...num('Head height', 0.35, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
