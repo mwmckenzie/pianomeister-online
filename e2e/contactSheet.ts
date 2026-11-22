@@ -99,6 +99,95 @@ export async function frameWith(
   return png
 }
 
+/** Particle counts over a capture (the busiest moment), against the pool's budget. */
+export interface ParticleLoad {
+  readonly capacity: number
+  readonly maxLive: number
+  /** Live particles cut short because the budget was full. */
+  readonly evicted: number
+}
+
+interface CaptureApi {
+  start(seed?: number): void
+  tickAt(bar: number, seconds: number): number
+  step(tick: number, dt: number): void
+  particles():
+    | { particles: { live: number; capacity: number; evicted: number }; smoke: { live: number } }
+    | undefined
+}
+
+/**
+ * Frames of the song playing from the start of `bar`, on a fixed 1/60 s step (`?capture=1`:
+ * seeded particles, a synthetic clock), taken `moments` seconds in; plus the particle load
+ * over the whole run. Repeatable run to run, unlike real playback.
+ */
+export async function captureWith(
+  page: Page,
+  settings: Settings,
+  bar: number,
+  moments: readonly number[],
+  crop?: Crop,
+): Promise<{ readonly pngs: readonly Buffer[]; readonly load: ParticleLoad }> {
+  await page.evaluate(
+    (value) => localStorage.setItem('pianomeister.settings', value),
+    JSON.stringify({ version: SETTINGS_VERSION, settings }),
+  )
+  await page.goto('./#/?capture=1')
+  await page.reload()
+  await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
+  await page.mouse.move(2, 300)
+  await frames(page, 20)
+  const hide = await page.addStyleTag({
+    content: '* { visibility: hidden !important; } canvas { visibility: visible !important; }',
+  })
+  await page.evaluate(() =>
+    (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture.start(1),
+  )
+  const pngs: Buffer[] = []
+  // Start a little before the bar, so its first onsets are crossed while playing.
+  let elapsed = -0.1
+  let maxLive = 0
+  for (const moment of moments) {
+    const result = await page.evaluate(
+      ({ bar, from, to }) => {
+        const api = (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture
+        const dt = 1 / 60
+        let t = from
+        let most = 0
+        while (t < to - 1e-6) {
+          t += dt
+          api.step(api.tickAt(bar, t), dt)
+          const p = api.particles()
+          if (p !== undefined) most = Math.max(most, p.particles.live)
+        }
+        return { t, most }
+      },
+      { bar, from: elapsed, to: moment },
+    )
+    elapsed = result.t
+    maxLive = Math.max(maxLive, result.most)
+    const canvas = page.locator('canvas').first()
+    const box = await canvas.boundingBox()
+    const clip =
+      crop === undefined || box === null
+        ? undefined
+        : { x: box.x + crop.x, y: box.y + crop.y, width: crop.width, height: crop.height }
+    pngs.push(clip === undefined ? await canvas.screenshot() : await page.screenshot({ clip }))
+  }
+  const stats = await page.evaluate(() =>
+    (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture.particles(),
+  )
+  await hide.evaluate((el) => el.remove())
+  return {
+    pngs,
+    load: {
+      capacity: stats?.particles.capacity ?? 0,
+      maxLive,
+      evicted: stats?.particles.evicted ?? 0,
+    },
+  }
+}
+
 /**
  * Composites cells into a grid (`columns` wide, each scaled to `cellWidth`) with a label
  * under each and an optional title, and writes it to `path`.
