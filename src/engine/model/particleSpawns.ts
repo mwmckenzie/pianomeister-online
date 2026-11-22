@@ -118,7 +118,8 @@ export function onsetSpawns(
       break
     }
     case 'glitter':
-      for (let i = 0; i < n(14); i++) {
+      // Few, big, white-hot flecks: many small dim ones filled the budget and barely showed.
+      for (let i = 0; i < n(7); i++) {
         out.push({
           kind: 'glitter',
           dx: across() * 1.4,
@@ -128,7 +129,7 @@ export function onsetSpawns(
           vy: 1 + rand() * 2.5,
           vz: -rand() * 1.5 * knobs.spread,
           life: life(0.6, 1),
-          size: size(0.08, 0.14),
+          size: size(0.18, 0.3),
         })
       }
       break
@@ -156,7 +157,8 @@ export function sustainSpawn(
         vy: 0.8 + rand() * 0.8,
         vz: -rand() * 0.3 * knobs.spread,
         life: between(rand, 0.9, 1.4) * knobs.lifetime,
-        size: between(rand, 0.1, 0.16) * scale * knobs.size,
+        // Big enough to read against the note's own sustain, which shares its colour.
+        size: between(rand, 0.7, 1.1) * scale * knobs.size,
       }
     case 'flames':
       return {
