@@ -19,6 +19,10 @@ export const PEDAL_DEMO = fileURLToPath(
 export const LONG_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/long-demo.mid', import.meta.url),
 )
+/** Long yellow, red, green and purple notes, near and far at bar 2 (round-6 fill candidates). */
+export const FILLS_DEMO = fileURLToPath(
+  new URL('../test-fixtures/midi/fills-demo.mid', import.meta.url),
+)
 /** Neighbouring-lane chords from bar 1: stacked labels. */
 export const CLARITY_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/clarity-demo.mid', import.meta.url),
@@ -61,19 +65,20 @@ async function frames(page: Page, count: number): Promise<void> {
 
 /**
  * One frame with `settings` stored (merged over the defaults), the animation clock pinned
- * (`?animTime=3`) and the song stepped to the start of `bar`; canvas only.
+ * (`?animTime=3`, or `animTime`) and the song stepped to the start of `bar`; canvas only.
  */
 export async function frameWith(
   page: Page,
   settings: Settings,
   bar: number,
   crop?: Crop,
+  animTime = 3,
 ): Promise<Buffer> {
   await page.evaluate(
     (value) => localStorage.setItem('pianomeister.settings', value),
     JSON.stringify({ version: SETTINGS_VERSION, settings }),
   )
-  await page.goto('./#/?animTime=3')
+  await page.goto(`./#/?animTime=${animTime}`)
   await page.reload()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
   for (let i = 1; i < bar; i++) await page.getByRole('button', { name: 'Next bar' }).click()

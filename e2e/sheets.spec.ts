@@ -5,6 +5,7 @@ import {
   type Crop,
   frameWith,
   CLARITY_DEMO,
+  FILLS_DEMO,
   LONG_DEMO,
   openSong,
   PEDAL_DEMO,
@@ -27,6 +28,7 @@ const QUALITY = {
     particleBudget: 2048,
     shaderDetail: 'medium',
   },
+  high: { quality: 'high', bloomResolution: 'full', particleBudget: 4096, shaderDetail: 'high' },
 } as const
 
 const FILLS = [
@@ -222,7 +224,7 @@ const LABELS: Crop = { x: 300, y: 260, width: 680, height: 460 }
 
 const NAMES_CASES: readonly { readonly label: string; readonly names: Record<string, unknown> }[] =
   [
-    { label: 'defaults (facing camera)', names: {} },
+    { label: 'defaults (facing camera, once per bar)', names: {} },
     { label: 'flat on note', names: { style: 'flat' } },
     { label: 'colour: note', names: { textColor: 'note' } },
     { label: 'colour: white', names: { textColor: 'white' } },
@@ -234,7 +236,9 @@ const NAMES_CASES: readonly { readonly label: string; readonly names: Record<str
     { label: 'text 18 px, glow subtle', names: { textSize: 18, glow: 'subtle' } },
     { label: 'Both (handover at the keys)', names: { mode: 'both' } },
     { label: 'Both, key labels 16 px', names: { mode: 'both', keySize: 16 } },
-    { label: 'label repeated notes: all', names: { repeats: 'all' } },
+    { label: 'once per bar, show within 60 %', names: { showWithin: 0.6 } },
+    { label: 'repeated notes: first of a run', names: { repeats: 'first' } },
+    { label: 'repeated notes: all', names: { repeats: 'all' } },
   ]
 
 for (const song of [
@@ -262,5 +266,50 @@ for (const song of [
       680,
     )
     expect(cells).toHaveLength(NAMES_CASES.length)
+  })
+}
+
+/** Round-6 fill candidates: animated ones get three frames half a second apart. */
+const CANDIDATES = [
+  { fill: 'smokeRound1', label: 'Smoke (round 1)', times: [3, 3.5, 4] },
+  { fill: 'smoke', label: 'Smoke (fixed)', times: [3, 3.5, 4] },
+  { fill: 'crystal', label: 'Crystal', times: [3] },
+  { fill: 'bubbles', label: 'Bubbles', times: [3, 3.5, 4] },
+  { fill: 'liquid', label: 'Liquid', times: [3, 3.5, 4] },
+] as const
+
+/** Yellow, red, green and purple lanes of the fills demo, near and far. */
+const LANES: Crop = { x: 300, y: 120, width: 700, height: 520 }
+
+for (const c of CANDIDATES) {
+  test(`@visual sheet fills: candidate ${c.label}`, async ({ page, browser }) => {
+    test.setTimeout(600_000)
+    await openSong(page, FILLS_DEMO, 'Fills demo')
+    const cells: Cell[] = []
+    for (const quality of ['off', 'high'] as const) {
+      for (const heads3d of [true, false]) {
+        for (const t of c.times) {
+          const settings: Settings = {
+            highway: { lookAheadBeats: 5 },
+            notes: { heads3d },
+            render: QUALITY[quality],
+            noteStyle: { headFill: c.fill, sustainFill: c.fill, edgeGlow: false },
+          }
+          cells.push({
+            label: `${quality} · 3D heads ${heads3d ? 'on' : 'off'} · t ${t} s`,
+            png: await frameWith(page, settings, 2, LANES, t),
+          })
+        }
+      }
+    }
+    await writeSheet(
+      browser,
+      `${OUT}/candidate-${c.fill}.png`,
+      `${c.label} — Fills demo (yellow D, red C, green G, purple A), bar 2, quality Off / High`,
+      cells,
+      Math.max(2, c.times.length),
+      560,
+    )
+    expect(cells.length).toBeGreaterThan(0)
   })
 }
