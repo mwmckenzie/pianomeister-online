@@ -1,3 +1,4 @@
+import type { LookFile } from '../looks/LookFile'
 import type { MeterOverride } from '../timing/MeterOverride'
 import type { PracticeData } from './PracticeData'
 import type { SongMetaEdit } from './SongMetaEdit'
@@ -21,4 +22,9 @@ export interface LibraryDocument {
   readonly meterOverrides: Readonly<Record<string, MeterOverride>>
   /** From 1.1: profiles and everything that belongs to them (brief decision 75). */
   readonly practice?: PracticeData
+  /**
+   * From 1.3: the saved looks (never the built-ins), as a look file, so they migrate and
+   * validate like an imported one (milestone 9.1).
+   */
+  readonly looks?: LookFile
 }

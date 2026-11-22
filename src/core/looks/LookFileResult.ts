@@ -5,5 +5,10 @@ import type { Look } from './Look'
  * names made unique), or why nothing can be imported.
  */
 export type LookFileResult =
-  | { readonly ok: true; readonly looks: readonly Look[] }
+  | {
+      readonly ok: true
+      readonly looks: readonly Look[]
+      /** Looks already here (backup import only). */
+      readonly skipped: number
+    }
   | { readonly ok: false; readonly error: 'notLookFile' | 'newer' | 'empty' }

@@ -1,5 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate'
 
+import type { LookFile } from '../looks/LookFile'
 import type { MeterOverride } from '../timing/MeterOverride'
 import type { ArchiveContents } from './ArchiveContents'
 import { LIBRARY_FORMAT } from './buildArchive'
@@ -57,6 +58,10 @@ export function readArchive(bytes: Uint8Array): ArchiveContents {
     meta: pick(raw.meta, toMetaEdit),
     meterOverrides: pick(raw.meterOverrides, toMeterOverride),
     practice: readPracticeData(raw.practice),
+    // Looks are checked entry by entry when they're merged (readLookFile).
+    ...(isRecord(raw.looks) && raw.looks.format === 'pianomeister-look'
+      ? { looks: raw.looks as unknown as LookFile }
+      : {}),
   }
   return { document, uploads: contents }
 }

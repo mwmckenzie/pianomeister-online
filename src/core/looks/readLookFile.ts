@@ -13,13 +13,15 @@ const LOOK_FORMAT = 'pianomeister-look'
  * settings (readLookValues: clamped, unknown and cost keys dropped, missing keys left to the
  * device's defaults); a taken id gets a new one and a taken name becomes "Name (2)". Malformed
  * entries are skipped. A file that isn't a look file, comes from a newer version or holds no
- * usable look gives an error and nothing else.
+ * usable look gives an error and nothing else. A backup (`skipIdentical`) skips looks already
+ * here with the same id and values.
  */
 export function readLookFile(
   raw: unknown,
   existing: readonly Look[],
   newId: () => string,
   now = new Date().toISOString(),
+  skipIdentical = false,
 ): LookFileResult {
   if (!isRecord(raw) || raw.format !== LOOK_FORMAT || !Array.isArray(raw.looks)) {
     return { ok: false, error: 'notLookFile' }
@@ -51,7 +53,8 @@ export function readLookFile(
     })
   }
   if (looks.length === 0) return { ok: false, error: 'empty' }
-  return { ok: true, looks: mergeLooks(looks, existing, newId).added }
+  const { added, skipped } = mergeLooks(looks, existing, newId, skipIdentical)
+  return { ok: true, looks: added, skipped }
 }
 
 function isDate(value: unknown): value is string {
