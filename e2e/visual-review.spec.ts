@@ -876,7 +876,18 @@ const M9_SHOTS: readonly { readonly name: string; readonly settings: Settings }[
     },
   },
   ...(
-    ['solid', 'gradient', 'hotCore', 'glass', 'outline', 'neon', 'stripes', 'smoke'] as const
+    [
+      'solid',
+      'gradient',
+      'hotCore',
+      'outline',
+      'neon',
+      'stripes',
+      'smoke',
+      'crystal',
+      'bubbles',
+      'liquid',
+    ] as const
   ).map((fill) => ({
     name: `fill-${fill}`,
     settings: { noteStyle: { headFill: fill, sustainFill: fill } },

@@ -64,13 +64,10 @@ const FILLS = [
   { value: 'solid', label: 'Solid' },
   { value: 'gradient', label: 'Gradient' },
   { value: 'hotCore', label: 'Hot core' },
-  { value: 'glass', label: 'Glass' },
   { value: 'outline', label: 'Outline' },
   { value: 'neon', label: 'Neon' },
   { value: 'stripes', label: 'Diagonal stripes' },
   { value: 'smoke', label: 'Smoke' },
-  // Round-6 candidates, until one is picked.
-  { value: 'smokeRound1', label: 'Smoke (round 1)' },
   { value: 'crystal', label: 'Crystal' },
   { value: 'bubbles', label: 'Bubbles' },
   { value: 'liquid', label: 'Liquid' },
@@ -569,7 +566,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'On notes',
     },
     'names.showWithin': {
-      ...num('Show within', 0.4, sidebar('names'), [0.1, 1, 0.05]),
+      ...num('Show within', 0.6, sidebar('names'), [0.1, 1, 0.05]),
       ...percent,
       ...onNotes,
     },

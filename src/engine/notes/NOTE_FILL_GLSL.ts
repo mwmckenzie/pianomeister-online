@@ -10,12 +10,15 @@
  * - Solid: flat note colour. Gradient: bright at the head, fading toward the tail.
  * - Hot core: a filled body, bright in the middle — a white-hot centre band, a warmer tint,
  *   deep saturated colour out to the edges; hottest at the head.
- * - Glass: a tinted block you can see into, one continuous soft streak along the note (off
- *   centre), a thin visible rim.
  * - Outline: dark inside, a border at full note brightness. Neon: a glowing tube just inside
  *   the edge with a near-white core line, a coloured haze inside.
- * Each reads at quality Off; bloom only adds the halo.
- * - Diagonal stripes: two colours per use, box-filtered (no moiré). Smoke: drifting wisps.
+ * - Diagonal stripes: two colours per use, box-filtered (no moiré).
+ * - Smoke: soft clouds of the note colour drifting toward the tail, see-through between them.
+ * - Crystal: faceted shards in lighter and darker tints, bright facet edges; still.
+ * - Bubbles: a translucent note-coloured body, bright bubbles rising toward the tail.
+ * - Liquid: light through water — soft bright ripples moving over the note colour.
+ * Each reads at quality Off; bloom only adds the halo. Motion follows the animation clock, so
+ * it freezes when paused or with reduced motion.
  */
 export const NOTE_FILL_GLSL = /* glsl */ `
 uniform float uHeadFill;
@@ -46,17 +49,13 @@ uniform float uOctaves;
 
 const float FILL_GRADIENT = 1.0;
 const float FILL_HOT_CORE = 2.0;
-const float FILL_GLASS = 3.0;
+const float FILL_CRYSTAL = 3.0;
 const float FILL_OUTLINE = 4.0;
 const float FILL_NEON = 5.0;
 const float FILL_STRIPES = 6.0;
 const float FILL_SMOKE = 7.0;
-// Round-6 candidates (brief decision 112): the round-1 Smoke for comparison, and three
-// replacements for Glass. The ones not picked are removed.
-const float FILL_SMOKE_ROUND1 = 8.0;
-const float FILL_CRYSTAL = 9.0;
-const float FILL_BUBBLES = 10.0;
-const float FILL_LIQUID = 11.0;
+const float FILL_BUBBLES = 8.0;
+const float FILL_LIQUID = 9.0;
 
 /** How far darker "Darker note colour" is. */
 const float DARKER = 0.45;
@@ -164,7 +163,7 @@ float band(float edge, float width) {
 }
 
 /**
- * Crystal (candidate): a faceted gem — Voronoi shards in lighter and darker tints of the note
+ * Crystal: a faceted gem — Voronoi shards in lighter and darker tints of the note
  * colour, each lit from one side as if angled, with bright facet edges. Still.
  */
 Fill crystal(Fill f, vec3 base, float u, float halfWidth, float along, float seed) {
@@ -209,8 +208,9 @@ Fill crystal(Fill f, vec3 base, float u, float halfWidth, float along, float see
 }
 
 /**
- * Bubbles (candidate): a translucent note-coloured body with small bright bubbles of varied
- * sizes rising toward the tail, each a thin rim with a soft highlight.
+ * Bubbles: a translucent body of the note colour at full brightness (never near-black, even
+ * on red or purple at quality Off), with bright bubbles of varied sizes rising toward the tail,
+ * each a thin rim with a soft highlight.
  */
 Fill bubbles(Fill f, vec3 base, float u, float halfWidth, float along, float seed) {
   float size = max(halfWidth * 2.0, 1e-3);
@@ -239,19 +239,21 @@ Fill bubbles(Fill f, vec3 base, float u, float halfWidth, float along, float see
       inside = max(inside, body);
     }
   }
-  vec3 c = mix(bright * 0.85, mix(bright, vec3(1.0), 0.2), inside * 0.6);
+  vec3 c = mix(bright, mix(bright, vec3(1.0), 0.25), inside * 0.6);
   c = mix(c, mix(bright, vec3(1.0), 0.7), ring * 0.9);
   c = mix(c, vec3(1.0), glint * 0.9);
   f.color = c;
-  f.alpha = max(0.5 + 0.2 * inside, max(ring, glint));
+  f.alpha = max(0.72 + 0.12 * inside, max(ring, glint));
   f.emission = 0.4 * max(ring * 0.6, glint);
-  f.keep = 0.4 * max(ring, glint);
+  // The body stays readable when the note is see-through; the bubbles fade least.
+  f.keep = max(0.3, 0.5 * max(ring, glint));
   return f;
 }
 
 /**
- * Liquid (candidate): light through water — a soft network of bright ripples moving slowly
- * inside the note, over the clean note colour.
+ * Liquid: light through water — a soft network of bright ripples moving slowly inside the
+ * note, over the clean note colour. On very bright colours (yellow) the body sits a deeper
+ * tone, so the ripples still show under bloom.
  */
 Fill liquid(Fill f, vec3 base, float u, float halfWidth, float along, float seed) {
   float size = max(halfWidth * 1.3, 1e-3);
@@ -266,7 +268,9 @@ Fill liquid(Fill f, vec3 base, float u, float halfWidth, float along, float seed
   // Ripples narrower than a few pixels settle to an even glow instead of shimmering.
   lines = mix(lines, 0.3, smoothstep(0.4, 1.2, fwidth(v)));
   vec3 bright = fullBright(base);
-  f.color = mix(bright * 0.82, mix(bright, vec3(1.0), 0.6), lines * 0.85);
+  float light = dot(bright, vec3(0.299, 0.587, 0.114));
+  vec3 body = bright * mix(0.82, 0.6, smoothstep(0.5, 0.85, light));
+  f.color = mix(body, mix(bright, vec3(1.0), 0.65), lines * 0.9);
   f.alpha = 0.78 + 0.22 * lines;
   f.emission = 0.3 * lines;
   return f;
@@ -300,18 +304,6 @@ Fill noteFill(
     f.emission = 0.9 * core + 0.15;
     // The body stays filled and the white band fades least when the note is see-through.
     f.keep = 0.35 + 0.5 * core;
-    return f;
-  }
-  if (isFill(style, FILL_GLASS)) {
-    // A tinted block: you see into it (fairly solid at 0 % transparency), one continuous soft
-    // streak along the whole note, off centre (a reflection, never blotches), and a thin rim
-    // at least a pixel and a half wide so it shows at any distance.
-    float sheen = exp(-pow((u + 0.38) / 0.2, 2.0));
-    float rim = band(edge, max(0.035, 1.5 * fwidth(edge)));
-    f.color = base * 0.72 + vec3(0.3) * sheen;
-    f.color = mix(f.color, mix(fullBright(base), vec3(1.0), 0.55), rim * 0.8);
-    f.alpha = 0.8 + 0.2 * max(rim, sheen);
-    f.keep = 0.4 * rim;
     return f;
   }
   if (isFill(style, FILL_OUTLINE)) {
@@ -357,29 +349,16 @@ Fill noteFill(
     f.alpha = s.a;
     return f;
   }
-  if (isFill(style, FILL_SMOKE_ROUND1)) {
-    // Round 1's Smoke, unchanged, for the side-by-side comparison only.
-    float n1 = fbm(vec2(u * halfWidth * 2.0, along * 0.8) + vec2(seed * 7.0, -animTime() * 0.4));
-    f.color = base * (0.55 + 0.6 * n1);
-    f.alpha = 0.6 + 0.4 * n1;
-    return f;
-  }
   if (isFill(style, FILL_CRYSTAL)) return crystal(f, base, u, halfWidth, along, seed);
   if (isFill(style, FILL_BUBBLES)) return bubbles(f, base, u, halfWidth, along, seed);
   if (isFill(style, FILL_LIQUID)) return liquid(f, base, u, halfWidth, along, seed);
-  // Smoke: soft, billowing, low-contrast clouds of the clean note colour (lighter at their
-  // centres, never darker or greyer), with see-through gaps and feathered edges, drifting
-  // slowly toward the tail. Noise is sampled the same scale both ways in world space, scaled
-  // to the lane, so it reads as puffs rather than streaks.
-  float scale = 1.0 / max(halfWidth * 1.4, 1e-3);
-  vec2 p = vec2(u * halfWidth, along) * scale + vec2(seed * 7.0, 0.0);
-  p.y -= animTime() * 0.25;
-  // A gentle domain warp makes the clouds billow instead of tiling.
-  p += 0.6 * vec2(fbm(p * 0.6 + vec2(3.1, 1.7)), fbm(p * 0.6 + vec2(8.3, 2.9))) - 0.3;
-  float puff = smoothstep(0.3, 0.75, fbm(p));
-  f.color = mix(base, vec3(1.0), 0.28 * puff * puff);
-  f.alpha = mix(0.18, 0.95, puff);
-  f.keep = 0.25 * puff;
+  // Smoke: soft clouds of the note colour drifting toward the tail. Where the clouds thin out
+  // the note turns see-through rather than darker (the colour itself never drops below the
+  // note colour), so bright colours never go olive or brown.
+  float n = fbm(vec2(u * halfWidth * 2.0, along * 0.8) + vec2(seed * 7.0, -animTime() * 0.4));
+  float density = 0.55 + 0.6 * n;
+  f.color = base * max(density, 1.0);
+  f.alpha = (0.6 + 0.4 * n) * min(density, 1.0);
   return f;
 }
 

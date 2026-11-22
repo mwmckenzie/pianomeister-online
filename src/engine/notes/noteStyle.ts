@@ -12,15 +12,13 @@ export const FILL_ID: { readonly [F in NoteFill]: number } = {
   solid: 0,
   gradient: 1,
   hotCore: 2,
-  glass: 3,
+  crystal: 3,
   outline: 4,
   neon: 5,
   stripes: 6,
   smoke: 7,
-  smokeRound1: 8,
-  crystal: 9,
-  bubbles: 10,
-  liquid: 11,
+  bubbles: 8,
+  liquid: 9,
 }
 
 /** Smoke noise octaves per shader detail level. */

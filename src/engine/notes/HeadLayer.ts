@@ -116,8 +116,6 @@ void main() {
 #else
   vec3 n = normalize(vNormal);
   vec3 color = shade(f.color, n, normalize(cameraPosition - vWorld));
-  // Glass: the top face reads lighter than the sides.
-  if (isFill(style, FILL_GLASS)) color *= mix(0.82, 1.12, clamp(n.y, 0.0, 1.0));
   if (rim > 0.0) color = mix(color, rimColor, rim);
   if (sounding > 0.0) color += vColor * sounding;
   if (pulse > 0.0) color += mix(vColor, vec3(1.0), 0.5) * pulse;
