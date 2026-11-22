@@ -331,6 +331,43 @@ describe('loadSettings', () => {
     )
   })
 
+  it('migrates v7 to v8: Glass becomes Crystal, the round-1 Smoke candidate becomes Smoke', () => {
+    const v7 = stored(
+      {
+        noteStyle: { headFill: 'glass', sustainFill: 'smokeRound1' },
+        pedal: { fill: 'glass' },
+      },
+      7,
+    )
+    const s = loadSettings(v7)
+    expect(s.noteStyle.headFill).toBe('crystal')
+    expect(s.noteStyle.sustainFill).toBe('smoke')
+    expect(s.pedal.fill).toBe('crystal')
+    // Other fills are kept.
+    const kept = loadSettings(
+      stored({ noteStyle: { headFill: 'bubbles', sustainFill: 'neon' } }, 7),
+    )
+    expect(kept.noteStyle.headFill).toBe('bubbles')
+    expect(kept.noteStyle.sustainFill).toBe('neon')
+  })
+
+  it('migrates saved looks with Glass to Crystal', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Old glass')
+    const values = {
+      ...look.values,
+      'noteStyle.headFill': 'glass',
+      'noteStyle.sustainFill': 'glass',
+      'pedal.fill': 'glass',
+    }
+    for (const version of [6, 7]) {
+      const raw = { version, settings: {}, looks: { active: null, saved: [{ ...look, values }] } }
+      const [migrated] = loadLooks(raw).saved
+      expect(migrated?.values['noteStyle.headFill']).toBe('crystal')
+      expect(migrated?.values['noteStyle.sustainFill']).toBe('crystal')
+      expect(migrated?.values['pedal.fill']).toBe('crystal')
+    }
+  })
+
   it('keeps the pedal its new, wider stripes when the old shared width was the default', () => {
     const s = loadSettings(stored({ noteStyle: { stripeWidth: 0.35 } }, 6))
     expect(s.noteStyle.headStripeWidth).toBe(0.35)

@@ -12,7 +12,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 7
+export const SETTINGS_VERSION = 8
 
 /** The first version that stored shortcut overrides (brief decision 88). */
 const SHORTCUTS_SINCE = 5
@@ -90,6 +90,24 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
         fill: outline(pedal.fill),
         ...shape('stripe', width !== OLD_STRIPE_WIDTH),
       },
+    }
+  },
+  // v8 (brief decision 112): Glass is replaced by Crystal, Bubbles and Liquid; a Glass fill
+  // becomes Crystal (the closest: a solid, tinted, still body). "Smoke (round 1)", offered
+  // only while candidates were compared, is the shipped Smoke.
+  7: (settings) => {
+    const noteStyle = isRecord(settings.noteStyle) ? settings.noteStyle : {}
+    const pedal = isRecord(settings.pedal) ? settings.pedal : {}
+    const renamed = (fill: unknown) =>
+      fill === 'glass' ? 'crystal' : fill === 'smokeRound1' ? 'smoke' : fill
+    return {
+      ...settings,
+      noteStyle: {
+        ...noteStyle,
+        headFill: renamed(noteStyle.headFill),
+        sustainFill: renamed(noteStyle.sustainFill),
+      },
+      pedal: { ...pedal, fill: renamed(pedal.fill) },
     }
   },
 }
