@@ -178,7 +178,7 @@ test('@playlists export then import brings the playlist back', async ({ page }) 
     mimeType: 'application/json',
     buffer: Buffer.from(text),
   })
-  await expect(page.getByText('Those playlists are here already')).toBeVisible()
+  await expect(page.getByTestId('toast').getByText('Those playlists are here already')).toBeVisible()
   await expect(page.getByTestId('playlist-item')).toHaveCount(1)
 })
 
@@ -222,7 +222,7 @@ test('@playlists @library Add to playlist… from the Library makes a new playli
   await page.getByTestId('song-row').filter({ hasText: 'Minuet in G' }).click()
   await page.getByTestId('add-to-playlist').click()
   await page.getByTestId('add-to-playlist-item').filter({ hasText: 'New playlist' }).click()
-  await expect(page.getByText('Added to “New playlist”')).toBeVisible()
+  await expect(page.getByTestId('toast').getByText('Added to “New playlist”')).toBeVisible()
   await page.getByTestId('tab-playlists').click()
   await expect(rowTitles(page)).toHaveText([/Canon in D/, /Minuet in G/])
 })
