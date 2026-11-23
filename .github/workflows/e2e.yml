@@ -1,12 +1,13 @@
 name: E2E
 
-# The full functional e2e suite (chromium + polish projects) on the production build, for every
-# pull request to main and every push to its branch. Sharded across four runners; one retry, so
-# a test that passes on its retry is reported as flaky in the summary but doesn't fail the job.
-# The visual, perf, range and sheet projects never run here (only when a milestone asks).
+# The full functional e2e suite (chromium + polish projects) on the production build. Manual
+# only for now (Actions → E2E → Run workflow): on GitHub's GPU-less runners the suite is too slow
+# to gate pull requests yet (roadmap: "Make CI e2e workable"); the CI workflow's check job stays
+# the required check. Sharded across four runners; one retry, so a test that passes on its retry
+# is reported as flaky in the summary but doesn't fail the job. The visual, perf, range and sheet
+# projects never run here (only when a milestone asks).
 on:
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -42,6 +42,26 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 - Replace fixed timeouts that wait on animations or timers (the settings close animation, the Welcome highlight rotation, the loop nudge) with waits on the actual state (the element gone, the attribute set), so load doesn't fail them.
 - **Done when:** a full green run (`chromium` + `polish`, `--retries=0`) twice in a row.
 
+### Make CI e2e workable _(done when there is time)_
+
+The E2E workflow (`.github/workflows/e2e.yml`) runs on manual trigger only. On PR #25 two of four shards failed after 16–18 min (21 and 23 failures) and the other two were still running after 25 min. Almost every failure was a timeout: the startup song not loaded after 10 s, samples still loading (200–214 of 226), 30 s test timeouts.
+
+- **Diagnosis:** the main thread is starved by software WebGL on GPU-less runners, plus 2 workers on 2 cores. Setup is cheap (npm ci 50 s, Chromium 16 s, build 2 s).
+- **Already on the branch:**
+  - silent stand-in samples for the functional projects;
+  - render scale 0.5, pixel ratio 1 and no AA in CI;
+  - Playwright browser cache;
+  - `timeout-minutes: 20`.
+
+  The run with these was cancelled before it finished, so their effect is unmeasured.
+
+- **Fixes to try:**
+  - workers 1;
+  - a test-only frame cap;
+  - render on demand while paused (pulled forward from milestone 11);
+  - keep the browser cache and `timeout-minutes`.
+- **Done when:** the E2E job finishes green in about 10–12 min; then it goes back on pull requests.
+
 ### Looks & defaults tuning pass _(done when there is time)_
 
 The built-in looks (milestone 9.1) and the playfield defaults (milestones 9 and 9.1) are provisional. In the app, each built-in look and the defaults are tuned by hand and sent as Copy-look JSON; Claude pins them (built-ins in `BUILT_IN_LOOKS`, defaults in the registry) with their tests and the all-looks sheet.
