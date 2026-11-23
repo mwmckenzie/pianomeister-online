@@ -1166,4 +1166,21 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
         { value: 'player', label: 'Player' },
       ],
     },
+    'appearance.homeOnNewSession': bool(
+      'Open Home when a new session starts',
+      true,
+      tab('appearance', 'start'),
+    ),
+    'appearance.sessionGap': {
+      kind: 'choice',
+      label: 'New session after',
+      default: '30',
+      home: tab('appearance', 'start'),
+      options: [
+        { value: '10', label: '10 min' },
+        { value: '20', label: '20 min' },
+        { value: '30', label: '30 min' },
+        { value: '60', label: '60 min' },
+      ],
+    },
   }

@@ -350,5 +350,9 @@ export interface PlayerSettings {
     readonly hideControlsAfter: number
     /** Where the app opens (m7-7 decision 1): the Welcome screen or the player. */
     readonly startOn: 'welcome' | 'player'
+    /** Switch to Home when a new practice session begins (milestone 9.2). */
+    readonly homeOnNewSession: boolean
+    /** Minutes without playback after which the next playback is a new session (decision 5). */
+    readonly sessionGap: '10' | '20' | '30' | '60'
   }
 }

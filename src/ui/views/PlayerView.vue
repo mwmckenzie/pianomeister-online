@@ -110,6 +110,16 @@ const settingsOpen = ref(false)
 const settingsLoaded = ref(false)
 const tempoOpen = ref(false)
 const loopOpen = ref(false)
+// Before Home opens on a new session (milestone 9.2 D): plain dialogs and popovers close.
+watch(
+  () => ui.closeOverlays,
+  () => {
+    pickerOpen.value = false
+    settingsOpen.value = false
+    tempoOpen.value = false
+    loopOpen.value = false
+  },
+)
 
 /** Tempo and loop are the practice store's: a loaded bookmark's are temporary (decision 69). */
 const tempoPercent = computed({

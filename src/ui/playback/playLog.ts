@@ -2,6 +2,7 @@ import { watch } from 'vue'
 
 import { PlayRecorder } from '@/core/stats/PlayRecorder'
 import type { RecorderEvent } from '@/core/stats/RecorderEvent'
+import type { Session } from '@/core/stats/Session'
 
 import { usePracticeStore } from '../stores/practiceStore'
 import { useProfileStore } from '../stores/profileStore'
@@ -27,11 +28,31 @@ export function attachPlayLog(session: PlaybackSession): void {
   const stats = useStatsStore()
   const { transport } = session
 
-  let recorder = new PlayRecorder(() => crypto.randomUUID())
+  let recorder = newRecorder(null)
   let timer: ReturnType<typeof setInterval> | undefined
+
+  /** A recorder with the current session gap and tracking state. */
+  function newRecorder(last: Session | null): PlayRecorder {
+    const r = new PlayRecorder(() => crypto.randomUUID(), last)
+    r.setGap(stats.gapMs)
+    r.setSuspended(stats.trackingSuspended, Date.now())
+    return r
+  }
+
+  /** The last playback's end, for Home on a new session (milestone 9.2 D). */
+  function knowLastEnd(last: Session | null, keepNewer = false): void {
+    const stored = last?.endedAt ?? null
+    const live = keepNewer ? stats.lastPlaybackEnd : null
+    stats.lastPlaybackEnd = live !== null && (stored === null || live > stored) ? live : stored
+    stats.lastEndKnown = true
+  }
 
   function send(event: RecorderEvent): void {
     const write = recorder.handle(event)
+    const playing = transport.state === 'playing'
+    if (stats.playbackActive !== playing) stats.playbackActive = playing
+    // Playback is under way or just ended: either way the last playback is now (unless suspended).
+    if (write !== null) stats.lastPlaybackEnd = event.now
     if (write !== null) {
       stats.record(write).catch((e: unknown) => console.error("[stats] Couldn't save practice:", e))
     }
@@ -91,7 +112,9 @@ export function attachPlayLog(session: PlaybackSession): void {
     () => profiles.activeId,
     async () => {
       send({ type: 'stop', now: Date.now() })
-      recorder = new PlayRecorder(() => crypto.randomUUID(), await stats.lastSession())
+      const last = await stats.lastSession()
+      knowLastEnd(last)
+      recorder = newRecorder(last)
       load()
     },
   )
@@ -106,5 +129,24 @@ export function attachPlayLog(session: PlaybackSession): void {
   // What's loaded now, then the stored last session once it's read. The recorder is kept, not
   // replaced: replacing it would re-arm a start, so a resume could count as a play.
   load()
-  void stats.lastSession().then((last) => recorder.continueSession(last))
+  void stats.lastSession().then((last) => {
+    recorder.continueSession(last)
+    // Playback may already have started meanwhile: it is the newer end.
+    knowLastEnd(last, true)
+  })
+  watch(
+    () => stats.gapMs,
+    (gap) => recorder.setGap(gap),
+  )
+  watch(
+    () => stats.trackingSuspended,
+    (suspended) => {
+      const write = recorder.setSuspended(suspended, Date.now())
+      if (write !== null) {
+        stats
+          .record(write)
+          .catch((e: unknown) => console.error("[stats] Couldn't save practice:", e))
+      }
+    },
+  )
 }

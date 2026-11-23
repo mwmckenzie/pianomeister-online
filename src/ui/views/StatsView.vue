@@ -102,11 +102,13 @@ const firstDay = computed(() => {
   return keys[0] ?? null
 })
 const windows = computed(() => rangeWindows(range.value, today.value, firstDay.value))
-const current = computed(() => headlineStats(records.value, byDay.value, windows.value.current))
+const current = computed(() =>
+  headlineStats(records.value, byDay.value, windows.value.current, undefined, stats.gapMs),
+)
 const previous = computed(() =>
   windows.value.previous === null
     ? null
-    : headlineStats(records.value, byDay.value, windows.value.previous),
+    : headlineStats(records.value, byDay.value, windows.value.previous, undefined, stats.gapMs),
 )
 const inWindow = computed(() => recordsInWindow(records.value, windows.value.current))
 const empty = computed(() => current.value.playedMs <= 0)

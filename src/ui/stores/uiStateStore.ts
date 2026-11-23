@@ -89,6 +89,19 @@ export const useUiStateStore = defineStore('uiState', () => {
   const shortcutsOpen = ref(false)
   /** A settings tab to open when the player next can (e.g. "Change shortcuts…" elsewhere). */
   const settingsTabRequest = ref<string | null>(null)
+  /**
+   * Unsaved work open now (a bookmark draft, …), by name: Home on a new session waits for the
+   * next one instead of interrupting it (milestone 9.2 D).
+   */
+  const unsavedWork = ref<ReadonlySet<string>>(new Set())
+  function setUnsaved(name: string, on: boolean): void {
+    const next = new Set(unsavedWork.value)
+    if (on) next.add(name)
+    else next.delete(name)
+    unsavedWork.value = next
+  }
+  /** Bumped to close plain menus, dialogs and the settings window (before Home opens). */
+  const closeOverlays = ref(0)
 
   return {
     sidebarOpen,
@@ -97,5 +110,8 @@ export const useUiStateStore = defineStore('uiState', () => {
     editorHands,
     shortcutsOpen,
     settingsTabRequest,
+    unsavedWork,
+    setUnsaved,
+    closeOverlays,
   }
 })

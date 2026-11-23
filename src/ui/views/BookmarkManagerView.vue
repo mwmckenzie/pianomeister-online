@@ -38,6 +38,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useStatsStore } from '../stores/statsStore'
 import { pageListCommand } from '../input/pageListCommand'
 import { useToastStore } from '../stores/toastStore'
+import { useUiStateStore } from '../stores/uiStateStore'
 
 /**
  * The bookmark manager (docs/design/m6/source/QGBookmarks.dc.html, brief decision 69): songs
@@ -65,11 +66,15 @@ const songFilter = ref<string | null>(null)
 const selectedId = ref<string | null>(null)
 
 /** An unsaved duplicate and the name of the bookmark it was copied from. */
+const ui = useUiStateStore()
 const draft = shallowRef<{
   readonly bookmark: Bookmark
   readonly sourceId: string
   readonly sourceName: string
 } | null>(null)
+// A draft is unsaved work: Home on a new session waits for it (milestone 9.2 D).
+watch(draft, (d) => ui.setUnsaved('bookmarkDraft', d !== null))
+onBeforeUnmount(() => ui.setUnsaved('bookmarkDraft', false))
 
 const songsById = computed(() => new Map(library.entries.map((e) => [e.songId, e])))
 

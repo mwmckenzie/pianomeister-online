@@ -2,7 +2,8 @@ import { sameBookmarkSettings } from '../practice/sameBookmarkSettings'
 import type { PlaySetup } from './PlaySetup'
 import type { RecorderEntry, RecorderEvent } from './RecorderEvent'
 import type { RecorderWrite } from './RecorderWrite'
-import { SESSION_GAP_MS } from './SESSION_GAP_MS'
+import { DEFAULT_SESSION_GAP_MS } from './DEFAULT_SESSION_GAP_MS'
+import { isNewSession } from './isNewSession'
 import type { Session } from './Session'
 
 interface Stretch {
@@ -40,7 +41,9 @@ const sameSetup = (a: PlaySetup, b: PlaySetup): boolean =>
  *   song, or null for other setups); a change of either ends the record and starts another.
  * - A stretch is one record, rewritten on every tick (the player sends one each 30 s), on each
  *   play counted, and when it ends (pause, stop, song end, load, tab hidden).
- * - A stretch joins the current session unless the last playback was more than 10 minutes ago.
+ * - A stretch joins the current session unless the last playback ended more than the gap ago
+ *   (the "New session after" setting, isNewSession), across reloads too (continueSession).
+ * - **Tracking suspended** (playlist mode, 9.5): nothing is recorded; a stretch under way ends.
  */
 export class PlayRecorder {
   private entry: RecorderEntry | null = null
@@ -50,6 +53,8 @@ export class PlayRecorder {
   private armed = false
   private setup: PlaySetup = DEFAULT_SETUP
   private entryId: string | null = null
+  private gapMs = DEFAULT_SESSION_GAP_MS
+  private suspended = false
 
   constructor(
     private readonly newId: () => string,
@@ -66,11 +71,32 @@ export class PlayRecorder {
     if (this.session === null) this.session = lastSession
   }
 
+  /** The "New session after" setting, in ms. */
+  setGap(gapMs: number): void {
+    this.gapMs = gapMs
+  }
+
+  /**
+   * Tracking suspended (for playlist mode, 9.5): while on, nothing is recorded, no sessions,
+   * time or plays. Turning it on ends a stretch under way (its write is returned); loads and
+   * setup changes are still followed, so tracking resumes with the right song.
+   */
+  setSuspended(suspended: boolean, now: number): RecorderWrite | null {
+    if (suspended === this.suspended) return null
+    const write = suspended ? this.endStretch(now) : null
+    this.suspended = suspended
+    return write
+  }
+
   get playing(): boolean {
     return this.stretch !== null
   }
 
   handle(event: RecorderEvent): RecorderWrite | null {
+    if (this.suspended) {
+      this.follow(event)
+      return null
+    }
     switch (event.type) {
       case 'load': {
         const write = this.endStretch(event.now)
@@ -117,6 +143,17 @@ export class PlayRecorder {
     }
   }
 
+  /** While suspended: keep up with what's loaded and set up, record nothing. */
+  private follow(event: RecorderEvent): void {
+    if (event.type === 'load') {
+      this.entry = event.entry
+      this.armed = true
+    } else if (event.type === 'setup') {
+      this.setup = event.setup
+      this.entryId = event.entryId
+    }
+  }
+
   private countPlay(now: number): RecorderWrite | null {
     if (this.stretch === null) return null
     this.stretch.plays += 1
@@ -130,7 +167,7 @@ export class PlayRecorder {
     const joins =
       session !== null &&
       session.profileId === entry.profileId &&
-      now - session.endedAt <= SESSION_GAP_MS
+      !isNewSession(session.endedAt, now, this.gapMs)
     this.session = joins
       ? session
       : { id: this.newId(), profileId: entry.profileId, startedAt: now, endedAt: now }

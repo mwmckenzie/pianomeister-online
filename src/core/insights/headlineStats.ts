@@ -15,6 +15,7 @@ export function headlineStats(
   byDay: ReadonlyMap<string, number>,
   window: RangeWindow,
   timeZone?: string,
+  gapMs?: number,
 ): HeadlineNumbers {
   const days = new Set<string>()
   let playedMs = 0
@@ -24,7 +25,7 @@ export function headlineStats(
     playedMs += ms
   }
   const started = recordsInWindow(records, window, timeZone)
-  const sessions = sessionize(started).length
+  const sessions = sessionize(started, gapMs).length
   return {
     playedMs,
     sessions,

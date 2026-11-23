@@ -68,13 +68,16 @@ describe('totals', () => {
 })
 
 describe('sessionize', () => {
-  it('starts a new session after more than 10 minutes without playback', () => {
-    const sessions = sessionize([
+  it('starts a new session after more than the gap without playback (30 min by default)', () => {
+    const records = [
       rec('a', 'x', 0, MIN),
       rec('a', 'x', 11 * MIN, MIN),
       rec('a', 'x', 22 * MIN + 1, MIN),
-    ])
-    expect(sessions.map((s) => s.length)).toEqual([2, 1])
+      rec('a', 'x', 53 * MIN + 2, MIN),
+    ]
+    expect(sessionize(records).map((s) => s.length)).toEqual([3, 1])
+    // The old 10-minute gap, as the setting allows.
+    expect(sessionize(records, 10 * MIN).map((s) => s.length)).toEqual([2, 1, 1])
   })
 
   it('orders records first and measures gaps from the end of the previous playback', () => {
