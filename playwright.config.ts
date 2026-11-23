@@ -61,24 +61,30 @@ export default defineConfig({
   timeout: 30 * 1000,
   expect: {
     /**
-     * Maximum time expect() should wait for the condition to be met.
-     * For example in `await expect(locator).toHaveText();`
+     * Maximum time expect() waits for a state. Every wait is on a state, never a fixed sleep, so
+     * passing tests aren't slowed; 10 s (5 s until the e2e hardening) gives song and chunk loads
+     * room when, under parallel load, they queue behind ~230 sample downloads per page.
      */
-    timeout: 5000,
+    timeout: 10_000,
   },
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
   /*
-   * Opt out of parallel tests on CI. Locally a quarter of the logical cores, not Playwright's
+   * One retry in CI: a test that passes on its retry is reported as flaky (the job summary lists
+   * it) without failing the job. Locally none: re-run failures with --last-failed instead.
+   */
+  retries: process.env.CI ? 1 : 0,
+  /*
+   * CI: two workers per shard (4-core runners, the suite split across four shards). Locally a
+   * quarter of the logical cores, not Playwright's
    * half: every test runs a headless browser rendering WebGL in software (well over a core),
    * and at half the machine saturates — the preview server then answers in ~300 ms per file,
    * on-demand chunks and songs queue behind ~230 sample downloads, and tests time out.
    */
-  workers: process.env.CI ? 1 : '25%',
+  workers: process.env.CI ? 2 : '25%',
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  // CI: a blob per shard, merged into one HTML report and a summary (.github/workflows/e2e.yml).
+  reporter: process.env.CI ? [['blob'], ['github'], ['list']] : 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Maximum time each action such as `click()` can take. Defaults to 0 (no limit). */
