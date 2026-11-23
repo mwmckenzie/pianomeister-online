@@ -20,7 +20,12 @@ const imports = useImportStore()
 const ProfileCollisionDialog = defineAsyncComponent(
   () => import('./library/ProfileCollisionDialog.vue'),
 )
-const ShortcutsSheet = defineAsyncComponent(() => import('./shortcuts/ShortcutsSheet.vue'))
+const loadShortcutsSheet = () => import('./shortcuts/ShortcutsSheet.vue')
+const ShortcutsSheet = defineAsyncComponent(loadShortcutsSheet)
+// Asked for now, before the player starts its ~230 sample downloads: requests queue per host, and
+// behind the samples the first ? would wait seconds for this chunk (as PlayerView does for the
+// picker and settings).
+void loadShortcutsSheet()
 const ui = useUiStateStore()
 useHomeOnNewSession()
 const route = useRoute()

@@ -109,7 +109,7 @@ for (const viewport of VIEWPORTS) {
   test.describe(size, () => {
     test.use({ viewport })
 
-    test(`the player: HUD line (sidebar open), loop and tempo popovers, toasts at ${size}`, async ({
+    test(`@library the player: HUD line (sidebar open), loop and tempo popovers, toasts at ${size}`, async ({
       page,
     }) => {
       const errors = watchErrors(page)
@@ -140,7 +140,7 @@ for (const viewport of VIEWPORTS) {
       expect(errors).toEqual([])
     })
 
-    test(`the picker, bookmark manager and dialogs at ${size}`, async ({ page }) => {
+    test(`@library the picker, bookmark manager and dialogs at ${size}`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page, false)
 

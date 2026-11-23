@@ -35,7 +35,7 @@ const barNow = async (page: Page): Promise<number> =>
 const plays = async (page: Page): Promise<number> =>
   (await readStore<StoredRecord>(page, 'playRecords')).reduce((n, r) => n + r.plays, 0)
 
-test('Full song shows the bookmark icon; a tempo key makes it a custom setup; Back to Full song', async ({
+test('@bookmarks Full song shows the bookmark icon; a tempo key makes it a custom setup; Back to Full song', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -64,7 +64,7 @@ test('Full song shows the bookmark icon; a tempo key makes it a custom setup; Ba
   expect(errors).toEqual([])
 })
 
-test('changing settings to equal another bookmark adopts it, and it gets the plays', async ({
+test('@bookmarks changing settings to equal another bookmark adopts it, and it gets the plays', async ({
   page,
 }) => {
   test.setTimeout(60_000)
@@ -102,7 +102,7 @@ test('changing settings to equal another bookmark adopts it, and it gets the pla
   expect(errors).toEqual([])
 })
 
-test('pausing and resuming is one play', async ({ page }) => {
+test('@bookmarks pausing and resuming is one play', async ({ page }) => {
   test.setTimeout(60_000)
   const errors = watchErrors(page)
   await openPlayer(page)
@@ -129,7 +129,7 @@ test('pausing and resuming is one play', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test("deleting a bookmark keeps the song's plays and time; the picker shows other setups", async ({
+test("@bookmarks deleting a bookmark keeps the song's plays and time; the picker shows other setups", async ({
   page,
 }) => {
   const errors = watchErrors(page)

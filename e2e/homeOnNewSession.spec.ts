@@ -57,7 +57,7 @@ async function openPlayer(page: Page): Promise<void> {
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
 }
 
-test('a new session opens Home on load, once; not on a reload or refocus in the same session', async ({
+test('@welcome @smoke a new session opens Home on load, once; not on a reload or refocus in the same session', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -77,14 +77,16 @@ test('a new session opens Home on load, once; not on a reload or refocus in the 
   expect(errors).toEqual([])
 })
 
-test('within the gap a reload continues the session: Home does not open', async ({ page }) => {
+test('@welcome within the gap a reload continues the session: Home does not open', async ({
+  page,
+}) => {
   await openPlayer(page)
   await seedPractice(page, lastPlayback(Date.now(), 20))
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await expect(page.getByTestId('welcome')).toHaveCount(0)
 })
 
-test('the setting turns it off', async ({ page }) => {
+test('@welcome the setting turns it off', async ({ page }) => {
   await openPlayer(page)
   await page.evaluate(
     (value) => localStorage.setItem('pianomeister.settings', value),
@@ -98,7 +100,7 @@ test('the setting turns it off', async ({ page }) => {
   await expect(page.getByTestId('welcome')).toHaveCount(0)
 })
 
-test('when the gap passes while the app is open and idle, Home opens by itself', async ({
+test('@welcome when the gap passes while the app is open and idle, Home opens by itself', async ({
   page,
 }) => {
   await page.clock.install()
@@ -110,7 +112,7 @@ test('when the gap passes while the app is open and idle, Home opens by itself',
   await expect(page.getByTestId('welcome')).toBeVisible()
 })
 
-test('a bookmark draft is never interrupted; it waits for the next new session', async ({
+test('@welcome a bookmark draft is never interrupted; it waits for the next new session', async ({
   page,
 }) => {
   await page.clock.install()

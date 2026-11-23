@@ -40,7 +40,7 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.up()
 }
 
-test('V opens and closes the strip, the chevron too, and it stays open across a reload', async ({
+test('@loop V opens and closes the strip, the chevron too, and it stays open across a reload', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -70,7 +70,7 @@ test('V opens and closes the strip, the chevron too, and it stays open across a 
   expect(errors).toEqual([])
 })
 
-test('a click seeks to the start of the bar; with a loop on, outside it lands on the loop start', async ({
+test('@loop a click seeks to the start of the bar; with a loop on, outside it lands on the loop start', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -92,7 +92,7 @@ test('a click seeks to the start of the bar; with a loop on, outside it lands on
   expect(errors).toEqual([])
 })
 
-test('drag across the notes, then Loop these bars: the loop is set and the playhead jumps once', async ({
+test('@loop drag across the notes, then Loop these bars: the loop is set and the playhead jumps once', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -123,7 +123,7 @@ test('drag across the notes, then Loop these bars: the loop is set and the playh
   expect(errors).toEqual([])
 })
 
-test('Save as bookmark from a selection saves it without loading it; the same again saves nothing', async ({
+test('@loop Save as bookmark from a selection saves it without loading it; the same again saves nothing', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -164,7 +164,7 @@ test('Save as bookmark from a selection saves it without loading it; the same ag
   expect(errors).toEqual([])
 })
 
-test('dragging a loop handle changes the loop on release, with one jump to its start', async ({
+test('@loop dragging a loop handle changes the loop on release, with one jump to its start', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -192,7 +192,9 @@ test('dragging a loop handle changes the loop on release, with one jump to its s
   expect(errors).toEqual([])
 })
 
-test('a click on a bookmark in the lane loads it; the one playing is lit', async ({ page }) => {
+test('@loop a click on a bookmark in the lane loads it; the one playing is lit', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await seedPractice(page, {
@@ -220,7 +222,7 @@ test('a click on a bookmark in the lane loads it; the one playing is lit', async
   expect(errors).toEqual([])
 })
 
-test('keys on the focused overview: a bar cursor, Shift extends, Enter loops, B saves', async ({
+test('@loop keys on the focused overview: a bar cursor, Shift extends, Enter loops, B saves', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -245,7 +247,7 @@ test('keys on the focused overview: a bar cursor, Shift extends, Enter loops, B 
   expect(errors).toEqual([])
 })
 
-test('zoom: the slider down to 4 bars, Ctrl+wheel around the pointer, the wheel pans', async ({
+test('@loop zoom: the slider down to 4 bars, Ctrl+wheel around the pointer, the wheel pans', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -273,7 +275,7 @@ test('zoom: the slider down to 4 bars, Ctrl+wheel around the pointer, the wheel 
 test.describe('1024×768 with the playfield panel open', () => {
   test.use({ viewport: { width: 1024, height: 768 } })
 
-  test('without room between the columns the strip hides; the chevron opens the editor instead', async ({
+  test('@loop without room between the columns the strip hides; the chevron opens the editor instead', async ({
     page,
   }) => {
     const errors = watchErrors(page)
@@ -303,7 +305,7 @@ test.describe('1024×768 with the playfield panel open', () => {
   })
 })
 
-test('the bookmark lane is one Tab stop: arrows move between bookmarks, Enter loads', async ({
+test('@loop the bookmark lane is one Tab stop: arrows move between bookmarks, Enter loads', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -340,7 +342,7 @@ test('the bookmark lane is one Tab stop: arrows move between bookmarks, Enter lo
   expect(errors).toEqual([])
 })
 
-test('the Loop editor menu item opens the editor, from Welcome too', async ({ page }) => {
+test('@loop the Loop editor menu item opens the editor, from Welcome too', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   const item = page.getByTestId('menu-loop-editor')
@@ -356,7 +358,7 @@ test('the Loop editor menu item opens the editor, from Welcome too', async ({ pa
   expect(errors).toEqual([])
 })
 
-test('the piano roll follows the Note colours setting', async ({ page }) => {
+test('@loop the piano roll follows the Note colours setting', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   // Sidebar first: the strip's width follows the playfield panel.

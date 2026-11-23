@@ -34,7 +34,9 @@ async function clickBar(page: Page, bar: number): Promise<void> {
   await page.mouse.click(x, y)
 }
 
-test('a timeline click before or after the loop lands on its start (paused)', async ({ page }) => {
+test('@loop a timeline click before or after the loop lands on its start (paused)', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openWithLoop(page)
   // Outside is dimmed on both sides.
@@ -50,7 +52,7 @@ test('a timeline click before or after the loop lands on its start (paused)', as
   expect(errors).toEqual([])
 })
 
-test('a drag released outside the loop lands on its start (playing)', async ({ page }) => {
+test('@loop a drag released outside the loop lands on its start (playing)', async ({ page }) => {
   const errors = watchErrors(page)
   await openWithLoop(page)
   await page.getByTestId('play-pause').click()
@@ -72,7 +74,9 @@ test('a drag released outside the loop lands on its start (playing)', async ({ p
   expect(errors).toEqual([])
 })
 
-test('→ on the loop’s last bar wraps to its start; ← on its first bar stays', async ({ page }) => {
+test('@loop → on the loop’s last bar wraps to its start; ← on its first bar stays', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openWithLoop(page)
   await clickBar(page, 35)
@@ -89,7 +93,7 @@ test('→ on the loop’s last bar wraps to its start; ← on its first bar stay
   expect(errors).toEqual([])
 })
 
-test('with the loop off, seeking goes anywhere again', async ({ page }) => {
+test('@loop with the loop off, seeking goes anywhere again', async ({ page }) => {
   const errors = watchErrors(page)
   await openWithLoop(page)
   await page.getByTestId('toggle-loop').click()

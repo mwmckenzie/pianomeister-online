@@ -22,7 +22,7 @@ async function openProfilesTab(page: Page): Promise<void> {
   await page.getByTestId('tab-profiles').click()
 }
 
-test('a second profile has its own bookmarks and stats; switch from the tab or the menu', async ({
+test('@settings a second profile has its own bookmarks and stats; switch from the tab or the menu', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -93,7 +93,7 @@ test('a second profile has its own bookmarks and stats; switch from the tab or t
   expect(errors).toEqual([])
 })
 
-test('a profile can be renamed, recoloured and deleted with a confirm; Me stays active', async ({
+test('@settings a profile can be renamed, recoloured and deleted with a confirm; Me stays active', async ({
   page,
 }) => {
   const errors = watchErrors(page)

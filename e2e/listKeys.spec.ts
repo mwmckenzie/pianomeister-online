@@ -26,7 +26,7 @@ async function seedTwoSongs(page: Page): Promise<void> {
 
 const selectedSong = (page: Page) => page.locator('[data-testid="song-row"][aria-selected="true"]')
 
-test('library: ↑/↓, Shift+↑/↓ and Enter work with no list focused; [ ] switch tabs', async ({
+test('@shortcuts library: ↑/↓, Shift+↑/↓ and Enter work with no list focused; [ ] switch tabs', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -92,7 +92,7 @@ test('library: ↑/↓, Shift+↑/↓ and Enter work with no list focused; [ ] s
   expect(errors).toEqual([])
 })
 
-test('bookmark manager: ↑/↓ bookmarks, Shift+↑/↓ the song filter, Enter loads; sliders keep their arrows', async ({
+test('@shortcuts bookmark manager: ↑/↓ bookmarks, Shift+↑/↓ the song filter, Enter loads; sliders keep their arrows', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -141,7 +141,7 @@ test('bookmark manager: ↑/↓ bookmarks, Shift+↑/↓ the song filter, Enter 
   expect(errors).toEqual([])
 })
 
-test('picker: ↑/↓ the songs and Shift+↑/↓ the Load list from anywhere; Enter loads', async ({
+test('@shortcuts picker: ↑/↓ the songs and Shift+↑/↓ the Load list from anywhere; Enter loads', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -179,7 +179,7 @@ test('picker: ↑/↓ the songs and Shift+↑/↓ the Load list from anywhere; E
   expect(errors).toEqual([])
 })
 
-test('settings: ] and [ step through the tabs and wrap', async ({ page }) => {
+test('@shortcuts settings: ] and [ step through the tabs and wrap', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await page.getByTestId('menu-settings').click()
@@ -215,7 +215,7 @@ async function loop40Parked(page: Page): Promise<void> {
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('40:1')
 }
 
-test('four quick loop nudges show at once and apply as one jump', async ({ page }) => {
+test('@shortcuts four quick loop nudges show at once and apply as one jump', async ({ page }) => {
   const errors = watchErrors(page)
   // The 400 ms settle passes only when the test says so.
   await page.clock.install()
@@ -243,22 +243,36 @@ test('four quick loop nudges show at once and apply as one jump', async ({ page 
   expect(errors).toEqual([])
 })
 
-test('a loop nudge key with the loop off turns it on from the last range', async ({ page }) => {
+test('@shortcuts a loop nudge key with the loop off turns it on from the last range', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   // The 400 ms settle passes only when the test says so.
   await page.clock.install()
   await openPlayer(page)
+  // Give "Loop end +1 bar" a key, stored as the Shortcuts tab would (binding it there is
+  // shortcuts.spec's job; here the settings window's close animation would only add a wait).
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('pianomeister.settings') ?? '{}')
+    stored.shortcuts = {
+      ...stored.shortcuts,
+      loopEndLater: [
+        {
+          kind: 'key',
+          match: 'char',
+          value: 'j',
+          ctrl: false,
+          alt: false,
+          shift: false,
+          meta: false,
+        },
+      ],
+    }
+    localStorage.setItem('pianomeister.settings', JSON.stringify(stored))
+  })
+  await page.reload()
+  await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
-  // Give "Loop end +1 bar" a key.
-  await page.getByTestId('menu-settings').click()
-  await page.getByTestId('tab-shortcuts').click()
-  const row = page.getByTestId('shortcut-loopEndLater')
-  await expect(row.getByTestId('shortcut-none')).toBeVisible()
-  await row.getByTestId('shortcut-add').click()
-  await page.keyboard.press('j')
-  await expect(row.getByTestId('shortcut-key')).toHaveText(['J'])
-  await page.keyboard.press('Escape')
-  await expect(page.getByTestId('settings-window')).toBeHidden()
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
 
   const toggle = page.getByTestId('toggle-loop')

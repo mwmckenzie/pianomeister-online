@@ -67,7 +67,9 @@ for (const viewport of VIEWPORTS) {
   test.describe(size, () => {
     test.use({ viewport })
 
-    test(`the cheat sheet fits without horizontal scrolling at ${size}`, async ({ page }) => {
+    test(`@shortcuts the cheat sheet fits without horizontal scrolling at ${size}`, async ({
+      page,
+    }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
       await page.keyboard.press('?')
@@ -82,7 +84,9 @@ for (const viewport of VIEWPORTS) {
       expect(errors).toEqual([])
     })
 
-    test(`Settings → Shortcuts fits without horizontal scrolling at ${size}`, async ({ page }) => {
+    test(`@shortcuts Settings → Shortcuts fits without horizontal scrolling at ${size}`, async ({
+      page,
+    }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
       await page.getByTestId('menu-settings').click()

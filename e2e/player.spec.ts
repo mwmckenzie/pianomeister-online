@@ -16,7 +16,9 @@ import {
 
 const barOf = (barBeat: string | null) => Number.parseInt((barBeat ?? '').split(':')[0] ?? '', 10)
 
-test('plays the Minuet and the HUD bar:beat advances, without console errors', async ({ page }) => {
+test('@player plays the Minuet and the HUD bar:beat advances, without console errors', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 30_000 })
@@ -34,7 +36,7 @@ test('plays the Minuet and the HUD bar:beat advances, without console errors', a
   expect(errors).toEqual([])
 })
 
-test('Space plays and pauses; arrow keys step bars; Home goes back to the start', async ({
+test('@player @smoke Space plays and pauses; arrow keys step bars; Home goes back to the start', async ({
   page,
 }) => {
   await page.goto('./#/')
@@ -53,7 +55,7 @@ test('Space plays and pauses; arrow keys step bars; Home goes back to the start'
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
 })
 
-test('the timeline seeks by bar, by keyboard and by clicking', async ({ page }) => {
+test('@player the timeline seeks by bar, by keyboard and by clicking', async ({ page }) => {
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   const timeline = page.getByTestId('timeline')
@@ -69,7 +71,7 @@ test('the timeline seeks by bar, by keyboard and by clicking', async ({ page }) 
   await expect(page.getByTestId('hud-bar-beat')).toHaveText(/^\d+:1$/)
 })
 
-test('the playfield sidebar opens with P, applies changes live, and stays open', async ({
+test('@player @smoke the playfield sidebar opens with P, applies changes live, and stays open', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -103,7 +105,9 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
   expect(errors).toEqual([])
 })
 
-test('sidebar sections: one open at a time, scrolled to the top, remembered', async ({ page }) => {
+test('@player sidebar sections: one open at a time, scrolled to the top, remembered', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
@@ -145,7 +149,7 @@ test('sidebar sections: one open at a time, scrolled to the top, remembered', as
   expect(errors).toEqual([])
 })
 
-test('a changed setting lights its reset icon, and reset restores the default', async ({
+test('@player a changed setting lights its reset icon, and reset restores the default', async ({
   page,
 }) => {
   await page.goto('./#/')
@@ -164,7 +168,7 @@ test('a changed setting lights its reset icon, and reset restores the default', 
   await expect(reset).toHaveAttribute('data-changed', 'false')
 })
 
-test('section reset applies at once with Undo; a newer reset replaces the Undo', async ({
+test('@player section reset applies at once with Undo; a newer reset replaces the Undo', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -198,7 +202,7 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   expect(errors).toEqual([])
 })
 
-test('visual-clarity and render settings apply, persist, and show the render readout', async ({
+test('@player visual-clarity and render settings apply, persist, and show the render readout', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -246,7 +250,9 @@ test('visual-clarity and render settings apply, persist, and show the render rea
 test.describe('stored v1 settings', () => {
   test.use({ storageState: EMPTY_STORAGE })
 
-  test('settings saved by milestone 4 (v1) are migrated, not discarded', async ({ page }) => {
+  test('@player settings saved by milestone 4 (v1) are migrated, not discarded', async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
       if (localStorage.getItem('pianomeister.settings') !== null) return
       localStorage.setItem(
@@ -280,7 +286,7 @@ test.describe('stored v1 settings', () => {
   })
 })
 
-test('keyboard limits: lowering the black keys clamps their press depth, and it persists', async ({
+test('@player keyboard limits: lowering the black keys clamps their press depth, and it persists', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -310,7 +316,7 @@ test('keyboard limits: lowering the black keys clamps their press depth, and it 
   expect(errors).toEqual([])
 })
 
-test('tempo and loop popovers: tempo %, a bar loop on the timeline, pre-roll, back to start', async ({
+test('@player tempo and loop popovers: tempo %, a bar loop on the timeline, pre-roll, back to start', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -355,7 +361,7 @@ test('tempo and loop popovers: tempo %, a bar loop on the timeline, pre-roll, ba
   expect(errors).toEqual([])
 })
 
-test('while playing, idle controls fade out and any activity brings them back', async ({
+test('@player while playing, idle controls fade out and any activity brings them back', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -424,7 +430,7 @@ test('while playing, idle controls fade out and any activity brings them back', 
   expect(errors).toEqual([])
 })
 
-test('loop range: slider and fields stay in sync and never allow an invalid range', async ({
+test('@player loop range: slider and fields stay in sync and never allow an invalid range', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -496,7 +502,7 @@ test('loop range: slider and fields stay in sync and never allow an invalid rang
   expect(errors).toEqual([])
 })
 
-test('the HUD: bar:beat with upward beat dots, tempo and time, values beside the toggles', async ({
+test('@player the HUD: bar:beat with upward beat dots, tempo and time, values beside the toggles', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -532,7 +538,7 @@ test('the HUD: bar:beat with upward beat dots, tempo and time, values beside the
   expect(errors).toEqual([])
 })
 
-test('the bar:beat colon never moves as the numbers change', async ({ page }) => {
+test('@player the bar:beat colon never moves as the numbers change', async ({ page }) => {
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   const timeline = page.getByTestId('timeline')
@@ -557,7 +563,7 @@ test('the bar:beat colon never moves as the numbers change', async ({ page }) =>
   expect([at9, at10, at57]).toEqual([at1, at1, at1])
 })
 
-test('the app menu: icons name themselves on hover, L opens the library, comma the settings', async ({
+test('@player the app menu: icons name themselves on hover, L opens the library, comma the settings', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -586,7 +592,7 @@ test('the app menu: icons name themselves on hover, L opens the library, comma t
   expect(errors).toEqual([])
 })
 
-test('during a count-in the HUD shows the target bar dimmed and the dots count the pre-roll', async ({
+test('@player during a count-in the HUD shows the target bar dimmed and the dots count the pre-roll', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -611,7 +617,9 @@ test('during a count-in the HUD shows the target bar dimmed and the dots count t
   expect(errors).toEqual([])
 })
 
-test('loop range: a pointer drag into the other thumb pushes it along', async ({ page }) => {
+test('@player loop range: a pointer drag into the other thumb pushes it along', async ({
+  page,
+}) => {
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   await page.getByTestId('open-loop').click()
@@ -640,7 +648,7 @@ test('loop range: a pointer drag into the other thumb pushes it along', async ({
 test.describe('stored v3 settings', () => {
   test.use({ storageState: EMPTY_STORAGE })
 
-  test('settings saved with the v3 idle choices migrate to the switch and seconds', async ({
+  test('@player settings saved with the v3 idle choices migrate to the switch and seconds', async ({
     page,
   }) => {
     await page.addInitScript(() => {
@@ -677,7 +685,9 @@ test.describe('stored v3 settings', () => {
   })
 })
 
-test('the tempo step (Practice tab) sets how far the tempo slider moves', async ({ page }) => {
+test('@player the tempo step (Practice tab) sets how far the tempo slider moves', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
@@ -700,7 +710,7 @@ test('the tempo step (Practice tab) sets how far the tempo slider moves', async 
   expect(errors).toEqual([])
 })
 
-test('M toggles the metronome (Full song: the Audio setting), back to its last mode', async ({
+test('@player M toggles the metronome (Full song: the Audio setting), back to its last mode', async ({
   page,
 }) => {
   const errors = watchErrors(page)

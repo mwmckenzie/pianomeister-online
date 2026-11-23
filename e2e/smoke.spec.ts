@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures'
 
-test('opens the player as the home page', async ({ page }) => {
+test('@smoke opens the player as the home page', async ({ page }) => {
   // Relative path so navigation stays under the /pianomeister-online/ base in baseURL.
   await page.goto('./#/')
   await expect(page.getByTestId('stage')).toBeVisible()
@@ -8,7 +8,7 @@ test('opens the player as the home page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Playfield panel (P)' })).toBeVisible()
 })
 
-test('serves a web app manifest that Chromium parses without errors', async ({ page }) => {
+test('@smoke serves a web app manifest that Chromium parses without errors', async ({ page }) => {
   await page.goto('./#/')
   const cdp = await page.context().newCDPSession(page)
   const { url, errors } = (await cdp.send('Page.getAppManifest')) as {
