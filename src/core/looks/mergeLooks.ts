@@ -15,16 +15,23 @@ export function mergeLooks(
   existing: readonly Look[],
   newId: () => string,
   skipIdentical = false,
-): { readonly added: readonly Look[]; readonly skipped: number } {
+): {
+  readonly added: readonly Look[]
+  readonly skipped: number
+  /** Each incoming id → the id it has here (a skipped look's is the local one's). */
+  readonly idMap: ReadonlyMap<string, string>
+} {
   const byId = new Map(existing.map((look) => [look.id, look]))
   const ids = new Set([...BUILT_IN_LOOKS, ...existing].map((look) => look.id))
   const names = new Set([...BUILT_IN_LOOKS, ...existing].map((look) => look.name.toLowerCase()))
   const added: Look[] = []
+  const idMap = new Map<string, string>()
   let skipped = 0
   for (const look of incoming) {
     const mine = byId.get(look.id)
     if (skipIdentical && mine !== undefined && sameLookValues(mine, look)) {
       skipped++
+      idMap.set(look.id, mine.id)
       continue
     }
     const id = look.id === '' || ids.has(look.id) ? newId() : look.id
@@ -32,6 +39,7 @@ export function mergeLooks(
     ids.add(id)
     names.add(name.toLowerCase())
     added.push({ ...look, id, name, builtIn: false })
+    if (look.id !== '') idMap.set(look.id, id)
   }
-  return { added, skipped }
+  return { added, skipped, idMap }
 }

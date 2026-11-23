@@ -53,8 +53,8 @@ export function readLookFile(
     })
   }
   if (looks.length === 0) return { ok: false, error: 'empty' }
-  const { added, skipped } = mergeLooks(looks, existing, newId, skipIdentical)
-  return { ok: true, looks: added, skipped }
+  const { added, skipped, idMap } = mergeLooks(looks, existing, newId, skipIdentical)
+  return { ok: true, looks: added, skipped, idMap }
 }
 
 function isDate(value: unknown): value is string {

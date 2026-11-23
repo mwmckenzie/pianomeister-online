@@ -184,3 +184,45 @@ describe('formatImportSummary', () => {
     expect(formatImportSummary({ merged: [], replaced: [], addedProfiles: 0 })).toBe('')
   })
 })
+
+describe('planBackupMerge: playlists (backup 1.4)', () => {
+  const list = (id: string, name: string, songId = 'song') => ({
+    id,
+    profileId: 'default',
+    name,
+    lookId: null,
+    entries: [{ songId, lookId: null }],
+    shuffle: false,
+    repeat: 'playlist' as const,
+    createdAt: '2026-11-24T10:00:00.000Z',
+    updatedAt: '2026-11-24T10:00:00.000Z',
+    lastPlayedAt: null,
+  })
+  const here: PracticeData = { ...local, playlists: [list('pl1', 'Evening')] }
+  const incoming: PracticeData = {
+    ...backupMe,
+    playlists: [list('pl1', 'Evening'), list('pl1x', 'Evening'), list('pl1', 'Evening', 'other')],
+  }
+  const planWith = (choice: ProfileChoice) =>
+    planBackupMerge(incoming, here, new Map([['default', choice]]), ids())
+
+  it('Merge: skips an identical one, adds the rest under new ids and names, overwrites nothing', () => {
+    const added = planWith('merge').add.playlists ?? []
+    expect(added.map((p) => [p.id, p.name])).toEqual([
+      ['pl1x', 'Evening (2)'],
+      ['new1', 'Evening (3)'],
+    ])
+  })
+
+  it('Add as new: the playlists go to the new profile', () => {
+    const result = planWith('addNew')
+    const profileId = result.add.profiles[0]?.id
+    expect((result.add.playlists ?? []).every((p) => p.profileId === profileId)).toBe(true)
+  })
+
+  it('Replace: the local playlists go, so the backup keeps its own names', () => {
+    const added = planWith('replace').add.playlists ?? []
+    expect(added.map((p) => p.name)).toEqual(['Evening', 'Evening (2)', 'Evening (3)'])
+    expect(planWith('replace').clearProfileIds).toEqual(['default'])
+  })
+})

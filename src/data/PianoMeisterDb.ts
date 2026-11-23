@@ -2,6 +2,7 @@ import { Dexie, type Table } from 'dexie'
 
 import type { Bookmark } from '@/core/practice/Bookmark'
 import type { Look } from '@/core/looks/Look'
+import type { Playlist } from '@/core/playlists/Playlist'
 import { settleBookmark } from '@/core/practice/bookmarkNames'
 import { migrateLookValues } from '@/core/settings/loadSettings'
 import { DEFAULT_PROFILE } from '@/core/profiles/DEFAULT_PROFILE'
@@ -45,6 +46,7 @@ export class PianoMeisterDb extends Dexie {
   readonly sessions!: Table<Session, string>
   readonly playRecords!: Table<PlayRecord, string>
   readonly looks!: Table<Look, string>
+  readonly playlists!: Table<Playlist, string>
 
   constructor(name = 'pianomeister') {
     super(name)
@@ -125,6 +127,8 @@ export class PianoMeisterDb extends Dexie {
             ;(look as { values: unknown }).values = migrateLookValues(look.values, LOOKS_STORED_AT)
           })
       })
+    // v8 (milestone 9.5): playlists, per profile.
+    this.version(8).stores({ playlists: 'id, profileId' })
     // A new database starts with the "Me" profile (brief decision 65).
     this.on('populate', (tx) => {
       void tx.table<Profile, string>('profiles').add(DEFAULT_PROFILE)

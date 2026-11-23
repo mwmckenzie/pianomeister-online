@@ -64,7 +64,7 @@ describe('PianoMeisterDb upgrade to v2', () => {
     await createV1([upload('minuet', readFixture('minuet-in-g.mid'))])
     const db = new PianoMeisterDb(name)
     expect((await db.uploads.get('minuet'))?.facts).toEqual(v1Facts)
-    expect(db.verno).toBe(7)
+    expect(db.verno).toBe(8)
     db.close()
   })
 })
@@ -202,6 +202,30 @@ describe('PianoMeisterDb upgrade to v6', () => {
     const db = new PianoMeisterDb(name)
     expect(await db.looks.count()).toBe(0)
     expect(await db.profiles.get('p1')).toMatchObject({ name: 'Ann' })
+    db.close()
+  })
+
+  it('adds an empty playlists table at v8 and keeps the looks', async () => {
+    name = 'upgrade-v8'
+    const v7 = new Dexie(name)
+    v7.version(7).stores({
+      uploads: 'songId, addedAt',
+      songMeta: 'songId',
+      meterOverrides: 'songId',
+      handAssignments: '[profileId+songId], songId',
+      appState: 'key',
+      profiles: 'id',
+      bookmarks: 'id, [profileId+songId], songId',
+      sessions: 'id, profileId, [profileId+endedAt]',
+      playRecords:
+        'id, [profileId+songId], [profileId+bookmarkId], [profileId+startedAt], profileId, songId',
+      looks: 'id, createdAt',
+    })
+    await v7.table('looks').put({ id: 'l1', name: 'Mine', createdAt: 'x', values: {} })
+    v7.close()
+    const db = new PianoMeisterDb(name)
+    expect(await db.playlists.count()).toBe(0)
+    expect(await db.looks.get('l1')).toMatchObject({ name: 'Mine' })
     db.close()
   })
 
