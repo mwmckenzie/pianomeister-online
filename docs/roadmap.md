@@ -36,7 +36,7 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 
 ## Standalone items (not tied to a milestone)
 
-### E2e hardening _(housekeeping: first thing in the next milestone)_
+### E2e hardening ✅ _(done: branch `chore/e2e-hardening`, report `docs/reports/chore-e2e-hardening.md`)_
 
 - `loopJump.spec.ts:259` (range-slider arrow keys) failed in 9.1 and 9.2 the same way: it reads the bar while playback is running. Pause, or wait for the value to settle, before asserting.
 - Replace fixed timeouts that wait on animations or timers (the settings close animation, the Welcome highlight rotation, the loop nudge) with waits on the actual state (the element gone, the attribute set), so load doesn't fail them.
