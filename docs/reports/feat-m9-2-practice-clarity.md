@@ -249,3 +249,12 @@ The visual-review shots, the all-looks sheet and every 9.2 sheet were regenerate
 - **Library:**
   - Search "canon" in the Library, go to the player and back: the hidden-song line shows, and Show reveals Minuet.
   - Change song (O): the current song and bookmark are selected and in view under every sort, and typing still searches.
+
+## Final check before the PR — 2026-11-23
+
+- Round 2 approved after manual review.
+- **Full e2e** (`chromium` + `polish`, production preview, `--retries=0`, after the last test fixes): **177 passed, 1 failed**.
+  - The failure: `loopJump.spec.ts:259` ("arrow keys on the range slider apply the loop once they settle, or on focus loss"). It expected bar 40 and got 42: playback had moved on before the check read the bar.
+  - Run alone, it passed 3 of 3. It is timing-sensitive, the same test that failed this way in 9.1, and it doesn't touch code this branch changed. No fix.
+- `npm run check`: 765 unit tests pass. `npm run build` passes.
+- Roadmap: 9.2 ✅. Under milestone 11, check the loop repeat's draw calls on the tablet (worst case 223 at Medium); the fallback is one instanced draw per layer, rebuilt on loop change.
