@@ -38,6 +38,8 @@ async function setUp(
   settings: Settings,
   looks: { playlist: string | null; second: string | null } = { playlist: null, second: null },
 ): Promise<void> {
+  // A fresh load each time: the previous cell left the app listening.
+  await page.goto('about:blank')
   await page.goto('./#/?stats=1')
   await expect(page.getByTestId('hud-title')).toBeVisible()
   await seedPractice(page, {
@@ -125,6 +127,7 @@ test('@visual listening sheet: seam and band by tilt, crossfade and quality', as
       3,
       520,
     )
+    expect(cells).toHaveLength(9)
   }
 })
 
@@ -137,6 +140,7 @@ test('@visual listening sheet: HUD modes', async ({ page, browser }) => {
     cells.push({ label: `HUD ${mode}`, png: await pausedAt(page, start - 3) })
   }
   await writeSheet(browser, `${OUT}/hud-modes.png`, 'Listening HUD modes', cells, 3, 520)
+  expect(cells).toHaveLength(3)
 })
 
 test('@visual listening sheet: a look easing across the seam', async ({ page, browser }) => {
@@ -157,14 +161,15 @@ test('@visual listening sheet: a look easing across the seam', async ({ page, br
     await expect.poll(() => Date.now() - crossed, { timeout: 20_000 }).toBeGreaterThan(ms)
     return page.screenshot()
   }
-  cells.push({ label: 'mid-ease (~4 s)', png: await at(4000) })
+  cells.push({ label: 'early ease (~2 s, before the midpoint)', png: await at(2000) })
+  cells.push({ label: 'mid-ease (~5 s, after the midpoint)', png: await at(5000) })
   cells.push({ label: 'after (~9 s)', png: await at(9000) })
   await writeSheet(
     browser,
     `${OUT}/look-ease.png`,
     'Classic → Synthwave across a seam (crossfade 8 s)',
     cells,
-    3,
+    4,
     520,
   )
 })
