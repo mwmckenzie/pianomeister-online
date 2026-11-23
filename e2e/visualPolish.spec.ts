@@ -625,3 +625,51 @@ test('note colours recolour the notes and the keys', async ({ page }) => {
   expect(await changedPixels(page, before, await frame(page))).toBeLessThan(200)
   expect(errors).toEqual([])
 })
+
+/** The capture seam (`?capture=1`): frames only when asked, on a synthetic clock. */
+interface Capture {
+  start(seed?: number): void
+  tickAt(bar: number, seconds: number): number
+  step(tick: number, dt: number): void
+  loop(range: { startBar: number; endBar: number } | null, preRollBeats?: number): void
+}
+
+/** Sets the loop (or none), lets the app apply it, and draws one frame at the same tick. */
+async function loopFrame(
+  page: Page,
+  range: { startBar: number; endBar: number } | null,
+): Promise<string> {
+  await page.evaluate(async (r) => {
+    const api = (window as unknown as { pianomeisterCapture: Capture }).pianomeisterCapture
+    api.loop(r, 2)
+    // The practice watcher applies the loop to the transport and the engine before the next task.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    api.step(api.tickAt(2, 0.2), 0)
+  }, range)
+  const canvas = page.locator('canvas').first()
+  return (await canvas.screenshot()).toString('base64')
+}
+
+test('the first frame after a loop change shows it: no stale or flashing frame', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await openPlayer(page, '?capture=1')
+  await page.evaluate(() =>
+    (window as unknown as { pianomeisterCapture: Capture }).pianomeisterCapture.start(1),
+  )
+  const hide = await page.addStyleTag({
+    content: '* { visibility: hidden !important; } canvas { visibility: visible !important; }',
+  })
+  const none = await loopFrame(page, null)
+  const looped = await loopFrame(page, { startBar: 2, endBar: 3 })
+  // On: dimmed outside, lines, the repeat — at once, not a frame later.
+  expect(await changedPixels(page, none, looped)).toBeGreaterThan(500)
+  // Off again: exactly the frame without a loop; on again: exactly the looped frame.
+  expect(await changedPixels(page, none, await loopFrame(page, null))).toBeLessThan(20)
+  expect(
+    await changedPixels(page, looped, await loopFrame(page, { startBar: 2, endBar: 3 })),
+  ).toBeLessThan(20)
+  await hide.evaluate((el) => el.remove())
+  expect(errors).toEqual([])
+})
