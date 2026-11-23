@@ -112,14 +112,46 @@ const backdrop = computed(() =>
   sceneSnapshot.value === null ? undefined : { backgroundImage: `url(${sceneSnapshot.value})` },
 )
 
-// The details panel always shows a song: keep the selection on a visible row.
+/** The song open in the player (milestone 9.2 E): selected when the Library opens. */
+const currentSongId = computed(() => practice.songId)
+/** A search or filter hides the current song: say so instead of clearing it silently. */
+const currentHidden = computed(
+  () =>
+    store.loaded &&
+    currentSongId.value !== null &&
+    store.entries.some((e) => e.songId === currentSongId.value) &&
+    !rows.value.some((e) => e.songId === currentSongId.value),
+)
+
+// The details panel always shows a song: keep the selection on a visible row, the current
+// song's when it's there.
 watch(
   rows,
   (list) => {
-    if (!list.some((e) => e.songId === selectedId.value)) selectedId.value = list[0]?.songId ?? null
+    if (list.some((e) => e.songId === selectedId.value)) return
+    const current = list.find((e) => e.songId === currentSongId.value)
+    selectedId.value = current?.songId ?? list[0]?.songId ?? null
   },
   { immediate: true },
 )
+
+/** Scrolls the selected song to the middle of the list and puts focus there. */
+async function revealSelected(): Promise<void> {
+  await nextTick()
+  songList.value
+    ?.querySelector(`#song-${CSS.escape(selectedId.value ?? '')}`)
+    ?.scrollIntoView({ block: 'center' })
+  songList.value?.focus({ preventScroll: true })
+}
+
+/** "Show": clears what hides the current song, then selects and reveals it. */
+function showCurrent(): void {
+  const id = currentSongId.value
+  if (id === null) return
+  clearFiltersHiding(id)
+  selectedId.value = id
+  void revealSelected()
+}
 
 /** Songs added while on this page: tagged "New" until the library is left (decision 82). */
 const newSongIds = ref<ReadonlySet<string>>(new Set())
@@ -365,6 +397,10 @@ onMounted(() => {
   void backup.run(async () => {
     await store.refresh()
     await Promise.all([store.refreshStorage(), bookmarks.refresh(), stats.refresh()])
+    if (rows.value.some((e) => e.songId === currentSongId.value)) {
+      selectedId.value = currentSongId.value
+    }
+    await revealSelected()
   })
 })
 
@@ -522,6 +558,12 @@ onBeforeUnmount(() => {
               />
             </span>
           </div>
+          <p v-if="currentHidden" class="current-hidden" data-testid="current-hidden">
+            Current song is hidden by the filter ·
+            <button type="button" class="link" data-testid="current-show" @click="showCurrent">
+              Show
+            </button>
+          </p>
           <div
             ref="songList"
             class="rows"
@@ -848,6 +890,27 @@ onBeforeUnmount(() => {
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
+}
+
+.current-hidden {
+  margin: 0;
+  padding: var(--space-2) 18px;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+.current-hidden .link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.current-hidden .link:hover,
+.current-hidden .link:focus-visible {
+  text-decoration: underline;
 }
 
 .empty {

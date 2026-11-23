@@ -1232,6 +1232,7 @@ ${customHint}`
       v-if="pickerLoaded"
       v-model:open="pickerOpen"
       :current-song-id="entry?.songId ?? null"
+      :current-bookmark-id="practice.bookmarkId"
       @load="onPicked"
       @open-library="openLibrary"
     />
