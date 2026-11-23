@@ -106,12 +106,12 @@ const TOGGLES: readonly {
     ],
   },
   {
-    name: 'black-shadow',
+    name: 'black-outline',
     bar: 1,
     variants: [
       {
         label: 'off',
-        settings: { notes: { contactShadow: false } },
+        settings: { notes: { blackOutline: false } },
       },
       { label: 'on', settings: {} },
     ],

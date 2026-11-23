@@ -22,8 +22,8 @@ describe('loadSettings', () => {
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS)
     expect(loadSettings(undefined)).toEqual(DEFAULT_SETTINGS)
     expect(loadSettings('garbage')).toEqual(DEFAULT_SETTINGS)
-    expect(DEFAULT_SETTINGS.camera.tiltDeg).toBe(45)
-    expect(DEFAULT_SETTINGS.highway.lookAheadBeats).toBe(8)
+    expect(DEFAULT_SETTINGS.camera.tiltDeg).toBe(35)
+    expect(DEFAULT_SETTINGS.highway.lookAheadBeats).toBe(10)
     expect(DEFAULT_SETTINGS.colors.background).toBe('#03050B')
     expect(DEFAULT_SETTINGS.colors.highway).toBe('#070B16')
   })
@@ -58,7 +58,7 @@ describe('loadSettings', () => {
         highway: 'not a section',
       }),
     )
-    expect(loaded.camera.tiltDeg).toBe(45)
+    expect(loaded.camera.tiltDeg).toBe(35)
     expect(loaded.camera.pan).toBe(0)
     expect(loaded.colors.background).toBe('#03050B')
     expect(loaded.colors.lane).toBe(DEFAULT_SETTINGS.colors.lane)
@@ -160,12 +160,12 @@ describe('loadSettings', () => {
       heads3d: true,
       whiteHeadHeight: 0.35,
       // Taller than white (milestone 9.2).
-      blackHeadHeight: 0.5,
+      blackHeadHeight: 0.6,
       headRounded: true,
-      blackSideShading: 0.4,
+      blackSideShading: 0.7,
       blackRidge: false,
-      contactShadow: true,
-      shadowStrength: 0.45,
+      blackOutline: true,
+      blackOutlineStrength: 0.8,
     })
     expect(DEFAULT_SETTINGS.highway).toMatchObject({
       blackLaneShading: true,
@@ -368,6 +368,20 @@ describe('loadSettings', () => {
     expect(s.notes).not.toHaveProperty('headHeight')
     // Nothing stored: the defaults.
     expect(loadSettings(stored({ notes: {} }, 8)).notes.whiteHeadHeight).toBe(0.35)
+  })
+
+  it('migrates v8 to v9: the contact shadow becomes the black note outline', () => {
+    const changed = loadSettings(
+      stored({ notes: { contactShadow: false, shadowStrength: 0.3 } }, 8),
+    )
+    expect(changed.notes.blackOutline).toBe(false)
+    expect(changed.notes.blackOutlineStrength).toBe(0.3)
+    expect(changed.notes).not.toHaveProperty('contactShadow')
+    expect(changed.notes).not.toHaveProperty('shadowStrength')
+    // The old default strength takes the new, stronger default.
+    const old = loadSettings(stored({ notes: { contactShadow: true, shadowStrength: 0.45 } }, 8))
+    expect(old.notes.blackOutline).toBe(true)
+    expect(old.notes.blackOutlineStrength).toBe(0.8)
   })
 
   it('migrates saved looks and look files from v8', () => {

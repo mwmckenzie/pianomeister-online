@@ -22,7 +22,7 @@ import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
 import type { GlowTwin } from './GlowTwin'
 import { NoteMask } from './notes/NoteMask'
-import { ContactShadow } from './notes/ContactShadow'
+import { BlackOutline } from './notes/BlackOutline'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
 import { BAR_START, labelRepeatRanks, RUN_START } from './model/labelRepeatRanks'
@@ -59,7 +59,7 @@ const ORDER = {
   cages: 1,
   whiteSustains: 3,
   whiteHeads: 3.1,
-  shadow: 3.5,
+  outline: 3.5,
   blackSustains: 3.6,
   blackRidges: 3.65,
   blackHeads: 3.7,
@@ -81,7 +81,7 @@ interface SongParts {
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
   /** Raised black-lane sustains (milestone 9.2), shown instead of the flat ones when on. */
   readonly ridges: HeadLayer
-  readonly shadow: ContactShadow
+  readonly outline: BlackOutline
   readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
   /** The notes in the stencil buffer, so cages never draw under them. */
   readonly masks: readonly NoteMask[]
@@ -120,11 +120,6 @@ export class Engine {
   private timeSource: () => number = () => 0
   private guides = false
   private reducedMotion = false
-  /**
-   * Raised black sustains with opaque sides under a translucent top, instead of one alpha on
-   * every face: a review seam (?ridgeSides=solid) until one is picked (milestone 9.2).
-   */
-  private ridgeSolidSides = false
   private fixedAnimationTime: number | null = null
   /** Capture mode (test seam): frames come only from captureStep(), on a synthetic clock. */
   private capturing = false
@@ -271,7 +266,7 @@ export class Engine {
       masks: [sustains.white, sustains.black, ridges, heads.white, heads.black].map(
         (layer) => new NoteMask(layer.mesh, ORDER.noteMasks),
       ),
-      shadow: new ContactShadow(black, this.time, ORDER.shadow),
+      outline: new BlackOutline(black, this.time, ORDER.outline),
       names: {
         white: new NoteNameLayer(
           white,
@@ -299,7 +294,7 @@ export class Engine {
       s.pedals.mesh,
       s.sustains.white.mesh,
       s.heads.white.mesh,
-      s.shadow.mesh,
+      s.outline.mesh,
       s.sustains.black.mesh,
       s.ridges.mesh,
       s.heads.black.mesh,
@@ -413,9 +408,8 @@ export class Engine {
       song.ridges.setLift(BLACK_LANE_Y, true)
       song.ridges.setShape(notes.blackRidgeHeight, false)
       song.ridges.setSideShading(notes.blackSideShading)
-      song.ridges.setRidgeOpacity(1 - notes.sustainCenterTransparency, this.ridgeSolidSides)
-      // The shadow falls from the black heads' height, as from a block standing on the highway.
-      song.shadow.set(notes.contactShadow, notes.shadowStrength, notes.heads3d ? heights.black : 0)
+      song.ridges.setTopOpacity(1 - notes.sustainCenterTransparency)
+      song.outline.set(notes.blackOutline, notes.blackOutlineStrength)
       const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
       for (const [layer, y, top, headTop] of [
         [song.names.white, WHITE_LANE_Y, false, notes.heads3d ? heights.white : 0],
@@ -459,12 +453,6 @@ export class Engine {
    * Test seam for the visual shots: pins the animation clock (seconds) so flicker, noise and
    * breathing render the same frame every run; null follows the frame timestamps again.
    */
-  /** Review seam (?ridgeSides=solid): see ridgeSolidSides. */
-  setRidgeSolidSides(solid: boolean): void {
-    this.ridgeSolidSides = solid
-    this.applySettings(this.settings)
-  }
-
   setFixedAnimationTime(seconds: number | null): void {
     this.fixedAnimationTime = seconds
     this.invalidate()
@@ -847,7 +835,7 @@ export class Engine {
       song.heads.white,
       song.heads.black,
       song.ridges,
-      song.shadow,
+      song.outline,
       song.pedals,
       song.names.white,
       song.names.black,

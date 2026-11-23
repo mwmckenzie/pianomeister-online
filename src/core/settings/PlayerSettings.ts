@@ -86,8 +86,9 @@ export interface PlayerSettings {
     /** Black-lane sustains as a low raised ridge (3D heads only). */
     readonly blackRidge: boolean
     readonly blackRidgeHeight: number
-    readonly contactShadow: boolean
-    readonly shadowStrength: number
+    /** A thin dark rim around black-lane notes, on the highway and the white notes beside them. */
+    readonly blackOutline: boolean
+    readonly blackOutlineStrength: number
   }
   readonly colors: {
     readonly background: string

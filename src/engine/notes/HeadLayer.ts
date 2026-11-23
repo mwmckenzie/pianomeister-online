@@ -89,8 +89,7 @@ ${TIME_GLSL}
 ${LIGHT_GLSL}
 ${NOTE_FILL_GLSL}
 uniform float uSideShade;   // 0–1: how much darker the vertical faces are than the top
-uniform float uOpacity;     // ridges: the sustain's opacity (heads: 1)
-uniform float uSolidSides;  // ridges: 1 = opaque sides under a translucent top
+uniform float uOpacity;     // ridges: the top's opacity, the sustain's (heads: 1)
 varying vec3 vNormal;
 varying vec3 vWorld;
 varying vec3 vColor;
@@ -141,7 +140,8 @@ void main() {
   // Darker vertical faces read as a solid block even where shadows and outlines are lost.
   float side = 1.0 - clamp(n.y, 0.0, 1.0);
   color *= 1.0 - uSideShade * side;
-  float alpha = f.alpha * mix(uOpacity, 1.0, uSolidSides * step(0.5, side));
+  // A ridge's top takes the sustain's transparency; its sides are opaque, so it reads as a block.
+  float alpha = f.alpha * mix(uOpacity, 1.0, step(0.5, side));
   gl_FragColor = vec4(color, haze * alpha);
 #endif
 }
@@ -184,7 +184,6 @@ export class HeadLayer {
           uRadius: { value: HEAD_EDGE_RADIUS },
           uSideShade: { value: 0 },
           uOpacity: { value: 1 },
-          uSolidSides: { value: 0 },
         },
         defines: ridge ? { RIDGE: '' } : {},
         transparent: true,
@@ -212,13 +211,9 @@ export class HeadLayer {
     this.uniform('uSideShade', amount)
   }
 
-  /**
-   * Ridges: the sustain's opacity on every face, or (`solidSides`) only on the top, over opaque
-   * sides.
-   */
-  setRidgeOpacity(opacity: number, solidSides: boolean): void {
+  /** Ridges: the top's opacity (the sustain's); the sides stay opaque. */
+  setTopOpacity(opacity: number): void {
     this.uniform('uOpacity', opacity)
-    this.uniform('uSolidSides', solidSides ? 1 : 0)
   }
 
   /** Takes the palette's current colours (after a change of note colours). */

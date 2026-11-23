@@ -484,20 +484,21 @@ const CONE: Motion = { song: 'pedal', moments: [0.05, 0.15, 0.4] }
 const BLACK_CHORDS: Motion = { song: 'black', bar: 1, moments: [2.2, 2.85, 5.1] }
 const BLACK_CROP: Record<number, Crop> = {
   25: { x: 470, y: 320, width: 400, height: 240 },
+  45: { x: 470, y: 300, width: 400, height: 240 },
   85: { x: 470, y: 290, width: 400, height: 240 },
 }
 
 test('@visual range black notes', async ({ page, browser }) => {
   test.setTimeout(3_600_000)
   await openSong(page, BLACK_NOTES_DEMO, 'Black notes demo')
-  for (const tilt of [25, 85]) {
+  for (const tilt of [25, 45, 85]) {
     const extra = { camera: { tiltDeg: tilt } }
     for (const key of [
       'notes.whiteHeadHeight',
       'notes.blackHeadHeight',
       'notes.blackRidgeHeight',
       'notes.blackSideShading',
-      'notes.shadowStrength',
+      'notes.blackOutlineStrength',
     ] as const) {
       const options = { extra, motion: BLACK_CHORDS, crop: BLACK_CROP[tilt], tag: `tilt-${tilt}` }
       expect(await rangeSheet(page, browser, key, options)).toBeGreaterThan(0)
@@ -509,7 +510,7 @@ test('@visual range low camera', async ({ page, browser }) => {
   test.setTimeout(3_600_000)
   await openSong(page, PEDAL_DEMO, 'Pedal demo')
   const sheets: [SettingKey, SheetOptions][] = [
-    ['notes.shadowStrength', { extra: LOW, crop: LOW_NOTES_CROP, tag: 'tilt-25' }],
+    ['notes.blackOutlineStrength', { extra: LOW, crop: LOW_NOTES_CROP, tag: 'tilt-25' }],
     [
       'keyboard.pressDepthWhite',
       { extra: LOW, motion: MID_PRESS, crop: LOW_KEYS_CROP, tag: 'tilt-25' },

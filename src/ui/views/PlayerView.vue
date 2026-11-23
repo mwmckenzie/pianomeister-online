@@ -805,8 +805,6 @@ onMounted(() => {
   if (route.query.animTime !== undefined && Number.isFinite(animTime)) {
     engine.setFixedAnimationTime(animTime)
   }
-  // Review-only (milestone 9.2): the second raised-sustain variant, for the contact sheet.
-  if (route.query.ridgeSides === 'solid') engine.setRidgeSolidSides(true)
   if (route.query.stats === '1') {
     // Debug-only (like ?guides=1): lets a test harness read frame timings for perf reports.
     const stats = () => engine?.stats()

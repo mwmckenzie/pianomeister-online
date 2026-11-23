@@ -262,7 +262,7 @@ const RESOLUTION = 'Resolution'
 export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<SettingValue<K>> } =
   {
     // Camera (decision 21)
-    'camera.tiltDeg': num('Tilt', 45, sidebar('camera'), [25, 85, 1], 'deg', 0),
+    'camera.tiltDeg': num('Tilt', 35, sidebar('camera'), [25, 85, 1], 'deg', 0),
     'camera.distanceOffset': num('Distance', 0, sidebar('camera'), [-0.6, 1, 0.05]),
     'camera.pan': num('Pan', 0, sidebar('camera'), [-26, 26, 0.5], 'none', 1),
 
@@ -319,7 +319,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
 
     // Highway (decisions 18, 22, 42)
     'highway.lookAheadBeats': {
-      ...num('Look-ahead', 8, sidebar('highway'), [2, 32, 1], 'beats', 0),
+      ...num('Look-ahead', 10, sidebar('highway'), [2, 32, 1], 'beats', 0),
       ...log,
     },
     'highway.blackLaneShading': bool('Darker black-key lanes', true, sidebar('highway')),
@@ -471,7 +471,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.notes.heads3d,
     },
     'notes.blackHeadHeight': {
-      ...num('Black note height', 0.5, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
+      ...num('Black note height', 0.6, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
       visible: (s) => s.notes.heads3d,
     },
     'notes.headRounded': {
@@ -479,7 +479,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.notes.heads3d,
     },
     'notes.blackSideShading': {
-      ...num('Black side shading', 0.4, sidebar('notes'), [0, 1, 0.05]),
+      ...num('Black side shading', 0.7, sidebar('notes'), [0, 1, 0.05]),
       ...percent,
       visible: (s) => s.notes.heads3d,
     },
@@ -488,14 +488,14 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.notes.heads3d,
     },
     'notes.blackRidgeHeight': {
-      ...num('Ridge height', 0.08, sidebar('notes'), [0.02, 0.2, 0.01], 'mm'),
+      ...num('Ridge height', 0.08, sidebar('notes'), [0.02, 0.35, 0.01], 'mm'),
       visible: (s) => s.notes.heads3d && s.notes.blackRidge,
     },
-    'notes.contactShadow': bool('Shadow under black-lane notes', true, sidebar('notes')),
-    'notes.shadowStrength': {
-      ...num('Shadow strength', 0.45, sidebar('notes'), [0, 1, 0.05]),
+    'notes.blackOutline': bool('Black note outline', true, sidebar('notes')),
+    'notes.blackOutlineStrength': {
+      ...num('Outline strength', 0.8, sidebar('notes'), [0, 1, 0.05]),
       ...percent,
-      visible: (s) => s.notes.contactShadow,
+      visible: (s) => s.notes.blackOutline,
     },
     'notes.sustainCenterTransparency': {
       ...num('Sustain transparency, centre', 0.25, sidebar('notes'), [0, 0.85, 0.05]),

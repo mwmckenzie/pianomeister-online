@@ -81,16 +81,16 @@ test('@visual practice clarity: keys pressed next to black keys', async ({ page,
 })
 
 /** Black notes on the highway (section B): each variant from three tilts, at quality Off and Medium. */
-const NOTE_VARIANTS: readonly { label: string; notes: Settings[string]; query?: string }[] = [
-  { label: 'defaults (white 0.35, black 0.5)', notes: {} },
+const NOTE_VARIANTS: readonly { label: string; notes: Settings[string] }[] = [
+  { label: 'defaults (white 0.35, black 0.6)', notes: {} },
   {
     label: 'low (white 0.15, black 0.25)',
     notes: { whiteHeadHeight: 0.15, blackHeadHeight: 0.25 },
   },
   { label: 'tall (white 0.6, black 0.8)', notes: { whiteHeadHeight: 0.6, blackHeadHeight: 0.8 } },
-  { label: 'ridges, one alpha', notes: { blackRidge: true } },
-  { label: 'ridges, solid sides', notes: { blackRidge: true }, query: '&ridgeSides=solid' },
-  { label: 'no side shading', notes: { blackSideShading: 0 } },
+  { label: 'raised black sustains', notes: { blackRidge: true } },
+  { label: 'ridges at 0.35', notes: { blackRidge: true, blackRidgeHeight: 0.35 } },
+  { label: 'no side shading, no outline', notes: { blackSideShading: 0, blackOutline: false } },
 ]
 /** Around the chords near the keys, where heads, sustains and ridges overlap. */
 const NOTES_CROP: Record<number, Crop> = {
@@ -121,7 +121,6 @@ test('@visual practice clarity: black notes on the highway', async ({ page, brow
           1,
           [2.2],
           notesCrop(tilt),
-          variant.query,
         )
         cells.push({ label: `${tilt}° · ${variant.label}`, png: pngs[0] as Buffer })
       }

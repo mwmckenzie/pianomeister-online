@@ -155,12 +155,12 @@ test('a changed setting lights its reset icon, and reset restores the default', 
   await expect(page.getByTestId('accordion-camera').locator('.dot')).toHaveCount(0)
 
   await nudge(page, 'camera.tiltDeg', 'ArrowLeft', 5)
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('40°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('30°')
   await expect(reset).toHaveAttribute('data-changed', 'true')
   await expect(page.getByTestId('accordion-camera').locator('.dot')).toHaveCount(1)
 
   await reset.click()
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('35°')
   await expect(reset).toHaveAttribute('data-changed', 'false')
 })
 
@@ -175,11 +175,11 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   await expect(shownValue(page, 'camera.pan')).toHaveText('2.0')
 
   await page.getByTestId('reset-section-camera').click()
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('35°')
   await expect(shownValue(page, 'camera.pan')).toHaveText('0.0')
   await expect(page.getByTestId('toast-undo')).toBeVisible()
   await page.getByTestId('toast-undo').click()
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('47°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('37°')
   await expect(shownValue(page, 'camera.pan')).toHaveText('2.0')
   await expect(page.getByTestId('toast-undo')).toBeHidden()
 
@@ -194,7 +194,7 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   await page.getByTestId('toast-undo').click()
   await expect(shownValue(page, 'keyboard.gap')).toHaveText('1.9 mm')
   await openSidebarSection(page, 'camera')
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('35°')
   expect(errors).toEqual([])
 })
 
