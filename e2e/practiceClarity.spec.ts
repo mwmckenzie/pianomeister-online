@@ -20,6 +20,10 @@ const KEYS_CROP: Record<number, Crop> = {
   25: { x: 400, y: 590, width: 240, height: 120 },
   85: { x: 400, y: 560, width: 240, height: 160 },
 }
+/** `SHEET_FULL=1` shows whole frames, for finding the crops. */
+function keysCrop(tilt: number): Crop | undefined {
+  return process.env.SHEET_FULL ? undefined : KEYS_CROP[tilt]
+}
 /** A press takes 0.04 s: 0.017 s and 0.034 s catch it at about 40% and 85%; 0.3 s is held. */
 const MOMENTS = [0.017, 0.034, 0.3]
 
@@ -30,7 +34,7 @@ test('@visual practice clarity: keys pressed next to black keys', async ({ page,
   await openSong(page, PEDAL_DEMO, 'Pedal demo')
   const cells: Cell[] = []
   for (const tilt of [25, 85]) {
-    const crop = process.env.SHEET_FULL ? undefined : KEYS_CROP[tilt]
+    const crop = keysCrop(tilt)
     const { pngs } = await captureWith(page, { camera: { tiltDeg: tilt } }, 1, MOMENTS, crop)
     pngs.forEach((png, i) => cells.push({ label: `tilt ${tilt}° · ${MOMENTS[i]} s`, png }))
     for (const white of [0.4, 0.6]) {
