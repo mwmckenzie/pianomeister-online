@@ -122,4 +122,8 @@ Roadmap: 9.5 is marked ✅ done, with its notes heading pointing to the spec and
 
 ### Checks
 
-Results are in the PR description and the round-2 commit.
+- `npm run check`: pass, 803 unit tests (114 files). The lint warnings that remain are in no committed file (throwaway local specs, now deleted).
+- `npm run test:e2e:affected` (chromium; `@smoke` plus 10 area tags): **182 passed, 2 failed**. Neither failure is caused by this branch:
+  - `@library practice columns sort by header…`: expected "3 days", got "2 days". The run was at 23:36 local time: the seeded play "3 days ago" crosses a day boundary late in the evening. This is a pre-existing, time-of-day dependent test; this branch only changed the Library's tab-key line. It fails consistently at this hour and should pass in the morning. Worth fixing the seed (anchor it at midday) as a follow-up.
+  - `@welcome highlights rotate every 8 s…`: passed on `--last-failed` re-run (flaky; it uses Playwright's fake clock).
+- New test `import asks "Import its looks too"`: 3/3 with `--repeat-each=3`.
