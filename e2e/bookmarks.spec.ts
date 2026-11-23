@@ -304,13 +304,15 @@ test('a play is a start: the first Play and each loop wrap count, for the matchi
   await expect(minuet.getByTestId('picker-song-time')).not.toHaveText('—')
   await expect(minuet.getByTestId('picker-song-lastcell')).toHaveText('Today')
   await expect(page.getByTestId('picker-song-played')).toHaveText(`${total}×`)
-  // Full song is selected by default: none of this practice is its.
+  // The loaded bookmark is selected (milestone 9.2): all of this practice is its.
+  await expect(page.getByTestId('picker-bookmark')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByTestId('picker-entry-played')).toHaveText(`${total}×`)
+  await expect(page.getByTestId('picker-entry-share')).toHaveText('100%')
+  // Full song: none of it.
+  await page.getByTestId('picker-full-song').click()
   await expect(page.getByTestId('picker-entry-name')).toHaveText('Full song')
   await expect(page.getByTestId('picker-entry-played')).toHaveText('—')
   await expect(page.getByTestId('picker-entry-share')).toHaveText('0%')
-  await page.getByTestId('picker-bookmark').click()
-  await expect(page.getByTestId('picker-entry-played')).toHaveText(`${total}×`)
-  await expect(page.getByTestId('picker-entry-share')).toHaveText('100%')
   await expect(page.getByTestId('picker-other-setups')).toBeHidden()
   expect(errors).toEqual([])
 })

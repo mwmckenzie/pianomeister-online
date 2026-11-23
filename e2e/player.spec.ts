@@ -86,18 +86,18 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
 
   await openSidebarSection(page, 'camera')
   await nudge(page, 'camera.tiltDeg', 'ArrowRight', 3)
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('48°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('38°')
   await expect
     .poll(async () =>
       JSON.parse(
         (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
       ),
     )
-    .toMatchObject({ version: SETTINGS_VERSION, settings: { camera: { tiltDeg: 48 } } })
+    .toMatchObject({ version: SETTINGS_VERSION, settings: { camera: { tiltDeg: 38 } } })
 
   await page.reload()
   await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
-  await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '48')
+  await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '38')
   await page.getByTestId('close-sidebar').click()
   await expect(page.getByTestId('playfield-sidebar')).toBeHidden()
   expect(errors).toEqual([])

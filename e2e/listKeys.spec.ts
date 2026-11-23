@@ -32,13 +32,14 @@ test('library: ↑/↓, Shift+↑/↓ and Enter work with no list focused; [ ] s
   const errors = watchErrors(page)
   await openPlayer(page)
   await page.goto('./#/library')
-  await expect(selectedSong(page)).toContainText('Canon in D')
+  // The Library opens on the current song (milestone 9.2), the last row here.
+  await expect(selectedSong(page)).toContainText('Minuet in G')
   // Focus on the page itself, not a list.
   await page.getByTestId('storage-status').click()
-  await page.keyboard.press('ArrowDown')
-  await expect(selectedSong(page)).toContainText('Invention')
   await page.keyboard.press('ArrowUp')
-  await expect(selectedSong(page)).toContainText('Canon in D')
+  await expect(selectedSong(page)).toContainText('Invention')
+  await page.keyboard.press('ArrowDown')
+  await expect(selectedSong(page)).toContainText('Minuet in G')
 
   // The side list: All songs, the sources, then the tags. Each applies at once.
   const pressed = (id: string) =>
@@ -70,9 +71,9 @@ test('library: ↑/↓, Shift+↑/↓ and Enter work with no list focused; [ ] s
   await page.getByTestId('search').press(']')
   await expect(page.getByTestId('search')).toHaveValue(']')
   await expect(page).toHaveURL(/#\/library/)
-  // …but ↓ from the search field still moves the list.
+  // …but ↑ from the search field still moves the list.
   await page.getByTestId('search').fill('')
-  await page.getByTestId('search').press('ArrowDown')
+  await page.getByTestId('search').press('ArrowUp')
   await expect(selectedSong(page)).toContainText('Invention')
 
   // ] goes to Bookmarks, [ back (two tabs: either way is the other one).
@@ -82,9 +83,9 @@ test('library: ↑/↓, Shift+↑/↓ and Enter work with no list focused; [ ] s
   await page.keyboard.press('[')
   await expect(page).toHaveURL(/#\/library/)
 
-  // Enter plays the selection.
+  // Enter plays the selection (back on the library, the current song is selected again).
   await page.getByTestId('storage-status').click()
-  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowUp')
   await expect(selectedSong(page)).toContainText('Invention')
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('hud-title')).toContainText('Invention')
