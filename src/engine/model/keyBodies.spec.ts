@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 
-import { keyBodies } from './keyBodies'
+import { BLACK_DEPTH_MARGIN, keyBodies } from './keyBodies'
 import { keyLayout } from './keyLayout'
 import { KEYBOARD } from './KEYBOARD'
 
@@ -58,7 +58,27 @@ describe('keyBodies', () => {
       blackHeight: 0.3,
       thickness: 0.4,
     })
-    expect(custom.find((b) => b.isBlack)).toMatchObject({ top: 0.3, thickness: 0.4 })
+    expect(custom.find((b) => b.isBlack)?.top).toBe(0.3)
+    expect(custom.find((b) => b.isBlack)?.thickness).toBeCloseTo(0.3 + 0.4 + BLACK_DEPTH_MARGIN, 12)
     expect(custom.find((b) => b.isBlack)?.length).toBeCloseTo(KEYBOARD.whiteLength * 0.7, 12)
+  })
+
+  it('reaches black bodies below the white bottoms, so a pressed white key never uncovers them', () => {
+    for (const thickness of [0.2, 0.6, 1.2]) {
+      for (const blackHeight of [0, 0.25, 0.51, 1.2]) {
+        for (const pressDepthWhite of [0, 0.3, 1.2]) {
+          const bodies = keyBodies({ ...keyboard, thickness, blackHeight, pressDepthWhite })
+          const white = bodies.find((b) => !b.isBlack)
+          const black = bodies.find((b) => b.isBlack)
+          if (white === undefined || black === undefined) throw new Error('missing key')
+          const whiteBottom = white.top - white.thickness
+          const blackBottom = black.top - black.thickness
+          expect(blackBottom).toBeLessThan(whiteBottom)
+          // A pressed white key's top never drops below its own resting bottom (its press is
+          // capped at its thickness), so the black side face it uncovers is always solid.
+          expect(-white.pressDepth).toBeGreaterThanOrEqual(whiteBottom - EPS)
+        }
+      }
+    }
   })
 })
