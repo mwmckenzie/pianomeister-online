@@ -221,13 +221,24 @@ export class NoteNameLayer {
   private headTop = 0
 
   constructor(
-    notes: readonly NoteInstance[],
+    notesIn: readonly NoteInstance[],
     time: TimeUniforms,
     atlas: Texture,
     renderOrder: number,
-    slots: LabelSlots,
-    ranks: Uint8Array,
+    slotsIn: LabelSlots,
+    ranksIn: Uint8Array,
   ) {
+    // Far to near (later notes first): labels draw on top of everything, without depth, so among
+    // themselves the nearer ones must land last. Every per-note array follows the same order.
+    const order = Array.from(notesIn.keys()).sort(
+      (a, b) => (notesIn[b]?.startTick ?? 0) - (notesIn[a]?.startTick ?? 0),
+    )
+    const notes = order.map((i) => notesIn[i] as NoteInstance)
+    const permute = (a: Uint8Array) => Uint8Array.from(order, (i) => a[i] ?? 0)
+    const slots = Object.fromEntries(
+      Object.entries(slotsIn).map(([k, v]) => [k, permute(v)]),
+    ) as unknown as LabelSlots
+    const ranks = permute(ranksIn)
     this.notes = notes
     this.byStart = Int32Array.from(notes.keys()).sort(
       (a, b) => (notes[a]?.startTick ?? 0) - (notes[b]?.startTick ?? 0),
@@ -305,6 +316,9 @@ export class NoteNameLayer {
           uAtlas: { value: atlas },
         },
         transparent: true,
+        // Labels are information, not scene geometry: drawn last (the engine's label overlay,
+        // after the notes and the glow), never cut by a nearer head. Their halo keeps them legible.
+        depthTest: false,
         depthWrite: false,
       }),
     )
@@ -347,9 +361,8 @@ export class NoteNameLayer {
     }
   }
 
-  setLift(y: number, onTop: boolean): void {
+  setLift(y: number): void {
     this.uniform('uLift', y + 0.002)
-    this.mesh.material.depthTest = !onTop
   }
 
   /** Drawing-buffer size and device pixel ratio, for constant-size labels. */

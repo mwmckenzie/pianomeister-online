@@ -113,6 +113,8 @@ export class Engine {
   private readonly scene = new Scene()
   /** Glow twins only (brief decision 109): the bloom pass draws this, not the main scene. */
   private readonly glowScene = new Scene()
+  /** Note-name labels, drawn over the finished frame (RenderPipeline's overlay). */
+  private readonly labelScene = new Scene()
   /** Bloom state the twins were last synced for; null = sync on the next frame. */
   private glowSyncedFor: boolean | null = null
   private readonly camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 1000)
@@ -174,7 +176,13 @@ export class Engine {
   }
 
   mount(canvas: HTMLCanvasElement): void {
-    this.pipeline = new RenderPipeline(canvas, this.scene, this.glowScene, this.camera)
+    this.pipeline = new RenderPipeline(
+      canvas,
+      this.scene,
+      this.glowScene,
+      this.camera,
+      this.labelScene,
+    )
     this.applySettings(this.settings)
     // Size changes in device pixels (window resize, browser zoom); where the browser can't
     // observe the device-pixel box, the CSS box. A device-pixel-ratio change alone is also
@@ -314,10 +322,9 @@ export class Engine {
       s.sustains.black.mesh,
       s.ridges.mesh,
       s.heads.black.mesh,
-      s.names.white.mesh,
-      s.names.black.mesh,
       ...s.masks.map((m) => m.mesh),
     )
+    this.labelScene.add(s.names.white.mesh, s.names.black.mesh)
     this.loopRepeat.setSources(this.repeatSources(s))
     this.lastTick = null
     this.effects.clear()
@@ -350,6 +357,7 @@ export class Engine {
   private repeatSources(song: SongParts): RepeatSource[] {
     const scene = () => this.scene
     const glow = () => this.glowScene
+    const labels = () => this.labelScene
     const main: Mesh<BufferGeometry, ShaderMaterial>[] = [
       song.sustains.white.mesh,
       song.sustains.black.mesh,
@@ -357,8 +365,6 @@ export class Engine {
       song.heads.white.mesh,
       song.heads.black.mesh,
       song.outline.mesh,
-      song.names.white.mesh,
-      song.names.black.mesh,
       song.pedals.mesh,
       ...song.masks.map((m) => m.mesh),
       ...song.highway.repeatMeshes,
@@ -377,6 +383,7 @@ export class Engine {
     return [
       ...main.map((mesh) => ({ mesh, parent: scene })),
       ...twins.map((mesh) => ({ mesh, parent: glow })),
+      ...[song.names.white.mesh, song.names.black.mesh].map((mesh) => ({ mesh, parent: labels })),
     ]
   }
 
@@ -531,12 +538,12 @@ export class Engine {
       song.ridges.setTopOpacity(1 - notes.sustainCenterTransparency)
       song.outline.set(notes.blackOutline, notes.blackOutlineStrength)
       const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
-      for (const [layer, y, top, headTop] of [
-        [song.names.white, WHITE_LANE_Y, false, notes.heads3d ? heights.white : 0],
-        [song.names.black, BLACK_LANE_Y + 0.003, false, notes.heads3d ? heights.black : 0],
+      for (const [layer, y, headTop] of [
+        [song.names.white, WHITE_LANE_Y, notes.heads3d ? heights.white : 0],
+        [song.names.black, BLACK_LANE_Y + 0.003, notes.heads3d ? heights.black : 0],
       ] as const) {
         layer.mesh.visible = namesOnNotes
-        layer.setLift(y, top)
+        layer.setLift(y)
         layer.applySettings(settings.names, headTop)
       }
       const cageShown = pedal.show && (pedal.fillOpacity > 0 || pedal.border)
@@ -968,6 +975,7 @@ export class Engine {
       ...parts.map((p) => p.mesh),
       ...song.masks.map((m) => m.mesh),
     )
+    this.labelScene.remove(song.names.white.mesh, song.names.black.mesh)
     for (const mask of song.masks) mask.dispose()
     this.loopRepeat.setSources([])
     song.highway.dispose()
