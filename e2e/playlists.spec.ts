@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { type Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
+import { SETTINGS_VERSION } from '../src/core/settings/loadSettings'
 import { readStore, seedPractice, SONG_IDS, watchErrors } from './support'
 
 /**
@@ -178,8 +179,71 @@ test('@playlists export then import brings the playlist back', async ({ page }) 
     mimeType: 'application/json',
     buffer: Buffer.from(text),
   })
-  await expect(page.getByTestId('toast').getByText('Those playlists are here already')).toBeVisible()
+  await expect(
+    page.getByTestId('toast').getByText('Those playlists are here already'),
+  ).toBeVisible()
   await expect(page.getByTestId('playlist-item')).toHaveCount(1)
+})
+
+/** A playlist file whose playlist uses a saved look the file carries. */
+function fileWithLook(playlistId: string, name: string, lookId: string, lookName: string): string {
+  return JSON.stringify({
+    format: 'pianomeister-playlist',
+    version: 1,
+    playlists: [
+      {
+        id: playlistId,
+        name,
+        lookId,
+        entries: [{ songId: SONG_IDS.minuet, lookId: null }],
+        shuffle: false,
+        repeat: 'playlist',
+        createdAt: NOW,
+      },
+    ],
+    looks: {
+      format: 'pianomeister-look',
+      version: SETTINGS_VERSION,
+      looks: [
+        {
+          id: lookId,
+          name: lookName,
+          createdAt: NOW,
+          settings: { colors: { background: '#200010' } },
+        },
+      ],
+    },
+  })
+}
+
+test('@playlists @looks import asks "Import its looks too": on adds the look, off leaves it out', async ({
+  page,
+}) => {
+  await openPlaylists(page)
+  const importFile = (name: string, text: string) =>
+    page.getByTestId('playlist-import-file').setInputFiles({
+      name,
+      mimeType: 'application/json',
+      buffer: Buffer.from(text),
+    })
+
+  // On (the default): the look joins My looks and the playlist uses it.
+  await importFile('with.pmplaylist.json', fileWithLook('p1', 'With look', 'look-1', 'Dusk'))
+  await expect(page.getByTestId('playlist-import-dialog')).toBeVisible()
+  await expect(page.getByTestId('playlist-import-looks')).toBeChecked()
+  await page.getByTestId('playlist-import-confirm').click()
+  await expect(page.getByTestId('playlist-item')).toContainText('Look: Dusk')
+  expect((await readStore<{ name: string }>(page, 'looks')).map((l) => l.name)).toEqual(['Dusk'])
+
+  // Off: no look is added; the playlist falls back to the current look.
+  await importFile('without.pmplaylist.json', fileWithLook('p2', 'Without look', 'look-2', 'Dawn'))
+  await page.getByTestId('playlist-import-looks').uncheck()
+  await page.getByTestId('playlist-import-confirm').click()
+  await expect(page.getByTestId('playlist-import-dialog')).toBeHidden()
+  await expect(page.getByTestId('playlist-item').filter({ hasText: 'Without look' })).toContainText(
+    'Look: Current look',
+  )
+  expect((await readStore<{ name: string }>(page, 'looks')).map((l) => l.name)).toEqual(['Dusk'])
 })
 
 test('@playlists @welcome the Listen card: hidden with none, recent first, Play listens', async ({

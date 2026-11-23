@@ -18,7 +18,7 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 | 9   | **Visual polish**                            | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects                                                                                                                                                                             | ✅ done     |
 | 9.1 | **Looks v2 & built-in looks**                | Looks cover the whole playfield sidebar (except device cost); rename, export, import, paste, backup; looks stored in Dexie; every slider range trimmed to what makes visual sense, log sliders; Note colours palettes; thirteen built-in looks (looks and defaults provisional until the tuning pass below) | ✅ done     |
 | 9.2 | **Practice clarity**                         | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       | ✅ done     |
-| 9.5 | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         | in progress |
+| 9.5 | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         | ✅ done     |
 | 10  | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                                      |             |
 | 11  | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                                                 |             |
 | 12  | **Benchmark mode** _(spec first)_            | A built-in, repeatable performance test for any device (PC, laptop, iPad, desktop build): scripted songs and presets, frame/CPU/GPU timings, device info, results screen with export and local history                                                                                                      |             |
@@ -71,6 +71,10 @@ Known items:
 - Fireworks: glare at the keys where the explosion rings start.
 - The very low "subtle" bloom (0.1) in Study and Night Focus.
 - Octave glow is brighter at the same value since the 9.1 line-glow fix.
+
+### Relink a missing playlist song _(done when there is time)_
+
+A playlist entry whose song is no longer in the library (deleted, or a playlist imported from another device) shows as "Missing song · Not in this library" and is skipped when playing (milestone 9.5). Relinking would let you point it at a song in this library (e.g. the same piece uploaded again with a different file hash), keeping its place and per-song look. Possible matches: the same title and composer.
 
 ## Backlog — idea details
 
@@ -219,7 +223,7 @@ Problem: when a white key is pressed, the bottoms of the neighbouring black keys
 - **Hidden by a filter:** if an active search or filter hides the current song, don't clear it silently. Show a small line, "Current song is hidden by the filter · Show", that clears the filter and reveals the song.
 - **Focus:** keyboard focus starts on the selected song, so list keys continue from there.
 
-### 9.5 Playlist mode _(in progress: spec `docs/milestones/m9-5.md` replaces these notes where they differ)_
+### 9.5 Playlist mode _(done: spec `docs/milestones/m9-5.md`, report `docs/reports/feat-m9-5-playlists.md`; the spec replaces these notes where they differ)_
 
 Play full songs back-to-back as background music, with the piano and highway as a visualizer.
 

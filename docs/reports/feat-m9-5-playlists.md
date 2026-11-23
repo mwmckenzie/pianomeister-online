@@ -107,3 +107,19 @@ Run with `npx playwright test --project=visual e2e/listeningSheets.spec.ts`. Rea
 - [ ] While listening, change something in the playfield sidebar: the note "Changes here last until you leave listening" shows, and leaving restores your settings. With the playlist's look a saved look, try "Update playlist look".
 - [ ] Stats after listening: no new session, time or plays.
 - [ ] Welcome: no card with no playlists; with some, recent first, Play listens, "All playlists" opens the tab.
+
+## Round 2 — 2026-11-23: review answers, PR
+
+Round 1 approved. Answers to the open questions and what changed:
+
+1. **Missing songs:** no relink now. Added the roadmap item "Relink a missing playlist song" (standalone, done when there is time).
+2. **Import with looks:** new e2e test `@playlists @looks import asks "Import its looks too"`. A file carrying a saved look, imported with the box on, adds the look to My looks and the playlist uses it. With the box off, no look is added and the playlist falls back to "Current look". It passed 3 of 3 with `--repeat-each=3`.
+3. **Wall-clock easing while paused:** kept.
+4. **Stats seam:** kept.
+5. **Length differences:** fine, no change.
+
+Roadmap: 9.5 is marked ✅ done, with its notes heading pointing to the spec and this report, so it lands on main with the merge.
+
+### Checks
+
+Results are in the PR description and the round-2 commit.
