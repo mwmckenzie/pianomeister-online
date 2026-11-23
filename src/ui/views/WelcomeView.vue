@@ -13,6 +13,7 @@ import { useProfileStore } from '../stores/profileStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { usePracticeDays } from '../stats/usePracticeDays'
 import CalendarCard from '../welcome/CalendarCard.vue'
+import ListenCard from '../welcome/ListenCard.vue'
 import HighlightRotator from '../welcome/HighlightRotator.vue'
 import ProfileChip from '../welcome/ProfileChip.vue'
 import ResumeCard from '../welcome/ResumeCard.vue'
@@ -95,6 +96,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown))
     <div class="cards">
       <WeekCard />
       <CalendarCard />
+      <ListenCard />
     </div>
     <div class="highlight">
       <HighlightRotator :highlights="highlights" />
