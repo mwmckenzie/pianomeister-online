@@ -4,8 +4,8 @@ import { totalsBy } from './sumPractice'
 import { sessionize } from './sessionize'
 
 /** Summary stats for one profile's play records. */
-export function summariseProfile(records: readonly PlayRecord[]): ProfileSummary {
-  const sessions = sessionize(records).length
+export function summariseProfile(records: readonly PlayRecord[], gapMs?: number): ProfileSummary {
+  const sessions = sessionize(records, gapMs).length
   const bySong = totalsBy(records, 'songId')
   let playedMs = 0
   let lastPlayedAt: number | null = null

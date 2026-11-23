@@ -9,4 +9,6 @@ export interface HighlightInput {
   readonly now: number
   readonly weekStart: number
   readonly timeZone?: string
+  /** The "New session after" setting, in ms (default 30 min). */
+  readonly gapMs?: number
 }

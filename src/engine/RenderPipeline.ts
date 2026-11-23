@@ -73,6 +73,8 @@ export class RenderPipeline {
     /** The glow twins (brief decision 109), drawn by the bloom pass. */
     private readonly glowScene: Scene,
     private readonly camera: Camera,
+    /** Drawn last, straight onto the screen with no depth: note-name labels (milestone 9.2). */
+    private readonly overlayScene: Scene,
   ) {
     this.renderer = new WebGLRenderer({
       canvas,
@@ -132,11 +134,23 @@ export class RenderPipeline {
     if (aspect) aspect.value = this.cssWidth / this.cssHeight
   }
 
+  /** The overlay over the finished frame (after bloom, vignette and anti-aliasing). */
+  private renderOverlay(): void {
+    if (!this.overlayScene.children.some((c) => c.visible)) return
+    const { renderer } = this
+    const autoClear = renderer.autoClear
+    renderer.autoClear = false
+    renderer.setRenderTarget(null)
+    renderer.render(this.overlayScene, this.camera)
+    renderer.autoClear = autoClear
+  }
+
   render(): void {
     this.renderer.info.reset()
     this.gpu.begin()
     if (this.composer === null) this.renderer.render(this.scene, this.camera)
     else this.composer.render()
+    this.renderOverlay()
     this.gpu.end()
   }
 

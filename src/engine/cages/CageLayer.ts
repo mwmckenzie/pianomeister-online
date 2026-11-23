@@ -37,8 +37,8 @@ varying float vEnd;
 varying float vStartEdge;
 varying float vEndEdge;
 void main() {
-  float lo = max(aRect.z, uTick);
-  float hi = max(lo, min(aRect.w, uTick + 1.5 * uLookAheadTicks));
+  float lo = max(max(aRect.z, uTick), uClipLo);
+  float hi = max(lo, min(min(aRect.w, uTick + 1.5 * uLookAheadTicks), uClipHi));
   float tick = mix(lo, hi, position.y);
   float x = mix(aRect.x, aRect.y, position.x);
   vX = x - aRect.x;
@@ -76,7 +76,7 @@ varying float vEnd;
 varying float vStartEdge;
 varying float vEndEdge;
 void main() {
-  float haze = hazeAlpha(vTick);
+  float haze = hazeAlpha(vTick) * (1.0 - loopDim(vTick));
   float along = (vTick - vStart) * uUnitsPerTick;
   float len = (vEnd - vStart) * uUnitsPerTick;
   // Distance inside the cage's outline (world units), rounded at the corners.

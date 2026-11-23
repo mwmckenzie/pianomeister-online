@@ -12,6 +12,7 @@ import {
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import { GlowTwin } from './GlowTwin'
+import { LINE_AA_GLSL } from './lines/LINE_AA_GLSL'
 import { NowLine } from './lines/NowLine'
 import type { NoteColors } from './NoteColors'
 import { keyLayout } from './model/keyLayout'
@@ -36,25 +37,6 @@ const LANE_THICKNESS = 0.03
 const LINE_MARGIN = 0.25
 /** Half width of a glowing line's quad: room for the widest line (0.3) and its halo. */
 const GLOW_LINE_HALF = 0.75
-
-/** Coverage of a line of world width `width` at signed world distance `d` from its centre. */
-const LINE_AA_GLSL = /* glsl */ `
-// A line's glow is its hue at full brightness: the default line colours are dark greys-blue, and
-// glowing in them gave the bloom almost nothing, so the glow slider looked broken.
-vec3 glowHue(vec3 c) {
-  return c / max(max(c.r, c.g), max(c.b, 0.05));
-}
-// A soft aura around a line for the bloom to spread: a thin far line alone covers under a pixel.
-float glowAura(float d, float width) {
-  return 0.35 * exp(-abs(d) / clamp(2.0 * width, 0.04, 0.25));
-}
-float lineCoverage(float d, float width) {
-  float pixel = max(fwidth(d), 1e-5);
-  float edge = clamp((0.5 * width - abs(d)) / pixel + 0.5, 0.0, 1.0);
-  // A line narrower than a pixel keeps its average brightness by fading, not by aliasing.
-  return edge * min(1.0, width / pixel);
-}
-`
 
 /** A static mesh on the highway whose fragments fade by their distance in ticks. */
 const STATIC_VERTEX = /* glsl */ `
@@ -85,7 +67,8 @@ ${TIME_GLSL}
 uniform float uStrength;
 varying float vZ;
 void main() {
-  float alpha = uStrength * hazeAlpha(zToTick(vZ));
+  float tick = zToTick(vZ);
+  float alpha = uStrength * hazeAlpha(tick) * (1.0 - loopDim(tick));
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
 }
@@ -99,7 +82,9 @@ uniform float uOpacity;
 varying float vZ;
 varying float vAcross;
 void main() {
-  float alpha = uOpacity * hazeAlpha(zToTick(vZ)) * lineCoverage(vAcross, ${LANE_THICKNESS.toFixed(3)});
+  float tick = zToTick(vZ);
+  float alpha = uOpacity * hazeAlpha(tick) * (1.0 - loopDim(tick));
+  alpha *= lineCoverage(vAcross, ${LANE_THICKNESS.toFixed(3)});
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(uColor, alpha);
 }
@@ -118,7 +103,8 @@ uniform float uGlow;
 varying float vZ;
 varying float vAcross;
 void main() {
-  float haze = hazeAlpha(zToTick(vZ));
+  float tick = zToTick(vZ);
+  float haze = hazeAlpha(tick) * (1.0 - loopDim(tick));
   float core = lineCoverage(vAcross, uWidth);
 #ifdef GLOW_PASS
   gl_FragColor = vec4(glowHue(uColor) * max(core, glowAura(vAcross, uWidth)) * uGlow * haze, 1.0);
@@ -143,6 +129,8 @@ void main() {
   float ahead = aTick - uTick;
   // Lines behind the now line or past the haze collapse to nothing.
   float visible = step(0.0, ahead) * step(ahead, 1.5 * uLookAheadTicks);
+  // The drawn range (loop repeat).
+  visible *= step(uClipLo, aTick) * (1.0 - step(uClipHi, aTick));
   float thickness = mix(${BEAT_THICKNESS.toFixed(3)}, ${BAR_THICKNESS.toFixed(3)}, aBar);
   float extent = (thickness + 2.0 * ${LINE_MARGIN.toFixed(3)}) * visible;
   // Local y runs away from the player (z decreasing), like the notes, so the quad faces up.
@@ -174,9 +162,11 @@ void main() {
 #ifdef GLOW_PASS
   float shape = max(lineCoverage(vAlong, vThickness), glowAura(vAlong, vThickness));
   float glow = mix(uBeatGlow, uBarGlow, vBar) * hazeAlpha(vTick) * shape;
+  glow *= 1.0 - loopDim(vTick);
   gl_FragColor = vec4(glowHue(color) * glow, 1.0);
 #else
   float alpha = mix(uBeatOpacity, uBarOpacity, vBar) * hazeAlpha(vTick);
+  alpha *= 1.0 - loopDim(vTick);
   alpha *= lineCoverage(vAlong, vThickness);
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(color, alpha);
@@ -451,6 +441,15 @@ export class Highway {
   }
 
   /** Glow twins of the grid, the glowing lines and the now line (for the glow scene). */
+  /** Layers drawn again in each loop repeat (milestone 9.2): the bar and beat lines. */
+  get repeatMeshes(): readonly Mesh<BufferGeometry, ShaderMaterial>[] {
+    return [this.grid]
+  }
+
+  get repeatTwins(): readonly Mesh<BufferGeometry, ShaderMaterial>[] {
+    return [this.gridTwin.mesh]
+  }
+
   get twins(): readonly GlowTwin[] {
     return [this.gridTwin, this.borders.twin, this.octaves.twin, this.nowLine.twin]
   }

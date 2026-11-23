@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useHomeOnNewSession } from './router/useHomeOnNewSession'
 import { TooltipProvider } from 'reka-ui'
 import { defineAsyncComponent, onBeforeUnmount, ref, watchEffect } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
@@ -21,6 +22,7 @@ const ProfileCollisionDialog = defineAsyncComponent(
 )
 const ShortcutsSheet = defineAsyncComponent(() => import('./shortcuts/ShortcutsSheet.vue'))
 const ui = useUiStateStore()
+useHomeOnNewSession()
 const route = useRoute()
 const router = useRouter()
 

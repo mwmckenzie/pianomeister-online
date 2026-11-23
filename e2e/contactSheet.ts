@@ -23,6 +23,10 @@ export const LONG_DEMO = fileURLToPath(
 export const FILLS_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/fills-demo.mid', import.meta.url),
 )
+/** White-key chords next to black keys with long sustains, from bar 2 (milestone 9.2). */
+export const BLACK_NOTES_DEMO = fileURLToPath(
+  new URL('../test-fixtures/midi/black-notes-demo.mid', import.meta.url),
+)
 /** Neighbouring-lane chords from bar 1: stacked labels. */
 export const CLARITY_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/clarity-demo.mid', import.meta.url),
@@ -114,6 +118,14 @@ interface CaptureApi {
   particles():
     | { particles: { live: number; capacity: number; evicted: number }; smoke: { live: number } }
     | undefined
+  loop(range: { startBar: number; endBar: number } | null, preRollBeats?: number): void
+}
+
+/** A loop to set before a capture (milestone 9.2 loop sheets). */
+export interface CaptureLoop {
+  readonly startBar: number
+  readonly endBar: number
+  readonly preRollBeats?: number
 }
 
 /**
@@ -127,12 +139,15 @@ export async function captureWith(
   bar: number,
   moments: readonly number[],
   crop?: Crop,
+  /** Extra query parameters (review seams). */
+  query = '',
+  loop: CaptureLoop | null = null,
 ): Promise<{ readonly pngs: readonly Buffer[]; readonly load: ParticleLoad }> {
   await page.evaluate(
     (value) => localStorage.setItem('pianomeister.settings', value),
     JSON.stringify({ version: SETTINGS_VERSION, settings }),
   )
-  await page.goto('./#/?capture=1')
+  await page.goto(`./#/?capture=1${query}`)
   await page.reload()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
   await page.mouse.move(2, 300)
@@ -143,6 +158,16 @@ export async function captureWith(
   await page.evaluate(() =>
     (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture.start(1),
   )
+  if (loop !== null) {
+    await page.evaluate(
+      (l) =>
+        (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture.loop(
+          { startBar: l.startBar, endBar: l.endBar },
+          l.preRollBeats ?? 0,
+        ),
+      loop,
+    )
+  }
   const pngs: Buffer[] = []
   // Start a little before the bar, so its first onsets are crossed while playing.
   let elapsed = -0.1

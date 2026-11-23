@@ -3,6 +3,7 @@ import { Dexie, type Table } from 'dexie'
 import type { Bookmark } from '@/core/practice/Bookmark'
 import type { Look } from '@/core/looks/Look'
 import { settleBookmark } from '@/core/practice/bookmarkNames'
+import { migrateLookValues } from '@/core/settings/loadSettings'
 import { DEFAULT_PROFILE } from '@/core/profiles/DEFAULT_PROFILE'
 import type { Profile } from '@/core/profiles/Profile'
 import type { PlayRecord } from '@/core/stats/PlayRecord'
@@ -25,6 +26,9 @@ const LEGACY_LAST_SONG_ID = 'lastSongId'
 export function lastOpenedKey(profileId: string): string {
   return `lastOpened:${profileId}`
 }
+
+/** The settings version saved looks were written with before database v7 (milestone 9.1). */
+const LOOKS_STORED_AT = 8
 
 /**
  * The app's IndexedDB database. Schema changes add a new version() with an upgrade, never
@@ -108,6 +112,19 @@ export class PianoMeisterDb extends Dexie {
     // v6 (milestone 9.1): saved looks move here from localStorage, device-wide beside the
     // playlists to come. The settings store moves them on its first start (Looks.adopt).
     this.version(6).stores({ looks: 'id, createdAt' })
+    // v7 (milestone 9.2): saved looks were stored with settings v8 values and carry no version
+    // of their own, so they take the v8 → v9 settings migration here once (the black lift goes,
+    // the head height becomes the white note height).
+    this.version(7)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table<Look, string>('looks')
+          .toCollection()
+          .modify((look) => {
+            ;(look as { values: unknown }).values = migrateLookValues(look.values, LOOKS_STORED_AT)
+          })
+      })
     // A new database starts with the "Me" profile (brief decision 65).
     this.on('populate', (tx) => {
       void tx.table<Profile, string>('profiles').add(DEFAULT_PROFILE)

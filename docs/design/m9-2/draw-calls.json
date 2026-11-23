@@ -1,0 +1,22 @@
+{
+  "no loop": {
+    "off": 22,
+    "medium": 41
+  },
+  "long loop, bars 2-5, near its end": {
+    "off": 34,
+    "medium": 58
+  },
+  "short loop, bar 3, pre-roll 2": {
+    "off": 45,
+    "medium": 73
+  },
+  "no loop, look-ahead 32": {
+    "off": 22,
+    "medium": 41
+  },
+  "one-bar loop, bar 3, look-ahead 32": {
+    "off": 155,
+    "medium": 223
+  }
+}

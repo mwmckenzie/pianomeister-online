@@ -29,7 +29,7 @@ describe('LOOK_KEYS', () => {
       'camera.tiltDeg',
       'keyboard.thickness',
       'highway.lookAheadBeats',
-      'notes.blackLift',
+      'notes.blackHeadHeight',
       'keys.fadeBeats',
       'lines.nowGlow',
       'colors.background',
@@ -65,10 +65,10 @@ describe('Classic', () => {
     expect(Object.keys(classic.values).sort()).toEqual([...LOOK_KEYS].sort())
   })
 
-  it('is the milestone 8 look: its colours, camera, no glow, no new effects', () => {
+  it('is the milestone 8 look: its colours, no glow, no new effects; the 9.2 camera', () => {
     expect(classic.values).toMatchObject({
-      'camera.tiltDeg': 45,
-      'highway.lookAheadBeats': 8,
+      'camera.tiltDeg': 35,
+      'highway.lookAheadBeats': 10,
       'colors.background': '#05070F',
       'colors.highway': '#0A0F1E',
       'highway.vignette': 0,
@@ -90,7 +90,7 @@ describe('applying a look', () => {
     const custom = withSetting(DEFAULT_SETTINGS, 'camera.tiltDeg', 60)
     const { settings, previous } = applyLook(custom, classic)
     expect(settings.colors.background).toBe('#05070F')
-    expect(settings.camera.tiltDeg).toBe(45)
+    expect(settings.camera.tiltDeg).toBe(35)
     expect(isLookModified(settings, classic)).toBe(false)
     expect(restoreValues(settings, previous)).toEqual(custom)
   })

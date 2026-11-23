@@ -3,6 +3,7 @@ export type SidebarSectionId =
   | 'camera'
   | 'keyboard'
   | 'highway'
+  | 'loop'
   | 'lines'
   | 'notes'
   | 'noteStyle'

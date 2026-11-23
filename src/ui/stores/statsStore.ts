@@ -7,12 +7,14 @@ import type { PracticeRow } from '@/core/stats/PracticeRow'
 import type { PracticeTotals } from '@/core/stats/PracticeTotals'
 import type { RecorderWrite } from '@/core/stats/RecorderWrite'
 import { NO_PRACTICE, otherSetupTotals, practiceShare, totalsBy } from '@/core/stats/sumPractice'
+import { sessionGapMs } from '@/core/stats/sessionGapMs'
 import { summariseProfile } from '@/core/stats/summariseProfile'
 import { PlayLog } from '@/data/PlayLog'
 
 import { appDatabase } from './appDatabase'
 import { useBookmarkStore } from './bookmarkStore'
 import { useProfileStore } from './profileStore'
+import { useSettingsStore } from './settingsStore'
 
 /** Days in the practice charts (brief decision 71). */
 export const CHART_DAYS = 14
@@ -26,6 +28,22 @@ export const useStatsStore = defineStore('stats', () => {
   const profiles = useProfileStore()
   const bookmarks = useBookmarkStore()
   const records = shallowRef<readonly PlayRecord[]>([])
+  const settings = useSettingsStore()
+  /** The "New session after" setting in ms: the one session rule (milestone 9.2). */
+  const gapMs = computed(() => sessionGapMs(settings.settings.appearance))
+  /**
+   * Tracking suspended (for playlist mode, 9.5; nothing turns it on yet): while on, nothing is
+   * recorded and the session timer (Home on a new session) is paused.
+   */
+  const trackingSuspended = ref(false)
+  /** The transport is playing (the play log follows it). */
+  const playbackActive = ref(false)
+  /**
+   * When the active profile's playback last ended: the stored last session's end, then kept
+   * current by the play log; null if it never played. `lastEndKnown` once it has been read.
+   */
+  const lastPlaybackEnd = ref<number | null>(null)
+  const lastEndKnown = ref(false)
   /** "Today" for the charts and "last practiced"; moves on with every write and each minute. */
   const now = ref(Date.now())
   setInterval(() => (now.value = Date.now()), 60_000)
@@ -70,7 +88,7 @@ export const useStatsStore = defineStore('stats', () => {
     return rows
   })
 
-  const summary = computed(() => summariseProfile(records.value))
+  const summary = computed(() => summariseProfile(records.value, gapMs.value))
 
   function song(songId: string): PracticeTotals {
     return bySong.value.get(songId) ?? NO_PRACTICE
@@ -105,7 +123,7 @@ export const useStatsStore = defineStore('stats', () => {
     const byProfile = new Map<string, PlayRecord[]>()
     for (const r of all) byProfile.set(r.profileId, [...(byProfile.get(r.profileId) ?? []), r])
     for (const [profileId, list] of byProfile) {
-      const summary = summariseProfile(list)
+      const summary = summariseProfile(list, gapMs.value)
       totals.set(profileId, {
         plays: 0,
         playedMs: summary.playedMs,
@@ -136,5 +154,10 @@ export const useStatsStore = defineStore('stats', () => {
     chart,
     lastSession,
     totalsByProfile,
+    gapMs,
+    trackingSuspended,
+    playbackActive,
+    lastPlaybackEnd,
+    lastEndKnown,
   }
 })

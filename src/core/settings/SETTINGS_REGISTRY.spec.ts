@@ -111,6 +111,8 @@ describe('SETTINGS_REGISTRY', () => {
       hideControls: true,
       hideControlsAfter: 3,
       startOn: 'welcome',
+      homeOnNewSession: true,
+      sessionGap: '30',
     })
     expect(DEFAULT_SETTINGS.audio).toMatchObject({
       master: 0.8,

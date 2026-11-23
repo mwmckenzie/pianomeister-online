@@ -262,7 +262,7 @@ const RESOLUTION = 'Resolution'
 export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<SettingValue<K>> } =
   {
     // Camera (decision 21)
-    'camera.tiltDeg': num('Tilt', 45, sidebar('camera'), [25, 85, 1], 'deg', 0),
+    'camera.tiltDeg': num('Tilt', 35, sidebar('camera'), [25, 85, 1], 'deg', 0),
     'camera.distanceOffset': num('Distance', 0, sidebar('camera'), [-0.6, 1, 0.05]),
     'camera.pan': num('Pan', 0, sidebar('camera'), [-26, 26, 0.5], 'none', 1),
 
@@ -319,7 +319,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
 
     // Highway (decisions 18, 22, 42)
     'highway.lookAheadBeats': {
-      ...num('Look-ahead', 8, sidebar('highway'), [2, 32, 1], 'beats', 0),
+      ...num('Look-ahead', 10, sidebar('highway'), [2, 32, 1], 'beats', 0),
       ...log,
     },
     'highway.blackLaneShading': bool('Darker black-key lanes', true, sidebar('highway')),
@@ -387,6 +387,49 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Now line',
     },
     'lines.nowGlow': { ...glow(0.6), group: 'Now line' },
+    // Loop visibility (milestone 9.2).
+    'loop.dim': bool('Dim outside the loop', true, sidebar('loop')),
+    'loop.dimStrength': {
+      ...num('Dim strength', 0.6, sidebar('loop'), [0, 0.95, 0.05]),
+      ...percent,
+      visible: (s) => s.loop.dim,
+    },
+    'loop.after': {
+      kind: 'choice',
+      label: 'After the loop end',
+      default: 'repeat',
+      home: sidebar('loop'),
+      options: [
+        { value: 'repeat', label: 'Next repeat' },
+        { value: 'continue', label: 'Song continues' },
+      ],
+    },
+    'loop.lines': {
+      ...bool('Loop boundary lines', true, sidebar('loop')),
+      group: 'Boundary lines',
+    },
+    'loop.linesColor': {
+      ...lineColor('secondary'),
+      home: sidebar('loop'),
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines,
+    },
+    'loop.linesCustom': {
+      ...color('Custom colour', '#7EE0C3', sidebar('loop')),
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines && s.loop.linesColor === 'custom',
+    },
+    'loop.linesWidth': {
+      ...num('Width', 0.14, sidebar('loop'), [0.02, 0.3, 0.01], 'mm'),
+      ...log,
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines,
+    },
+    'loop.linesGlow': {
+      ...glow(1, 'Glow', 3, sidebar('loop')),
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines,
+    },
     'lines.borders': { ...bool('Highway borders', true, sidebar('lines')), group: 'Borders' },
     'lines.bordersColor': {
       ...lineColor('custom'),
@@ -466,33 +509,36 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.notes.palette === 'twoTone',
     },
     'notes.heads3d': bool('3D note heads', true, sidebar('notes')),
-    'notes.headHeight': {
-      ...num('Head height', 0.35, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
+    'notes.whiteHeadHeight': {
+      ...num('White note height', 0.35, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
+      visible: (s) => s.notes.heads3d,
+    },
+    'notes.blackHeadHeight': {
+      ...num('Black note height', 0.6, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
       visible: (s) => s.notes.heads3d,
     },
     'notes.headRounded': {
       ...bool('Rounded head edges', true, sidebar('notes')),
       visible: (s) => s.notes.heads3d,
     },
-    'notes.blackLiftMode': {
-      kind: 'choice',
-      label: 'Black-lane notes',
-      default: 'keys',
-      home: sidebar('notes'),
-      options: [
-        { value: 'keys', label: 'At key height' },
-        { value: 'manual', label: 'Manual' },
-      ],
-    },
-    'notes.blackLift': {
-      ...num('Lift', GRAND_BLACK_HEIGHT, sidebar('notes'), [0, 0.8, 0.01], 'mm'),
-      visible: (s) => s.notes.blackLiftMode === 'manual',
-    },
-    'notes.contactShadow': bool('Shadow under black-lane notes', true, sidebar('notes')),
-    'notes.shadowStrength': {
-      ...num('Shadow strength', 0.45, sidebar('notes'), [0, 1, 0.05]),
+    'notes.blackSideShading': {
+      ...num('Black side shading', 0.7, sidebar('notes'), [0, 1, 0.05]),
       ...percent,
-      visible: (s) => s.notes.contactShadow,
+      visible: (s) => s.notes.heads3d,
+    },
+    'notes.blackRidge': {
+      ...bool('Raised black sustains', false, sidebar('notes')),
+      visible: (s) => s.notes.heads3d,
+    },
+    'notes.blackRidgeHeight': {
+      ...num('Ridge height', 0.08, sidebar('notes'), [0.02, 0.35, 0.01], 'mm'),
+      visible: (s) => s.notes.heads3d && s.notes.blackRidge,
+    },
+    'notes.blackOutline': bool('Black note outline', true, sidebar('notes')),
+    'notes.blackOutlineStrength': {
+      ...num('Outline strength', 0.8, sidebar('notes'), [0, 1, 0.05]),
+      ...percent,
+      visible: (s) => s.notes.blackOutline,
     },
     'notes.sustainCenterTransparency': {
       ...num('Sustain transparency, centre', 0.25, sidebar('notes'), [0, 0.85, 0.05]),
@@ -1118,6 +1164,23 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       options: [
         { value: 'welcome', label: 'Welcome' },
         { value: 'player', label: 'Player' },
+      ],
+    },
+    'appearance.homeOnNewSession': bool(
+      'Open Home when a new session starts',
+      true,
+      tab('appearance', 'start'),
+    ),
+    'appearance.sessionGap': {
+      kind: 'choice',
+      label: 'New session after',
+      default: '30',
+      home: tab('appearance', 'start'),
+      options: [
+        { value: '10', label: '10 min' },
+        { value: '20', label: '20 min' },
+        { value: '30', label: '30 min' },
+        { value: '60', label: '60 min' },
       ],
     },
   }

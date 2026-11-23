@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures'
 
+import { SETTINGS_VERSION } from '../src/core/settings/loadSettings'
+
 import {
   EMPTY_STORAGE,
   nudge,
@@ -84,18 +86,18 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
 
   await openSidebarSection(page, 'camera')
   await nudge(page, 'camera.tiltDeg', 'ArrowRight', 3)
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('48°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('38°')
   await expect
     .poll(async () =>
       JSON.parse(
         (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
       ),
     )
-    .toMatchObject({ version: 8, settings: { camera: { tiltDeg: 48 } } })
+    .toMatchObject({ version: SETTINGS_VERSION, settings: { camera: { tiltDeg: 38 } } })
 
   await page.reload()
   await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
-  await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '48')
+  await expect(thumb(page, 'camera.tiltDeg')).toHaveAttribute('aria-valuenow', '38')
   await page.getByTestId('close-sidebar').click()
   await expect(page.getByTestId('playfield-sidebar')).toBeHidden()
   expect(errors).toEqual([])
@@ -153,12 +155,12 @@ test('a changed setting lights its reset icon, and reset restores the default', 
   await expect(page.getByTestId('accordion-camera').locator('.dot')).toHaveCount(0)
 
   await nudge(page, 'camera.tiltDeg', 'ArrowLeft', 5)
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('40°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('30°')
   await expect(reset).toHaveAttribute('data-changed', 'true')
   await expect(page.getByTestId('accordion-camera').locator('.dot')).toHaveCount(1)
 
   await reset.click()
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('35°')
   await expect(reset).toHaveAttribute('data-changed', 'false')
 })
 
@@ -173,11 +175,11 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   await expect(shownValue(page, 'camera.pan')).toHaveText('2.0')
 
   await page.getByTestId('reset-section-camera').click()
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('35°')
   await expect(shownValue(page, 'camera.pan')).toHaveText('0.0')
   await expect(page.getByTestId('toast-undo')).toBeVisible()
   await page.getByTestId('toast-undo').click()
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('47°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('37°')
   await expect(shownValue(page, 'camera.pan')).toHaveText('2.0')
   await expect(page.getByTestId('toast-undo')).toBeHidden()
 
@@ -192,7 +194,7 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   await page.getByTestId('toast-undo').click()
   await expect(shownValue(page, 'keyboard.gap')).toHaveText('1.9 mm')
   await openSidebarSection(page, 'camera')
-  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
+  await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('35°')
   expect(errors).toEqual([])
 })
 
@@ -209,8 +211,7 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   await segment(page, 'keyboard.edgeProfile', 'Rounded')
   await nudge(page, 'keyboard.gap', 'ArrowRight', 6)
   await openSidebarSection(page, 'notes')
-  await segment(page, 'notes.blackLiftMode', 'Manual')
-  await nudge(page, 'notes.blackLift', 'Home')
+  await nudge(page, 'notes.sustainCenterTransparency', 'Home')
   await setting(page, 'notes.heads3d').getByRole('checkbox').uncheck()
 
   await page.reload()
@@ -221,7 +222,7 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   ).toHaveAttribute('data-state', 'on')
   await expect(thumb(page, 'keyboard.gap')).toHaveAttribute('aria-valuenow', '0.12')
   await openSidebarSection(page, 'notes')
-  await expect(thumb(page, 'notes.blackLift')).toHaveAttribute('aria-valuenow', '0')
+  await expect(thumb(page, 'notes.sustainCenterTransparency')).toHaveAttribute('aria-valuenow', '0')
   await expect(setting(page, 'notes.heads3d').getByRole('checkbox')).not.toBeChecked()
   await openSidebarSection(page, 'render')
   await expect(
@@ -273,7 +274,7 @@ test.describe('stored v1 settings', () => {
         ),
       )
       .toMatchObject({
-        version: 8,
+        version: SETTINGS_VERSION,
         settings: { camera: { tiltDeg: 63 }, appearance: { primary: '#8AB4FF' } },
       })
   })

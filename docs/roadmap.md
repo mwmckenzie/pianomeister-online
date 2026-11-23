@@ -17,7 +17,7 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 | 8   | **Section overview & loop editor**           | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection                                                                                                                                                                                                                       | ✅ done |
 | 9   | **Visual polish**                            | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects                                                                                                                                                                             | ✅ done |
 | 9.1 | **Looks v2 & built-in looks**                | Looks cover the whole playfield sidebar (except device cost); rename, export, import, paste, backup; looks stored in Dexie; every slider range trimmed to what makes visual sense, log sliders; Note colours palettes; thirteen built-in looks (looks and defaults provisional until the tuning pass below) | ✅ done |
-| 9.2 | **Practice clarity** _(spec first)_          | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       |         |
+| 9.2 | **Practice clarity**                         | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       | ✅ done |
 | 9.5 | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         |         |
 | 10  | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                                      |         |
 | 11  | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                                                 |         |
@@ -142,7 +142,7 @@ Open questions for the design session: how much animation on Welcome, which high
 - Start with a design session: collect reference videos/screenshots of looks you like, sketch them, then pick 2–3 to implement as presets.
 - Architecture: a "visual style" setting that swaps shader/material variants without touching the render model.
 
-### 9.2 Practice clarity: loop visibility, black notes, keyboard, small fixes _(spec to be written when we reach it)_
+### 9.2 Practice clarity: loop visibility, black notes, keyboard, small fixes _(done: spec `docs/milestones/m9-2.md`, report `docs/reports/feat-m9-2-practice-clarity.md`; the spec replaces these notes where they differ)_
 
 #### A. Loop visibility on the highway
 
@@ -202,7 +202,7 @@ Play full songs back-to-back as background music, with the piano and highway as 
 - Crossfade between songs: a setting, 0–8 s in 0.5 s steps, default 2 s, with its reset icon. At 0 there's a short silent gap (~1 s) instead. Design question: how the highway transitions while two songs overlap in audio.
 - Play UI in listening mode: show (normal HUD), minimal (title and composer only), or hidden (pure visualizer). In every option the menu icons stay reachable and follow the idle-hide setting, so you can change settings or leave listening mode at any time. Mute as a quick toggle.
 - Full songs at 100% (tempo changeable for the session); no loops, pre-roll or count-in.
-- Listening is not practice and is not logged: no plays, practice time or listening stats.
+- Listening is not practice and is not logged: no plays, practice time or listening stats. Playlist mode turns on the **tracking suspended** switch (added in 9.2): nothing is recorded and the session/idle timer is paused while it's on.
 - Entry points: a Playlists tab next to Library | Bookmarks, and possibly a Welcome-screen tile (7.7).
 
 **Later idea — bookmarks can have a look** _(9.5 or later)_: a bookmark may name a look that's applied temporarily while practising that section (e.g. more look-ahead or a different tilt for a tricky passage), using the same temporary-look overlay as playlists. The overlay function stays pure and reusable for this.
@@ -211,6 +211,10 @@ Play full songs back-to-back as background music, with the piano and highway as 
 
 - Look-ahead visualization of where each hand needs to be per bar (a "cage" spanning the hand's key range).
 - Design session first: review the approach from the Unity app (code to be provided), decide range computation, transitions between bars, and how it's drawn on the highway/keyboard.
+
+### Tablet, MIDI out, offline _(milestone 11)_
+
+- Check the loop repeat's draw calls on the tablet (worst case 223 at Medium: one-bar loop at look-ahead 32); fallback = one instanced draw per layer, rebuilt on loop change.
 
 ### Benchmark mode _(milestone 12, the final milestone; spec to be written when we reach it)_
 

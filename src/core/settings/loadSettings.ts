@@ -12,7 +12,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 8
+export const SETTINGS_VERSION = 9
 
 /** The first version that stored shortcut overrides (brief decision 88). */
 const SHORTCUTS_SINCE = 5
@@ -110,7 +110,37 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
       pedal: { ...pedal, fill: renamed(pedal.fill) },
     }
   },
+  // v9 (milestone 9.2): black-lane notes sit on the highway again, so the black lift and its
+  // mode go; the one head height becomes the white note height (black gets its own, new). The
+  // contact shadow becomes the black note outline: its switch carries over, and its strength
+  // only where it was changed from the old default, so the new, stronger default applies
+  // otherwise.
+  8: (settings) => {
+    if (!isRecord(settings.notes)) return settings
+    const {
+      blackLiftMode: _mode,
+      blackLift: _lift,
+      headHeight,
+      contactShadow,
+      shadowStrength,
+      ...notes
+    } = settings.notes
+    return {
+      ...settings,
+      notes: {
+        ...notes,
+        ...(headHeight !== undefined ? { whiteHeadHeight: headHeight } : {}),
+        ...(contactShadow !== undefined ? { blackOutline: contactShadow } : {}),
+        ...(shadowStrength !== undefined && shadowStrength !== OLD_SHADOW_STRENGTH
+          ? { blackOutlineStrength: shadowStrength }
+          : {}),
+      },
+    }
+  },
 }
+
+/** The contact shadow's default strength before v9. */
+const OLD_SHADOW_STRENGTH = 0.45
 
 /** The shared stripe width's default before v7. */
 const OLD_STRIPE_WIDTH = 0.35

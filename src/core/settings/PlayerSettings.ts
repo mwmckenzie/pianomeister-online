@@ -77,13 +77,18 @@ export interface PlayerSettings {
     readonly sustainEdgeTransparency: number
     /** Heads as raised blocks instead of flat strips. */
     readonly heads3d: boolean
-    readonly headHeight: number
+    /** 3D head heights; both heads start on the highway (milestone 9.2). */
+    readonly whiteHeadHeight: number
+    readonly blackHeadHeight: number
     readonly headRounded: boolean
-    /** 'keys' = lift black-lane notes to the black key tops; 'manual' = use blackLift. */
-    readonly blackLiftMode: 'keys' | 'manual'
-    readonly blackLift: number
-    readonly contactShadow: boolean
-    readonly shadowStrength: number
+    /** How much darker the side faces of black-lane 3D heads are than their tops (0–1). */
+    readonly blackSideShading: number
+    /** Black-lane sustains as a low raised ridge (3D heads only). */
+    readonly blackRidge: boolean
+    readonly blackRidgeHeight: number
+    /** A thin dark rim around black-lane notes, on the highway and the white notes beside them. */
+    readonly blackOutline: boolean
+    readonly blackOutlineStrength: number
   }
   readonly colors: {
     readonly background: string
@@ -101,6 +106,20 @@ export interface PlayerSettings {
    * Glowing lines (brief decision 111). Widths are world units; glow is the line's strength on
    * the glow layer (0 = it doesn't bloom). Colours name a UI colour or use the `…Custom` value.
    */
+  /** Loop visibility on the highway (milestone 9.2). */
+  readonly loop: {
+    /** Everything on the highway outside [loop start, loop end) is dimmed while a loop is on. */
+    readonly dim: boolean
+    readonly dimStrength: number
+    /** Lines across the highway at the loop start and end. */
+    readonly lines: boolean
+    readonly linesColor: LineColor
+    readonly linesCustom: string
+    readonly linesWidth: number
+    readonly linesGlow: number
+    /** Beyond the loop end: the next iteration ('repeat') or the song as it is ('continue'). */
+    readonly after: 'repeat' | 'continue'
+  }
   readonly lines: {
     readonly nowStyle: 'thin' | 'glowing' | 'neon'
     readonly nowColor: LineColor | 'pitch'
@@ -331,5 +350,9 @@ export interface PlayerSettings {
     readonly hideControlsAfter: number
     /** Where the app opens (m7-7 decision 1): the Welcome screen or the player. */
     readonly startOn: 'welcome' | 'player'
+    /** Switch to Home when a new practice session begins (milestone 9.2). */
+    readonly homeOnNewSession: boolean
+    /** Minutes without playback after which the next playback is a new session (decision 5). */
+    readonly sessionGap: '10' | '20' | '30' | '60'
   }
 }

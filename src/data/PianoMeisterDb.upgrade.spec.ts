@@ -64,7 +64,7 @@ describe('PianoMeisterDb upgrade to v2', () => {
     await createV1([upload('minuet', readFixture('minuet-in-g.mid'))])
     const db = new PianoMeisterDb(name)
     expect((await db.uploads.get('minuet'))?.facts).toEqual(v1Facts)
-    expect(db.verno).toBe(6)
+    expect(db.verno).toBe(7)
     db.close()
   })
 })
@@ -202,6 +202,42 @@ describe('PianoMeisterDb upgrade to v6', () => {
     const db = new PianoMeisterDb(name)
     expect(await db.looks.count()).toBe(0)
     expect(await db.profiles.get('p1')).toMatchObject({ name: 'Ann' })
+    db.close()
+  })
+
+  it('migrates saved looks to settings v9: the black lift goes, head height becomes white', async () => {
+    name = 'upgrade-v7'
+    const v6 = new Dexie(name)
+    v6.version(6).stores({
+      uploads: 'songId, addedAt',
+      songMeta: 'songId',
+      meterOverrides: 'songId',
+      handAssignments: '[profileId+songId], songId',
+      appState: 'key',
+      profiles: 'id',
+      bookmarks: 'id, [profileId+songId], songId',
+      sessions: 'id, profileId, [profileId+endedAt]',
+      playRecords:
+        'id, [profileId+songId], [profileId+bookmarkId], [profileId+startedAt], profileId, songId',
+      looks: 'id, createdAt',
+    })
+    await v6.table('looks').put({
+      id: 'look-1',
+      name: 'Tall',
+      createdAt: '2026-11-22T10:00:00.000Z',
+      updatedAt: '2026-11-22T10:00:00.000Z',
+      builtIn: false,
+      values: {
+        'notes.headHeight': 0.6,
+        'notes.blackLiftMode': 'manual',
+        'notes.blackLift': 0.3,
+        'camera.tiltDeg': 30,
+      },
+    })
+    v6.close()
+    const db = new PianoMeisterDb(name)
+    const look = await db.looks.get('look-1')
+    expect(look?.values).toEqual({ 'notes.whiteHeadHeight': 0.6, 'camera.tiltDeg': 30 })
     db.close()
   })
 })

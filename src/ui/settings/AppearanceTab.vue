@@ -63,6 +63,8 @@ function applyPreset(preset: (typeof THEME_PRESETS)[number]): void {
   </SettingsSection>
   <SettingsSection section-id="start" title="Start">
     <SettingRow setting-key="appearance.startOn" />
+    <SettingRow setting-key="appearance.homeOnNewSession" />
+    <SettingRow setting-key="appearance.sessionGap" />
   </SettingsSection>
 </template>
 

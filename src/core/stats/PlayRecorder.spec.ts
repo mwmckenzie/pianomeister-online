@@ -291,16 +291,64 @@ describe('PlayRecorder', () => {
       expect(second?.sessionId).toBe(first?.sessionId)
     })
 
-    it('starts a new session after more than 10 minutes without playback', () => {
+    it('starts a new session after more than the gap (30 min by default) without playback', () => {
       const { load, ev, writes } = recorder()
       load(0)
       ev('play', 0)
       ev('pause', MIN)
-      ev('play', MIN + 10 * MIN + 1)
-      ev('pause', 13 * MIN)
+      ev('play', MIN + 20 * MIN)
+      ev('pause', 22 * MIN)
+      // Within 30 minutes: the same session.
+      expect(writes[writes.length - 1]?.session.id).toBe(writes[0]?.session.id)
+      ev('play', 22 * MIN + 30 * MIN + 1)
+      ev('pause', 54 * MIN)
       const last = writes[writes.length - 1]
       expect(last?.session.id).not.toBe(writes[0]?.session.id)
-      expect(last?.session).toMatchObject({ startedAt: 11 * MIN + 1, endedAt: 13 * MIN })
+      expect(last?.session).toMatchObject({ startedAt: 52 * MIN + 1, endedAt: 54 * MIN })
+    })
+
+    it('follows the "New session after" setting', () => {
+      const { r, load, ev, writes } = recorder()
+      r.setGap(10 * MIN)
+      load(0)
+      ev('play', 0)
+      ev('pause', MIN)
+      ev('play', 11 * MIN + 1)
+      ev('pause', 12 * MIN)
+      expect(writes[writes.length - 1]?.session.id).not.toBe(writes[0]?.session.id)
+    })
+
+    it('continues the stored last session after a reload within the gap', () => {
+      const last: Session = { id: 'old', profileId: 'p1', startedAt: 0, endedAt: 5 * MIN }
+      const { load, ev, writes } = recorder(last)
+      load(20 * MIN)
+      ev('play', 20 * MIN)
+      ev('pause', 21 * MIN)
+      expect(writes[writes.length - 1]?.session.id).toBe('old')
+    })
+
+    it('records nothing while tracking is suspended, and ends a stretch under way', () => {
+      const { r, load, ev, writes } = recorder()
+      load(0)
+      ev('play', 0)
+      const ended = r.setSuspended(true, MIN)
+      expect(ended?.record.playedMs).toBe(MIN)
+      const before = writes.length
+      ev('pause', 2 * MIN)
+      ev('play', 3 * MIN)
+      ev('wrap', 4 * MIN)
+      ev('tick', 5 * MIN)
+      load(6 * MIN)
+      ev('play', 6 * MIN)
+      expect(writes).toHaveLength(before)
+      expect(r.playing).toBe(false)
+      // Back on: the next Play records again, for what is loaded now.
+      expect(r.setSuspended(false, 7 * MIN)).toBeNull()
+      ev('pause', 7 * MIN)
+      ev('play', 8 * MIN)
+      ev('pause', 9 * MIN)
+      expect(writes.length).toBeGreaterThan(before)
+      expect(writes[writes.length - 1]?.record.playedMs).toBe(MIN)
     })
 
     it('takes the last session when it arrives late, without re-arming a start', () => {

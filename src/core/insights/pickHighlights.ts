@@ -148,7 +148,7 @@ export function pickHighlights(input: HighlightInput): readonly Highlight[] {
     })
   }
 
-  const sessions = sessionize(thisMonth)
+  const sessions = sessionize(thisMonth, input.gapMs)
   let longest: { ms: number; at: number } | null = null
   for (const s of sessions) {
     const ms = s.reduce((n, r) => n + r.playedMs, 0)

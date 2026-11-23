@@ -5,6 +5,7 @@ import type { Clock } from './Clock'
 import type { LoopRange } from './LoopRange'
 import type { PreRollConfig } from './PreRollConfig'
 import type { PreRollWindow } from './PreRollWindow'
+import { preRollWindowFor } from './preRollWindowFor'
 import type { TimedNote } from './TimedNote'
 import type { Timeline } from './Timeline'
 import type { TimelineChangeReason } from './TimelineChangeReason'
@@ -364,20 +365,9 @@ export class Transport {
   /** The count-in before `targetTick` under the current pre-roll config, or null for none. */
   private windowFor(targetTick: number): PreRollWindow | null {
     const song = this.prepared
-    const beats = this.preRollConfig.beats
-    if (song === null || beats <= 0) return null
+    if (song === null) return null
     const { barMap, tempoMap } = song.source
-    const targetSec = tempoMap.tickToSeconds(targetTick)
-    const ticksPerBeat = barMap.ticksPerBeat(barMap.tickToPosition(targetTick).bar)
-    const beatSec = (ticksPerBeat * tempoMap.secondsPerQuarterAt(targetTick)) / tempoMap.ppq
-    return {
-      startSec: targetSec - beats * beatSec,
-      endSec: targetSec,
-      targetTick,
-      beats,
-      beatSec,
-      ticksPerBeat,
-    }
+    return preRollWindowFor(barMap, tempoMap, targetTick, this.preRollConfig.beats)
   }
 
   private stopWith(reason: TimelineChangeReason): void {

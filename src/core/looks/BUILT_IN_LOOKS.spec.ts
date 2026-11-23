@@ -39,14 +39,14 @@ describe('BUILT_IN_LOOKS (milestone 9.1, section C)', () => {
     expect(incomplete.map((l) => l.name)).toEqual([])
   })
 
-  it('keeps the default camera, except Fireworks with a little more look-ahead', () => {
+  it('all keep the default camera and look-ahead (35°, 10 beats; milestone 9.2)', () => {
     const moved = BUILT_IN_LOOKS.filter(
-      (l) => l.values['camera.tiltDeg'] !== 45 || l.values['camera.distanceOffset'] !== 0,
+      (l) =>
+        l.values['camera.tiltDeg'] !== 35 ||
+        l.values['camera.distanceOffset'] !== 0 ||
+        l.values['highway.lookAheadBeats'] !== 10,
     )
     expect(moved.map((l) => l.name)).toEqual([])
-    expect(byName('Fireworks')['highway.lookAheadBeats']).toBeGreaterThan(
-      byName('Study')['highway.lookAheadBeats'] as number,
-    )
   })
 
   it('uses the named options of the spec', () => {

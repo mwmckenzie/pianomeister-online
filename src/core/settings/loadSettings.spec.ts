@@ -22,8 +22,8 @@ describe('loadSettings', () => {
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS)
     expect(loadSettings(undefined)).toEqual(DEFAULT_SETTINGS)
     expect(loadSettings('garbage')).toEqual(DEFAULT_SETTINGS)
-    expect(DEFAULT_SETTINGS.camera.tiltDeg).toBe(45)
-    expect(DEFAULT_SETTINGS.highway.lookAheadBeats).toBe(8)
+    expect(DEFAULT_SETTINGS.camera.tiltDeg).toBe(35)
+    expect(DEFAULT_SETTINGS.highway.lookAheadBeats).toBe(10)
     expect(DEFAULT_SETTINGS.colors.background).toBe('#03050B')
     expect(DEFAULT_SETTINGS.colors.highway).toBe('#070B16')
   })
@@ -58,7 +58,7 @@ describe('loadSettings', () => {
         highway: 'not a section',
       }),
     )
-    expect(loaded.camera.tiltDeg).toBe(45)
+    expect(loaded.camera.tiltDeg).toBe(35)
     expect(loaded.camera.pan).toBe(0)
     expect(loaded.colors.background).toBe('#03050B')
     expect(loaded.colors.lane).toBe(DEFAULT_SETTINGS.colors.lane)
@@ -123,7 +123,7 @@ describe('loadSettings', () => {
     const loaded = loadSettings(
       stored({
         keyboard: { gap: 1, blackHeight: -1, edgeProfile: 'ROUNDED', pressDepthWhite: 0.3 },
-        notes: { blackLiftMode: 'manual', blackLift: 5, headHeight: 0 },
+        notes: { whiteHeadHeight: 0, blackHeadHeight: 5, blackRidgeHeight: 9 },
         render: { antialias: 'taa', scale: 9, maxPixelRatio: 0 },
       }),
     )
@@ -133,9 +133,9 @@ describe('loadSettings', () => {
     expect(loaded.keyboard.pressDepthWhite).toBe(0.3)
     // blackHeight −1 → 0, so black keys can't be pressed at all (cross-setting limit).
     expect(loaded.keyboard.pressDepthBlack).toBe(0)
-    expect(loaded.notes.blackLiftMode).toBe('manual')
-    expect(loaded.notes.blackLift).toBe(R['notes.blackLift'].max)
-    expect(loaded.notes.headHeight).toBe(R['notes.headHeight'].min)
+    expect(loaded.notes.whiteHeadHeight).toBe(R['notes.whiteHeadHeight'].min)
+    expect(loaded.notes.blackHeadHeight).toBe(R['notes.blackHeadHeight'].max)
+    expect(loaded.notes.blackRidgeHeight).toBe(R['notes.blackRidgeHeight'].max)
     expect(loaded.render.antialias).toBe('msaa')
     expect(loaded.render.scale).toBe(2)
     expect(loaded.render.maxPixelRatio).toBe(1)
@@ -156,14 +156,16 @@ describe('loadSettings', () => {
     // About twice the black key's visible length (63% of 150 mm) behind it, on the 0.5 step.
     expect(DEFAULT_SETTINGS.keyboard.pivotOffsetBlack).toBe(8)
     expect(DEFAULT_SETTINGS.keyboard.blackHeight).toBeCloseTo(12 / 23.5, 10)
-    expect(DEFAULT_SETTINGS.notes.blackLift).toBeCloseTo(12 / 23.5, 10)
     expect(DEFAULT_SETTINGS.notes).toMatchObject({
       heads3d: true,
-      headHeight: 0.35,
+      whiteHeadHeight: 0.35,
+      // Taller than white (milestone 9.2).
+      blackHeadHeight: 0.6,
       headRounded: true,
-      blackLiftMode: 'keys',
-      contactShadow: true,
-      shadowStrength: 0.45,
+      blackSideShading: 0.7,
+      blackRidge: false,
+      blackOutline: true,
+      blackOutlineStrength: 0.8,
     })
     expect(DEFAULT_SETTINGS.highway).toMatchObject({
       blackLaneShading: true,
@@ -353,6 +355,44 @@ describe('loadSettings', () => {
     )
     expect(kept.noteStyle.headFill).toBe('bubbles')
     expect(kept.noteStyle.sustainFill).toBe('neon')
+  })
+
+  it('migrates v8 to v9: the black lift and its mode go, head height becomes white', () => {
+    const s = loadSettings(
+      stored({ notes: { blackLiftMode: 'manual', blackLift: 0.2, headHeight: 0.6 } }, 8),
+    )
+    expect(s.notes.whiteHeadHeight).toBe(0.6)
+    expect(s.notes.blackHeadHeight).toBe(R['notes.blackHeadHeight'].default)
+    expect(s.notes).not.toHaveProperty('blackLift')
+    expect(s.notes).not.toHaveProperty('blackLiftMode')
+    expect(s.notes).not.toHaveProperty('headHeight')
+    // Nothing stored: the defaults.
+    expect(loadSettings(stored({ notes: {} }, 8)).notes.whiteHeadHeight).toBe(0.35)
+  })
+
+  it('migrates v8 to v9: the contact shadow becomes the black note outline', () => {
+    const changed = loadSettings(
+      stored({ notes: { contactShadow: false, shadowStrength: 0.3 } }, 8),
+    )
+    expect(changed.notes.blackOutline).toBe(false)
+    expect(changed.notes.blackOutlineStrength).toBe(0.3)
+    expect(changed.notes).not.toHaveProperty('contactShadow')
+    expect(changed.notes).not.toHaveProperty('shadowStrength')
+    // The old default strength takes the new, stronger default.
+    const old = loadSettings(stored({ notes: { contactShadow: true, shadowStrength: 0.45 } }, 8))
+    expect(old.notes.blackOutline).toBe(true)
+    expect(old.notes.blackOutlineStrength).toBe(0.8)
+  })
+
+  it('migrates saved looks and look files from v8', () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Lifted')
+    const { 'notes.whiteHeadHeight': _w, ...rest } = look.values
+    const values = { ...rest, 'notes.headHeight': 0.7, 'notes.blackLift': 0.1 }
+    const raw = { version: 8, settings: {}, looks: { active: null, saved: [{ ...look, values }] } }
+    const [migrated] = loadLooks(raw).saved
+    expect(migrated?.values['notes.whiteHeadHeight']).toBe(0.7)
+    expect(migrated?.values).not.toHaveProperty('notes.blackLift')
+    expect(migrated?.values).not.toHaveProperty('notes.headHeight')
   })
 
   it('migrates saved looks with Glass to Crystal', () => {

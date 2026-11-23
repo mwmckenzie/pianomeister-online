@@ -1,8 +1,16 @@
-import { PerspectiveCamera, Scene } from 'three'
+import {
+  type BufferGeometry,
+  type Mesh,
+  PerspectiveCamera,
+  Scene,
+  type ShaderMaterial,
+} from 'three'
 
 import { notePaletteColors } from '@/core/color/notePaletteColors'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
+import { loopRepeatCount, MAX_LOOP_REPEATS, repeatActive } from '@/core/transport/loopRepeat'
+import type { LoopWindow } from '@/core/transport/LoopWindow'
 
 import { CageLayer } from './cages/CageLayer'
 import { createTimeUniforms } from './createTimeUniforms'
@@ -10,7 +18,6 @@ import { NowLineEffects } from './effects/NowLineEffects'
 import type { EngineSong } from './EngineSong'
 import { Highway } from './Highway'
 import { Keyboard } from './Keyboard'
-import { blackLaneLift } from './model/blackLaneLift'
 import type { CameraPlacement } from './model/CameraPlacement'
 import { cameraFit } from './model/cameraFit'
 import { KeyStates } from './model/KeyStates'
@@ -23,7 +30,9 @@ import { unitsPerTick } from './model/unitsPerTick'
 import { velocityScale } from './model/velocityScale'
 import type { GlowTwin } from './GlowTwin'
 import { NoteMask } from './notes/NoteMask'
-import { ContactShadow } from './notes/ContactShadow'
+import { BlackOutline } from './notes/BlackOutline'
+import { LoopLines } from './lines/LoopLines'
+import { LoopRepeat, type RepeatSource } from './LoopRepeat'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
 import { BAR_START, labelRepeatRanks, RUN_START } from './model/labelRepeatRanks'
@@ -46,6 +55,8 @@ const STATS_WINDOW = 120
 const PRE_SONG_BARS = 4
 /** White-lane notes sit just above the highway surface and its lines. */
 const WHITE_LANE_Y = 0.01
+/** Black-lane notes: on the highway too, a hair above the white ones (a safety margin only). */
+const BLACK_LANE_Y = WHITE_LANE_Y + 0.002
 /** "Paused for ages": with a pinned animation clock, paused frames show every pulse settled. */
 const SETTLED_SECONDS = 1e3
 
@@ -58,8 +69,11 @@ const ORDER = {
   cages: 1,
   whiteSustains: 3,
   whiteHeads: 3.1,
-  shadow: 3.5,
+  outline: 3.5,
+  /** Under every note layer: the boundary lines never hide notes. */
+  loopLines: 2.5,
   blackSustains: 3.6,
+  blackRidges: 3.65,
   blackHeads: 3.7,
   whiteNames: 3.15,
   blackNames: 3.75,
@@ -77,7 +91,9 @@ interface SongParts {
   readonly pedals: CageLayer
   readonly sustains: { readonly white: SustainLayer; readonly black: SustainLayer }
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
-  readonly shadow: ContactShadow
+  /** Raised black-lane sustains (milestone 9.2), shown instead of the flat ones when on. */
+  readonly ridges: HeadLayer
+  readonly outline: BlackOutline
   readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
   /** The notes in the stencil buffer, so cages never draw under them. */
   readonly masks: readonly NoteMask[]
@@ -97,6 +113,8 @@ export class Engine {
   private readonly scene = new Scene()
   /** Glow twins only (brief decision 109): the bloom pass draws this, not the main scene. */
   private readonly glowScene = new Scene()
+  /** Note-name labels, drawn over the finished frame (RenderPipeline's overlay). */
+  private readonly labelScene = new Scene()
   /** Bloom state the twins were last synced for; null = sync on the next frame. */
   private glowSyncedFor: boolean | null = null
   private readonly camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 1000)
@@ -110,6 +128,10 @@ export class Engine {
   private readonly keyboard = new Keyboard(this.atlas.texture, this.noteColors)
   private readonly effects = new NowLineEffects(this.time, DEFAULT_SETTINGS.render.particleBudget)
   private song: SongParts | null = null
+  /** The active loop on the highway (milestone 9.2), or null. */
+  private loopWindow: LoopWindow | null = null
+  private readonly loopRepeat = new LoopRepeat(this.time)
+  private readonly loopLines = new LoopLines(this.time, 2 * (MAX_LOOP_REPEATS + 1), ORDER.loopLines)
   private settings: PlayerSettings = DEFAULT_SETTINGS
   private keyboardKey = ''
   private placement: CameraPlacement | null = null
@@ -145,7 +167,7 @@ export class Engine {
   private sizedForDpr = 0
 
   constructor() {
-    this.scene.add(this.keyboard.group, this.effects.group)
+    this.scene.add(this.keyboard.group, this.effects.group, this.loopLines.mesh)
     this.effects.setKeyTops(this.keyboard.keyBodies)
     this.effects.recolor(this.noteColors)
     // Key labels fit their key by the names' widths, which change once the font has loaded.
@@ -154,7 +176,13 @@ export class Engine {
   }
 
   mount(canvas: HTMLCanvasElement): void {
-    this.pipeline = new RenderPipeline(canvas, this.scene, this.glowScene, this.camera)
+    this.pipeline = new RenderPipeline(
+      canvas,
+      this.scene,
+      this.glowScene,
+      this.camera,
+      this.labelScene,
+    )
     this.applySettings(this.settings)
     // Size changes in device pixels (window resize, browser zoom); where the browser can't
     // observe the device-pixel box, the CSS box. A device-pixel-ratio change alone is also
@@ -233,6 +261,14 @@ export class Engine {
       white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads, this.noteColors),
       black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads, this.noteColors),
     }
+    const ridges = new HeadLayer(
+      black,
+      this.time,
+      this.noteStyle,
+      ORDER.blackRidges,
+      this.noteColors,
+      true,
+    )
     this.song = {
       ppq: song.ppq,
       highway: new Highway(beats, this.time),
@@ -250,10 +286,11 @@ export class Engine {
       ),
       sustains,
       heads,
-      masks: [sustains.white, sustains.black, heads.white, heads.black].map(
+      ridges,
+      masks: [sustains.white, sustains.black, ridges, heads.white, heads.black].map(
         (layer) => new NoteMask(layer.mesh, ORDER.noteMasks),
       ),
-      shadow: new ContactShadow(black, this.time, ORDER.shadow),
+      outline: new BlackOutline(black, this.time, ORDER.outline),
       names: {
         white: new NoteNameLayer(
           white,
@@ -281,17 +318,109 @@ export class Engine {
       s.pedals.mesh,
       s.sustains.white.mesh,
       s.heads.white.mesh,
-      s.shadow.mesh,
+      s.outline.mesh,
       s.sustains.black.mesh,
+      s.ridges.mesh,
       s.heads.black.mesh,
-      s.names.white.mesh,
-      s.names.black.mesh,
       ...s.masks.map((m) => m.mesh),
     )
+    this.labelScene.add(s.names.white.mesh, s.names.black.mesh)
+    this.loopRepeat.setSources(this.repeatSources(s))
     this.lastTick = null
     this.effects.clear()
     this.applySettings(this.settings)
     this.invalidate()
+  }
+
+  /**
+   * Shows a loop on the highway (milestone 9.2): the window comes from the transport's loop and
+   * pre-roll (loopWindowFor), null without a loop. Takes effect on the next frame drawn, the
+   * same frame that shows the transport's jump to the loop start.
+   */
+  setLoop(window: LoopWindow | null): void {
+    const a = this.loopWindow
+    if (
+      a === window ||
+      (a !== null &&
+        window !== null &&
+        a.startTick === window.startTick &&
+        a.endTick === window.endTick &&
+        a.preStartTick === window.preStartTick)
+    ) {
+      return
+    }
+    this.loopWindow = window
+    this.invalidate()
+  }
+
+  /** Every layer that shows song content again in each repeat, with where its copies go. */
+  private repeatSources(song: SongParts): RepeatSource[] {
+    const scene = () => this.scene
+    const glow = () => this.glowScene
+    const labels = () => this.labelScene
+    const main: Mesh<BufferGeometry, ShaderMaterial>[] = [
+      song.sustains.white.mesh,
+      song.sustains.black.mesh,
+      song.ridges.mesh,
+      song.heads.white.mesh,
+      song.heads.black.mesh,
+      song.outline.mesh,
+      song.pedals.mesh,
+      ...song.masks.map((m) => m.mesh),
+      ...song.highway.repeatMeshes,
+    ]
+    const twins: Mesh<BufferGeometry, ShaderMaterial>[] = [
+      song.sustains.white.twin.mesh,
+      song.sustains.black.twin.mesh,
+      song.ridges.twin.mesh,
+      song.heads.white.twin.mesh,
+      song.heads.black.twin.mesh,
+      song.names.white.twin.mesh,
+      song.names.black.twin.mesh,
+      song.pedals.twin.mesh,
+      ...song.highway.repeatTwins,
+    ]
+    return [
+      ...main.map((mesh) => ({ mesh, parent: scene })),
+      ...twins.map((mesh) => ({ mesh, parent: glow })),
+      ...[song.names.white.mesh, song.names.black.mesh].map((mesh) => ({ mesh, parent: labels })),
+    ]
+  }
+
+  /**
+   * This frame's loop uniforms, repeats and boundary lines, for the playhead at `tick`: dim
+   * outside [start, end); with Next repeat and the playhead inside the iteration, the song is
+   * cut at the loop end and the iteration drawn again beyond it, as often as the highway reaches.
+   */
+  private updateLoop(tick: number): void {
+    const window = this.loopWindow
+    const { loop } = this.settings
+    const t = this.time
+    if (window === null) {
+      t.uLoopDim.value = 0
+      t.uLoopRepeat.value = 0
+      t.uClipLo.value = -1e9
+      t.uClipHi.value = 1e9
+      this.loopRepeat.update(null, 0)
+      this.loopLines.place([])
+      return
+    }
+    const repeating = loop.after === 'repeat' && repeatActive(window, tick)
+    t.uLoopStart.value = window.startTick
+    t.uLoopEnd.value = window.endTick
+    t.uLoopPeriod.value = window.periodTicks
+    t.uLoopDim.value = loop.dim ? loop.dimStrength : 0
+    t.uLoopRepeat.value = repeating ? 1 : 0
+    t.uClipLo.value = -1e9
+    t.uClipHi.value = repeating ? window.endTick : 1e9
+    const count = repeating ? loopRepeatCount(window, tick, 1.5 * t.uLookAheadTicks.value) : 0
+    this.loopRepeat.update(window, count)
+    const lines: { tick: number; end: boolean }[] = []
+    for (let k = 0; k <= count; k++) {
+      lines.push({ tick: window.startTick + k * window.periodTicks, end: false })
+      lines.push({ tick: window.endTick + k * window.periodTicks, end: true })
+    }
+    this.loopLines.place(lines)
   }
 
   /**
@@ -314,6 +443,7 @@ export class Engine {
       song.sustains.black,
       song.heads.white,
       song.heads.black,
+      song.ridges,
     ]) {
       layer.recolor()
     }
@@ -337,10 +467,16 @@ export class Engine {
       this.effects.setKeyTops(this.keyboard.keyBodies)
     }
     this.keyboard.applySettings(settings)
+    const { loop } = settings
+    this.loopLines.setStyle(
+      loop.lines,
+      lineColor(loop.linesColor, loop.linesCustom, settings.appearance),
+      loop.linesWidth,
+      loop.linesGlow,
+    )
     const song = this.song
     if (song !== null) {
       const { notes } = settings
-      const lift = blackLaneLift(notes, settings.keyboard)
       song.highway.applySettings(settings)
       const { pedal, appearance } = settings
       song.pedals.mesh.visible = pedal.show
@@ -366,34 +502,48 @@ export class Engine {
       })
       const emit = notesEmit(settings)
       for (const layer of [song.sustains.white, song.sustains.black]) layer.twin.enabled = emit
-      // Floating below the white heads' tops, black-lane notes would intersect them: draw them on
-      // top instead, so black-lane notes always win (brief decision 39).
-      const onTop = lift < WHITE_LANE_Y + (notes.heads3d ? notes.headHeight : 0.01)
+      // Black-lane notes sit on the highway like the white ones (milestone 9.2: a lift made them
+      // read late on a tilted camera). Every note layer is depth-tested, so a nearer note covers
+      // a farther one whatever its colour; where black and white share a surface (overlapping
+      // sustains, a chord's front faces) the black one wins by a hair of lift and a depth bias
+      // (HeadLayer.setLift), never by skipping the depth test.
+      const ridgesOn = notes.heads3d && notes.blackRidge
       for (const [layer, y, top] of [
         [song.sustains.white, WHITE_LANE_Y, false],
-        [song.sustains.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
+        [song.sustains.black, BLACK_LANE_Y, true],
       ] as const) {
         layer.setLift(y, top)
         layer.setFlatHeads(!notes.heads3d)
         layer.setSustainTransparency(notes.sustainCenterTransparency, notes.sustainEdgeTransparency)
       }
-      for (const [layer, y, top] of [
-        [song.heads.white, WHITE_LANE_Y, false],
-        [song.heads.black, Math.max(lift, WHITE_LANE_Y), onTop],
+      song.sustains.black.mesh.visible = !ridgesOn
+      const heights = { white: notes.whiteHeadHeight, black: notes.blackHeadHeight }
+      for (const [layer, y, top, height, sideShading] of [
+        [song.heads.white, WHITE_LANE_Y, false, heights.white, 0],
+        [song.heads.black, BLACK_LANE_Y, true, heights.black, notes.blackSideShading],
       ] as const) {
         layer.mesh.visible = notes.heads3d
         layer.setLift(y, top)
-        layer.setShape(notes.headHeight, notes.headRounded)
+        layer.setShape(height, notes.headRounded)
+        layer.setSideShading(sideShading)
       }
-      song.shadow.set(notes.contactShadow, notes.shadowStrength, lift)
+      song.ridges.mesh.visible = ridgesOn
+      const dimColor = srgb(settings.colors.highway)
+      for (const layer of [song.heads.white, song.heads.black, song.ridges]) {
+        layer.setDimColor(dimColor)
+      }
+      song.ridges.setLift(BLACK_LANE_Y, true)
+      song.ridges.setShape(notes.blackRidgeHeight, false)
+      song.ridges.setSideShading(notes.blackSideShading)
+      song.ridges.setTopOpacity(1 - notes.sustainCenterTransparency)
+      song.outline.set(notes.blackOutline, notes.blackOutlineStrength)
       const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
-      const headTop = notes.heads3d ? notes.headHeight : 0
-      for (const [layer, y, top] of [
-        [song.names.white, WHITE_LANE_Y, false],
-        [song.names.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
+      for (const [layer, y, headTop] of [
+        [song.names.white, WHITE_LANE_Y, notes.heads3d ? heights.white : 0],
+        [song.names.black, BLACK_LANE_Y + 0.003, notes.heads3d ? heights.black : 0],
       ] as const) {
         layer.mesh.visible = namesOnNotes
-        layer.setLift(y, top)
+        layer.setLift(y)
         layer.applySettings(settings.names, headTop)
       }
       const cageShown = pedal.show && (pedal.fillOpacity > 0 || pedal.border)
@@ -587,6 +737,7 @@ export class Engine {
     cancelAnimationFrame(this.pendingFrame)
     this.sizeObserver?.disconnect()
     this.disposeSong()
+    this.loopLines.dispose()
     this.keyboard.dispose()
     this.effects.dispose()
     this.atlas.dispose()
@@ -620,6 +771,7 @@ export class Engine {
     }
     const fixed = this.fixedAnimationTime
     this.time.uTick.value = tick
+    this.updateLoop(tick)
     this.time.uTime.value = fixed ?? now / 1000
     this.time.uLoopTime.value = fixed ?? this.loopClock
     this.time.uPausedFor.value = fixed === null || playing ? this.pausedFor : SETTLED_SECONDS
@@ -699,7 +851,8 @@ export class Engine {
       names.fadeLength,
       names.repeats,
       this.settings.notes.heads3d,
-      this.settings.notes.headHeight,
+      this.settings.notes.whiteHeadHeight,
+      this.settings.notes.blackHeadHeight,
     ])
     // Skipping a frame number makes every label new.
     this.labelFrame += jumped || layoutKey !== this.labelLayoutKey ? 2 : 1
@@ -781,7 +934,7 @@ export class Engine {
     const bloomActive = this.pipeline?.bloomActive ?? false
     this.glowSyncedFor = this.pipeline === null ? null : bloomActive
     const song = this.song
-    const twins: GlowTwin[] = [...this.keyboard.twins, ...this.effects.twins]
+    const twins: GlowTwin[] = [...this.keyboard.twins, ...this.effects.twins, this.loopLines.twin]
     if (song !== null) {
       twins.push(
         ...song.highway.twins,
@@ -790,6 +943,7 @@ export class Engine {
         song.sustains.black.twin,
         song.heads.white.twin,
         song.heads.black.twin,
+        song.ridges.twin,
         song.names.white.twin,
         song.names.black.twin,
       )
@@ -799,6 +953,7 @@ export class Engine {
       twin.sync(bloomActive)
       this.glowScene.add(twin.mesh)
     }
+    this.loopRepeat.attachTo(this.glowScene)
   }
 
   private disposeSong(): void {
@@ -809,7 +964,8 @@ export class Engine {
       song.sustains.black,
       song.heads.white,
       song.heads.black,
-      song.shadow,
+      song.ridges,
+      song.outline,
       song.pedals,
       song.names.white,
       song.names.black,
@@ -819,7 +975,9 @@ export class Engine {
       ...parts.map((p) => p.mesh),
       ...song.masks.map((m) => m.mesh),
     )
+    this.labelScene.remove(song.names.white.mesh, song.names.black.mesh)
     for (const mask of song.masks) mask.dispose()
+    this.loopRepeat.setSources([])
     song.highway.dispose()
     for (const part of parts) part.dispose()
     this.song = null

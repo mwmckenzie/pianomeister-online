@@ -63,7 +63,11 @@ interface LoadEntry {
   readonly totals: PracticeTotals
 }
 
-const props = defineProps<{ readonly currentSongId: string | null }>()
+const props = defineProps<{
+  readonly currentSongId: string | null
+  /** The loaded bookmark, selected in the Load list on open (milestone 9.2 E). */
+  readonly currentBookmarkId?: string | null
+}>()
 const emit = defineEmits<{
   load: [songId: string, bookmarkId: string | null]
   openLibrary: []
@@ -232,6 +236,15 @@ watch(
     if (!store.loaded) await store.refresh()
     await Promise.all([bookmarks.refresh(), stats.refresh()])
     await nextTick()
+    // The current song and its loaded bookmark, selected and in view whatever the sort
+    // (milestone 9.2 E); set after the highlight watcher has run, which selects Full song.
+    const mark = props.currentBookmarkId ?? null
+    selectedEntryId.value = entries.value.some((e) => e.bookmarkId === mark) ? mark : null
+    await nextTick()
+    for (const list of [songList.value, loadList.value]) {
+      list?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'center' })
+    }
+    // Focus stays in the search field: typing searches, and the list keys work from there.
     searchField.value?.focus()
   },
   { immediate: true },

@@ -47,6 +47,7 @@ const highlights = computed(() =>
     songTitle,
     now: stats.now,
     weekStart,
+    gapMs: stats.gapMs,
   }),
 )
 const suggestions = computed(() =>
