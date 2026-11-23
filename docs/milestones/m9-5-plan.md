@@ -1,6 +1,6 @@
 # Milestone 9.5 plan: Playlist mode
 
-Spec: `docs/milestones/m9-5.md`. Boards: `docs/design/m9-5/source/`. Branch `feat/m9-5-playlists` from `main` (#25 merged). **Draft, waiting for approval.** Questions are in §9.
+Spec: `docs/milestones/m9-5.md`. Boards: `docs/design/m9-5/source/`. Branch `feat/m9-5-playlists` from `main` (#25 merged). Approved 2026-11-24 with the answers in §10 (they override §1–§9 where they differ).
 
 Testing follows `CLAUDE.md` → Testing, not the spec's Process section:
 
@@ -183,3 +183,22 @@ Same as the spec's order, with the timeline core split out first, because C and 
     - **Show HUD tempo:** the board always shows "100% · full song" and the bpm; the spec says a small tempo % only when not 100. I'd follow the board (always shown, % in primary when not 100). OK?
     - **"Up next":** use the surname only, as the board does ("Für Elise · Beethoven")?
 12. **Mute:** session-only (it resets on leave, separate from the master volume)?
+
+## 10. Answers (approved 2026-11-24)
+
+1. **Rolling merged timeline: yes.** Condition: the mid-song swap (`Transport.replaceSong` + engine `setSong`) must be glitch-free in audio and visuals. Measure it, use the build-then-swap-in-one-frame fallback if the rebuild hitches, and report the timing.
+2. **Beat-based highway: yes.** A tempo change at the seam looks like one inside a song. This overrides the spec's "placed in time" wording.
+3. **Bar numbers restart per song.**
+4. **Seam keys:** the sidebar's **Lines & glow** section, group "Playlist seam".
+5. **Crossfade setting:** Settings → Audio → Playback.
+6. **Keys as proposed.** The cheat sheet shows the Listening section only while listening, and ← / → never step bars in listening.
+7. **The easing set as proposed.**
+8. **The Welcome card is hidden** with no playlists.
+9. **"Import its looks too":** a checkbox, default on, with the same collision rules as other looks.
+10. **Leaving listening:** parked at the bar where listening stopped.
+11. **Board over spec on both:**
+    - Tempo % and bpm are always shown (the % in primary when not 100).
+    - "Up next" uses the surname only. With shuffle on it shows the actual next song in the shuffled order; with repeat one, the same song.
+12. **Mute** is for the session only.
+
+The spec wins on "Export all" and the per-song "Current look" option. Build order: A → timeline core → C → D → B → E. Testing per CLAUDE.md. Stop at the end for review with the sheets, the swap timing and the overlap draw calls.
