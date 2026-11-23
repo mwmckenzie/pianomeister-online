@@ -103,3 +103,149 @@ The alternatives are removing it (black side shading and the draw order already 
 - Turn on Raised black sustains: a low ridge replaces the flat black sustain; it hides with 3D heads off.
 - Reload with old settings that had a manual lift: no lift, your old head height is now the white height.
 - A saved look from 9.1 still applies, with its head height as the white height.
+
+## Round 2 — 2026-11-23: B reworked, A, D, E built; depth and label fixes; stop for review
+
+### What was done
+
+**B, round-1 review answers**
+
+- **Black note outline** replaces the contact shadow.
+  - Keys: `notes.contactShadow` → `notes.blackOutline`, `notes.shadowStrength` → `notes.blackOutlineStrength`. The v9 migration carries the switch over, and the strength only where it was changed from the old 45%, so the new 80% default applies otherwise.
+  - The rim is now the same width on every side of the note (0.08, solid with a short soft edge), with no offset.
+  - It shows as a thin dark line along black notes from 25° and 45°, and as an even outline from 85°.
+  - Sheets: `notes.blackOutlineStrength.tilt-25/45/85.jpg`.
+- **Ridges:** opaque, darker sides under a sustain-transparent top. The one-alpha variant and the `?ridgeSides` seam are gone.
+  - The ridge height cap is now 0.35. In the 5.1 s release frames, releases still don't read late at 0.35, so I kept it.
+- **New defaults:**
+  - Black side shading 70%.
+  - Black note height 0.6 (white stays 0.35).
+  - Camera tilt 35° and look-ahead 10 beats, on desktop and tablet. Every built-in look pins them, Classic and Fireworks included (Fireworks loses its extra look-ahead).
+- **Depth fix** (your Toccata screenshot): black heads behind a nearer white head were drawn on top of it.
+  - Every head and ridge is now depth-tested and writes depth, white and black alike.
+  - Black notes win only where they share a surface with a white note (overlapping sustains, a chord's front faces). They do it by their 0.002 lift plus a `polygonOffset` bias, with the depth test on. The black sustains and the outline are depth-tested too, and the glow twins copy the bias.
+  - Sheet: `occlusion.jpg`. A3 and B3 have A♯3 a 32nd later, just behind and taller, drawn in Two-tone so the colours differ, at 25°, 35°, 45° and 85°, at default and tall heights. The nearer white heads cover the black head's base. The black sustain still wins over the white sustains. There is no z-fighting.
+  - Toccata isn't bundled (it's your upload), so the case was added to the Black notes demo instead.
+- **Label fix** (Toccata bar 51): note-name labels now draw in an overlay the render pipeline draws last.
+  - They come after the notes, the bloom mix and anti-aliasing, straight onto the frame with no depth test or write.
+  - Within each lane colour they are drawn far to near.
+  - The label glow twin has the same depth state.
+  - Avoid overlaps, stack slots and placement are unchanged.
+  - `occlusion.jpg`, bottom row: the label sits whole over the heads at 25° and 35°.
+  - Key-top labels aren't affected. They lie on their own keys, nothing is drawn in front of them, and they keep their depth test.
+
+**A. Loop visibility** (sidebar section **Loop**, after Highway; all look keys, pinned in Classic and the base)
+
+| Setting              | Default     | Range                                |
+| -------------------- | ----------- | ------------------------------------ |
+| Dim outside the loop | on          |                                      |
+| Dim strength         | 60%         | 0–95%, step 5                        |
+| After the loop end   | Next repeat | Next repeat / Song continues         |
+| Loop boundary lines  | on          |                                      |
+| Colour               | Secondary   | white / primary / secondary / custom |
+| Width                | 0.14        | 0.02–0.3, log                        |
+| Glow                 | 1           | 0–3, log with a 0 stop               |
+
+- **Dim** happens in the shaders, by song tick (`loopDim` in `TIME_GLSL`). Only [loop start, loop end) is left undimmed; the pre-roll is dimmed both live and in the repeat (answer 2, spec amended).
+  - Heads fade toward the highway colour. Sustains, ridges, the outline, lanes, bar and beat lines, borders, octave lines, cages and labels fade by alpha and glow.
+  - The keyboard, the now line and the now-line effects are never dimmed.
+- **Next repeat** (`LoopRepeat`): copies of each repeated layer share its geometry and material.
+  - Copy k draws with the playhead moved back k periods and clipped to one iteration (`uClipLo/uClipHi`, set in `onBeforeRender` and put back after). Nothing is duplicated on the CPU, per frame or ever.
+  - The song itself is cut at the loop end.
+  - Repeated layers: note layers, outline, labels, pedal cage, stencil masks, bar and beat lines, and their glow twins.
+  - Static lanes and borders map highway ticks back to song ticks (`loopSongTick`) so they dim correctly.
+  - The repeat shows only while the playhead is inside the iteration (count-in included); outside it, the song shows dimmed.
+- **Boundary lines** (`LoopLines`) use the highway lines' coverage and glow, under the notes, never dimmed. The end line glows 1.5× (fixed). Each repeat seam gets its own start and end line.
+  - The first defaults (width 0.06, glow 0.6) were too faint on the sheet, so I raised them to 0.14 and 1.
+- **Timing:** `loopWindowFor` uses the same count-in as the transport (`preRollWindowFor`; `Transport.windowFor` now calls it too). The repeat lands exactly where the playhead will be after each wrap. `PlayerView` passes the window to the engine in the same tick as the jump to the loop start.
+- **Sheets:** `loop.off.jpg` and `loop.medium.jpg`.
+  - Rows: a short loop (bar 3, 2 beats of pre-roll) seen from inside it, and a long loop (bars 2–5) near its end.
+  - Columns: Next repeat, Song continues, dim 0, dim 95%, no boundary lines.
+
+**A.5 — draw calls per frame** (all passes; `docs/design/m9-2/draw-calls.json`, long demo, 1280×720):
+
+| Case                                | Off | Medium |
+| ----------------------------------- | --: | -----: |
+| No loop                             |  22 |     41 |
+| No loop, look-ahead 32              |  22 |     41 |
+| Long loop (bars 2–5), near its end  |  34 |     58 |
+| Short loop (bar 3, pre-roll 2)      |  45 |     73 |
+| One-bar loop, look-ahead 32 (worst) | 155 |    223 |
+
+Each repeat adds about 11 draws at Off and 15 at Medium, and only while it's on screen. The worst case is a one-bar loop at the maximum look-ahead, which needs 12 repeats. If that is too much for the tablet pass (milestone 11), the fallback in the plan is one instanced draw per layer of the loop's notes, rebuilt only when the loop changes.
+
+**D. Open Home when a new session starts** (Appearance → Start)
+
+- **Settings:**
+  - "Open Home when a new session starts" (on).
+  - "New session after": 10 / 20 / 30 / 60 min, default 30. It replaces the fixed 10-minute gap everywhere: the recorder, `sessionize`, headline stats, highlights and profile summaries.
+- **One rule:** `isNewSession(lastPlaybackEnd, now, gap)`.
+  - `shouldOpenHome` opens Home at most once per session per profile (the last auto-open is stored), and never for a profile that has never played (see the decisions below).
+  - Checked on load, on refocus (`visibilitychange` and window `focus`), and by an idle timer for the rest of the gap, re-armed when playback starts or ends.
+- **Never interrupts:** not while playing, with a bookmark draft open (Bookmark manager), or in the loop editor. A blocked check still counts as handled.
+  - The picker, settings window, tempo and loop popovers and the shortcuts sheet close first.
+- **Tracking suspended:** `stats.trackingSuspended`, which nothing turns on yet.
+  - The recorder ends a stretch under way and then records nothing (no sessions, time or plays). It keeps following loads and setup, so tracking resumes with the right song.
+  - The Home timer pauses. Unit-tested. Roadmap 9.5 notes it.
+- **Stored or derived?** Both.
+  - The recorder stores a `Session` row per session and a `sessionId` on each play record. It already continued the stored last session after a reload, within the gap.
+  - Every number the app shows (session counts, average session, Welcome highlights, profile summaries) is recomputed from the play log with `sessionize` and the current gap.
+  - So the new 30-minute default changes how past sessions are counted on screen: sessions 10–30 minutes apart now merge. The stored `sessionId`s keep the grouping they were recorded with, but nothing displays them.
+
+**E. Change song and the Library open on the current song**
+
+- **Picker:** the current song is highlighted and the loaded bookmark selected (else Full song). Both are scrolled into view, whatever the sort. Focus stays in the search field (answer 12). The search is still cleared on open (answer 11).
+- **Library:** the current song is selected, centred and the song list focused, whatever the sort and grouping.
+  - When a search or filter hides it: "Current song is hidden by the filter · Show". Show clears what hides it and reveals the song.
+  - The Library's details panel doesn't list bookmarks, so there is no "current bookmark" to select there.
+
+### Decisions not in the instructions
+
+- **Home never opens for a profile that has never played.** There's no "last playback" to start a new session from, and Start on already decides a first run.
+  - This also keeps fresh e2e profiles on the player.
+  - The shared e2e storage turns the setting off, because many tests seed sessions from days ago and Home would open over the page under test. `homeOnNewSession.spec` turns it back on.
+- **The loop editor counts as work in progress** (it has no separate unsaved state). Home waits while it's open.
+- **Labels draw over the finished frame,** after vignette and AA too, not just after the glow, so neither bloom nor vignette dims them.
+- **Loop line defaults raised to width 0.14 and glow 1,** from the sheet.
+- **The 9.1 design images in `docs/design/m9-1/` are left as they are.** They record the 9.1 decisions, and some show settings that no longer exist. A fresh `all-looks.jpg` at the new camera is in `docs/design/m9-2/`.
+
+### Visual baselines and the camera
+
+The visual-review shots, the all-looks sheet and every 9.2 sheet were regenerated after the default camera moved to 35° and 10 beats. **Shots taken at the default camera look different because of the camera, not because of a regression.** That covers the player, Welcome backdrop, strip and look shots in `test-results/visual`, and `all-looks.jpg`. The whole visual-review, looks and 9.2 sheet run passed: 161 tests. The black-note range sheets were re-rendered after the depth fix.
+
+### Results
+
+- `npm run check`: type-check, lint, **765 unit tests** pass. `npm run build` passes.
+- **E2e, `chromium` + `polish`, production preview, `--retries=0`:**
+  - **175 passed, 3 failed** before the last fixes. All three failures followed intended 9.2 changes, not load timing:
+    - `listKeys.spec.ts:29`: the Library now opens on the current song (Minuet), not the first row.
+    - `bookmarks.spec.ts:274`: the picker now selects the loaded bookmark, not Full song.
+    - `player.spec.ts:72`: the tilt default is 35°, so +3 is 38°, not 48°.
+  - I updated those tests and re-ran their specs: all pass.
+  - New: `homeOnNewSession.spec` (5), `currentSong.spec` (2), and the polish test "the first frame after a loop change shows it".
+- **Draw calls:** see A.5.
+
+### Known issues and open questions
+
+1. **Draw calls for very short loops at the maximum look-ahead** (223 at Medium). Fine on desktop; to check in the tablet pass.
+2. **The repeat doesn't draw particles.** Effects only happen at the now line, which is always in the live song.
+3. **Label order:** far-to-near holds within the white and within the black labels, not across them (they're two layers).
+4. **Raised black sustains** read clearly only close up from the default camera, even at 0.35.
+
+### Manual review checklist
+
+- **Loop, dim and lines:**
+  - Set a short loop with pre-roll 2 and play.
+  - Beyond the end line you should see the loop's count-in (dimmed), then the loop again (bright), repeated as far as the highway reaches. The seams flow into the now line with no jump at the wrap.
+- **Switch to Song continues:** the song continues beyond the end, dimmed.
+- **Loop changes:** toggle the loop while playing, and seek while paused. There should be no flash. Load a bookmark: same behaviour.
+- **Black notes:**
+  - At 35°, a white chord in front of later black notes: the nearer heads cover the farther ones. Black sustains stay above white sustains.
+  - Turn note names on: labels are never cut by heads.
+- **Home on a new session:**
+  - Set "New session after" to 10 min.
+  - Play, pause, and leave the app idle for 10 minutes: Home opens by itself.
+  - With a bookmark draft open it doesn't, and it doesn't open again on refocus.
+- **Library:**
+  - Search "canon" in the Library, go to the player and back: the hidden-song line shows, and Show reveals Minuet.
+  - Change song (O): the current song and bookmark are selected and in view under every sort, and typing still searches.
