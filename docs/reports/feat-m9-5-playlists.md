@@ -1,6 +1,6 @@
 # Milestone 9.5 — Playlist mode (branch `feat/m9-5-playlists`)
 
-## Round 1 — 2026-11-24: built, ready for review
+## Round 1 — 2026-11-23: built, ready for review
 
 Built in the approved order A → timeline core → C → D → B → E, committed locally per step. **Nothing pushed.**
 
