@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scene backdrop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 100%; height: 720px; background: #05070F; overflow: hidden">
+  <svg viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true" style="display: block">
+    <defs>
+      <filter id="sceneGlow" x="-100%" y="-300%" width="300%" height="700%"><feGaussianBlur stdDeviation="9"></feGaussianBlur></filter>
+    </defs>
+    <polygon points="{{surface}}" fill="#0A0F1E"></polygon>
+    <sc-for list="{{shade}}" as="s" hint-placeholder-count="36"><polygon points="{{s.pts}}" fill="#000000" opacity="0.22"></polygon></sc-for>
+    <sc-for list="{{lanes}}" as="l" hint-placeholder-count="53"><line x1="{{l.x1}}" y1="{{l.y1}}" x2="{{l.x2}}" y2="{{l.y2}}" stroke="#6E8CC8" stroke-opacity="0.16" stroke-width="0.8"></line></sc-for>
+    <sc-for list="{{bars}}" as="b" hint-placeholder-count="7"><line x1="{{b.x1}}" y1="{{b.y}}" x2="{{b.x2}}" y2="{{b.y}}" stroke="#96AFE6" stroke-opacity="{{b.op}}" stroke-width="{{b.w}}"></line></sc-for>
+    <sc-for list="{{bodies}}" as="n" hint-placeholder-count="13"><polygon points="{{n.pts}}" fill="{{n.fill}}" opacity="{{n.op}}"></polygon></sc-for>
+    <sc-for list="{{heads}}" as="n" hint-placeholder-count="13"><polygon points="{{n.pts}}" fill="{{n.fill}}" opacity="{{n.op}}"></polygon></sc-for>
+    <line x1="0" y1="560" x2="1280" y2="560" stroke="#DCE6FF" stroke-opacity="0.55" stroke-width="1.5"></line>
+    <sc-for list="{{whites}}" as="k" hint-placeholder-count="52"><polygon points="{{k.pts}}" fill="{{k.fill}}"></polygon></sc-for>
+    <sc-for list="{{blacks}}" as="k" hint-placeholder-count="36"><polygon points="{{k.pts}}" fill="{{k.fill}}"></polygon></sc-for>
+    <sc-for list="{{glows}}" as="g" hint-placeholder-count="2"><ellipse cx="{{g.x}}" cy="560" rx="30" ry="10" fill="{{g.fill}}" opacity="0.6" filter="url(#sceneGlow)"></ellipse></sc-for>
+  </svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var PAL = ['#FF0000','#A80000','#FFE500','#A19000','#00C2FF','#FF9D00','#D97500','#1CFF00','#13AC00','#9500FF','#5E00AB','#FF00D5'];
+    var BLK = [1, 3, 6, 8, 10];
+    var yT = 90, yN = 560, yB = 720;
+    var xT = function (t) { return 330 + t * 620; };
+    var xB = function (t) { return -60 + t * 1400; };
+    var xA = function (t, y) { return xT(t) + (xB(t) - xT(t)) * (y - yT) / (yB - yT); };
+    var r = function (v) { return Math.round(v * 10) / 10; };
+    var q = function (a, b, y1, y2) { return r(xA(a, y1)) + ',' + y1 + ' ' + r(xA(b, y1)) + ',' + y1 + ' ' + r(xA(b, y2)) + ',' + y2 + ' ' + r(xA(a, y2)) + ',' + y2; };
+    var lane = {}, wi = 0, m;
+    for (m = 21; m <= 108; m++) {
+      if (BLK.indexOf(m % 12) >= 0) { lane[m] = { a: (wi - 0.29) / 52, b: (wi + 0.29) / 52, blk: true }; }
+      else { lane[m] = { a: wi / 52, b: (wi + 1) / 52, blk: false }; wi++; }
+    }
+    var lanes = [];
+    for (var i = 0; i <= 52; i++) { var t = i / 52; lanes.push({ x1: r(xA(t, yN)), y1: yN, x2: r(xT(t)), y2: yT }); }
+    var bars = [[470, 0.12, 0.8], [380, 0.45, 1.4], [300, 0.12, 0.8], [235, 0.12, 0.8], [180, 0.4, 1.2], [140, 0.1, 0.7], [112, 0.08, 0.6]].map(function (b) {
+      return { x1: r(xA(0, b[0])), x2: r(xA(1, b[0])), y: b[0], op: b[1], w: b[2] };
+    });
+    var shade = [];
+    for (m = 21; m <= 108; m++) { if (lane[m].blk) shade.push({ pts: q(lane[m].a, lane[m].b, yT, yN) }); }
+    var NOTES = [[55, 560, 300], [67, 560, 430], [71, 400, 335], [74, 320, 255], [72, 245, 205], [69, 198, 165], [59, 300, 200], [66, 470, 385], [62, 150, 122], [76, 182, 145], [70, 262, 218], [50, 395, 320], [47, 240, 190]];
+    var bodies = [], heads = [];
+    NOTES.forEach(function (n) {
+      var L = lane[n[0]], pad = L.blk ? 0.0006 : 0.0016, a = L.a + pad, b = L.b - pad, fill = PAL[n[0] % 12];
+      var ys = n[1], ye = n[2], hy = Math.max(ye, ys - Math.max(3, (ys - yT) * 0.025));
+      bodies.push({ pts: q(a, b, hy, ye), fill: fill, op: r(0.5 * Math.min(1, (ye - yT) / 140)) });
+      heads.push({ pts: q(a, b, ys, hy), fill: fill, op: r(Math.min(1, (ys - yT) / 140)) });
+    });
+    var lit = { 55: true, 67: true };
+    var whites = [], blacks = [], glows = [];
+    for (m = 21; m <= 108; m++) {
+      var L2 = lane[m], fill2 = lit[m] ? PAL[m % 12] : null;
+      if (L2.blk) blacks.push({ pts: q(L2.a, L2.b, yN + 3, 656), fill: fill2 || '#16181D' });
+      else whites.push({ pts: q(L2.a + 0.0012, L2.b - 0.0012, yN + 3, yB), fill: fill2 || '#E6E9EF' });
+      if (lit[m]) glows.push({ x: r(xA((L2.a + L2.b) / 2, yN)), fill: PAL[m % 12] });
+    }
+    return { surface: q(0, 1, yT, yN), shade: shade, lanes: lanes, bars: bars, bodies: bodies, heads: heads, whites: whites, blacks: blacks, glows: glows };
+  }
+}
+</script>
+</body>
+</html>

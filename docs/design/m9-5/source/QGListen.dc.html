@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Listening mode</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200;300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: 720px; overflow: hidden; background: #05070F; font-family: 'Inter Tight', system-ui, sans-serif; color: #E8ECF6">
+  <div style="position: absolute; inset: 0"><dc-import name="Scene" hint-size="100%,720px"></dc-import></div>
+
+  <!-- song progress along the top (hidden in the pure visualizer) -->
+  <sc-if value="{{showTimeline}}" hint-placeholder-val="{{ true }}">
+    <div aria-label="Song position 1:48 of 5:05" style="position: absolute; left: 0; right: 0; top: 0; height: 28px">
+      <div style="position: absolute; left: 28px; right: 28px; top: 12px; height: 3px; border-radius: 2px; background: rgba(232,236,246,0.16)"></div>
+      <div style="position: absolute; left: 28px; width: calc((100% - 56px) * 0.355); top: 12px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, rgba(138,180,255,0.3), {{accent}})"></div>
+      <div style="position: absolute; left: calc(28px + (100% - 56px) * 0.355); top: 7px; width: 13px; height: 13px; margin-left: -6px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 0 12px rgba(138,180,255,0.9)"></div>
+    </div>
+  </sc-if>
+
+  <!-- review switch: not part of the app -->
+  <div role="group" aria-label="Mockup control: HUD in listening mode" style="position: absolute; top: 36px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border-radius: 12px; border: 1px dashed rgba(255,214,102,0.55); background: rgba(40,32,8,0.6); font-size: 12px; color: #FFE7A3; z-index: 4">
+    Mockup · HUD
+    <sc-for list="{{modes}}" as="m" hint-placeholder-count="3"><button aria-pressed="{{m.pressed}}" onClick="{{m.pick}}" style="{{m.style}}">{{m.name}}</button></sc-for>
+    <button onClick="{{songChange}}" style="height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255,214,102,0.4); background: transparent; color: #FFE7A3; font-size: 12px; cursor: pointer">{{changeLabel}}</button>
+  </div>
+
+  <!-- LEFT COLUMN -->
+  <div style="position: absolute; top: 50px; left: 28px; bottom: 120px; display: flex; flex-direction: column">
+    <sc-if value="{{isShow}}" hint-placeholder-val="{{ true }}">
+      <section aria-label="Now playing" style="display: flex; flex-direction: column; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #7EE0C3"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect><rect x="17" y="14" width="4" height="6" rx="1.5"></rect></svg>Evening wind-down · song {{song.n}} of 6</div>
+        <div style="font-size: 17px; font-weight: 500; margin-top: 6px">{{song.title}}</div>
+        <div style="font-size: 13px; color: #A7B0C6; margin-top: 2px">{{song.composer}}</div>
+        <div style="display: flex; align-items: baseline; margin-top: 16px">
+          <span style="font-size: 13px; color: #8F9AB6; margin-right: 8px">bar</span>
+          <span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9); display: inline-block; width: 2ch; text-align: right">{{song.bar}}</span>
+          <span style="font-size: 52px; font-weight: 200; line-height: 1; color: #5E6884; margin: 0 2px">:</span>
+          <span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9); display: inline-block; width: 1ch">1</span>
+          <span style="font-size: 13px; color: #8F9AB6; margin-left: 8px">beat</span>
+        </div>
+        <div style="font-size: 13px; color: #A7B0C6; margin-top: 14px">Up next · <span style="color: #DCE3F3">{{song.next}}</span></div>
+      </section>
+    </sc-if>
+    <sc-if value="{{isMinimal}}" hint-placeholder-val="{{ false }}">
+      <section aria-label="Now playing" style="display: flex; flex-direction: column; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">
+        <div style="font-size: 17px; font-weight: 500">{{song.title}}</div>
+        <div style="font-size: 13px; color: #A7B0C6; margin-top: 2px">{{song.composer}}</div>
+      </section>
+    </sc-if>
+
+    <!-- menu icons: always reachable, follow the idle-hide setting -->
+    <nav aria-label="App" style="margin-top: auto; display: flex; flex-direction: column; gap: 2px">
+      <button aria-label="Leave listening (Esc)" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0; border: 0; background: transparent; color: #7EE0C3; cursor: pointer; filter: drop-shadow(0 0 6px rgba(126,224,195,0.5))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect><rect x="17" y="14" width="4" height="6" rx="1.5"></rect></svg></span><span style="font-size: 13px; color: #E8ECF6; white-space: nowrap; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">Leave listening<span style="color: #8F9AB6; margin-left: 8px">Esc</span></span></button>
+      <button aria-pressed="{{mutedStr}}" aria-label="Mute (M)" onClick="{{toggleMute}}" style="{{muteStyle}}"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10z"></path><path d="M17 9l5 6M22 9l-5 6" style="{{xStyle}}"></path><path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11" style="{{waveStyle}}"></path></svg></span></button>
+      <button aria-label="Playlists" style="display: flex; align-items: center; height: 40px; padding: 0; border: 0; background: transparent; color: rgba(200,206,220,0.45); cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M4 11h12M4 16h7"></path><path d="M16 15v5"></path><circle cx="14.5" cy="20" r="1.5"></circle><path d="M16 15l4-1"></path></svg></span></button>
+      <button aria-label="Playfield panel (P)" style="display: flex; align-items: center; height: 40px; padding: 0; border: 0; background: transparent; color: rgba(200,206,220,0.45); cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg></span></button>
+      <button aria-label="Settings (,)" style="display: flex; align-items: center; height: 40px; padding: 0; border: 0; background: transparent; color: rgba(200,206,220,0.45); cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><span style="width: 24px; display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"></path></svg></span></button>
+    </nav>
+  </div>
+
+  <!-- RIGHT COLUMN (show) -->
+  <sc-if value="{{isShow}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; top: 50px; right: 28px; display: flex; flex-direction: column; align-items: flex-end">
+      <section aria-label="Time" style="display: flex; flex-direction: column; align-items: flex-end; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">
+        <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 52px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 22px rgba(138,180,255,0.3), 0 1px 10px rgba(0,0,0,0.9)">{{song.bpm}}</span><span style="font-size: 13px; color: #8F9AB6">bpm</span></div>
+        <div style="font-size: 13px; color: #A7B0C6; margin-top: 10px">100% · full song</div>
+        <div style="font-size: 15px; color: #DCE3F3; margin-top: 12px; font-variant-numeric: tabular-nums">{{song.time}}</div>
+      </section>
+      <div role="toolbar" aria-label="Playlist playback" style="margin-top: 32px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+        <div style="display: flex; align-items: center; gap: 6px; margin-right: -9px">
+          <button aria-label="Previous song" style="width: 42px; height: 42px; border: 0; background: transparent; color: rgba(232,236,246,0.85); display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14M18 6l-9 6 9 6z"></path></svg></button>
+          <button aria-label="Pause" style="width: 50px; height: 50px; border: 1.5px solid rgba(232,236,246,0.9); border-radius: 999px; background: transparent; color: #FFFFFF; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"></rect><rect x="13.5" y="5" width="3.5" height="14" rx="1"></rect></svg></button>
+          <button aria-label="Next song" style="width: 42px; height: 42px; border: 0; background: transparent; color: rgba(232,236,246,0.85); display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 5v14M6 6l9 6-9 6z"></path></svg></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px">
+          <span style="font-size: 13px; color: #A7B0C6; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">shuffle off</span>
+          <button aria-label="Shuffle: off" aria-pressed="false" style="width: 32px; height: 40px; padding: 0; border: 0; background: transparent; color: rgba(200,206,220,0.45); display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h4v4M4 20L20 4M20 16v4h-4M15 15l5 5M4 4l5 5"></path></svg></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px">
+          <span style="font-size: 13px; color: #7EE0C3; text-shadow: 0 1px 10px rgba(0,0,0,0.9)">repeat playlist</span>
+          <button aria-label="Repeat: playlist" aria-pressed="true" style="width: 32px; height: 40px; padding: 0; border: 0; background: transparent; color: #7EE0C3; display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 0 6px rgba(126,224,195,0.55))"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"></path></svg></button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- compact transport for minimal / hidden: appears with the menu icons, follows idle-hide -->
+  <sc-if value="{{compact}}" hint-placeholder-val="{{ false }}">
+    <div role="toolbar" aria-label="Playlist playback" style="position: absolute; right: 28px; bottom: 120px; display: flex; align-items: center; gap: 4px">
+      <button aria-label="Previous song" style="width: 40px; height: 40px; border: 0; background: transparent; color: rgba(232,236,246,0.75); display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14M18 6l-9 6 9 6z"></path></svg></button>
+      <button aria-label="Pause" style="width: 44px; height: 44px; border: 1.5px solid rgba(232,236,246,0.75); border-radius: 999px; background: transparent; color: #FFFFFF; display: grid; place-items: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"></rect><rect x="13.5" y="5" width="3.5" height="14" rx="1"></rect></svg></button>
+      <button aria-label="Next song" style="width: 40px; height: 40px; border: 0; background: transparent; color: rgba(232,236,246,0.75); display: grid; place-items: center; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85))"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 5v14M6 6l9 6-9 6z"></path></svg></button>
+    </div>
+  </sc-if>
+
+  <!-- song change announcement (show and minimal) -->
+  <sc-if value="{{announce}}" hint-placeholder-val="{{ false }}">
+    <div aria-live="polite" style="position: absolute; left: 50%; top: 210px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; text-align: center; text-shadow: 0 2px 18px rgba(0,0,0,0.95)">
+      <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #7EE0C3">Now playing · 3 of 6</div>
+      <div style="font-size: 40px; font-weight: 300; margin-top: 6px">Für Elise</div>
+      <div style="font-size: 16px; color: #C9D2E8; margin-top: 4px">Ludwig van Beethoven</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#8AB4FF","options":["#8AB4FF","#7EE0C3","#E8ECF6"]},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'show', next: false, muted: false };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var accent = this.props.accent ?? '#8AB4FF';
+    var NAMES = [['show', 'Show'], ['minimal', 'Minimal'], ['hidden', 'Hidden']];
+    var song = st.next
+      ? { n: 3, title: 'Für Elise', composer: 'Ludwig van Beethoven', bar: '1', bpm: '72', time: '0:03 / 2:55', next: 'Nocturne Op. 9 No. 2 · Chopin' }
+      : { n: 2, title: 'Clair de lune', composer: 'Claude Debussy', bar: '19', bpm: '66', time: '1:48 / 5:05', next: 'Für Elise · Beethoven' };
+    return {
+      accent: accent, song: song,
+      isShow: st.mode === 'show', isMinimal: st.mode === 'minimal', compact: st.mode !== 'show',
+      showTimeline: st.mode !== 'hidden',
+      announce: st.next && st.mode !== 'hidden',
+      changeLabel: st.next ? 'Back to song 2' : 'Next song starts',
+      songChange: function () { self.setState({ next: !st.next }); },
+      xStyle: st.muted ? '' : 'display: none', waveStyle: st.muted ? 'display: none' : '', mutedStr: st.muted ? 'true' : 'false',
+      toggleMute: function () { self.setState({ muted: !st.muted }); },
+      muteStyle: 'display: flex; align-items: center; height: 40px; padding: 0; border: 0; background: transparent; cursor: pointer; filter: drop-shadow(0 1px 6px rgba(0,0,0,0.85)); color: ' + (st.muted ? '#FF9D7A' : 'rgba(200,206,220,0.75)'),
+      modes: NAMES.map(function (m) {
+        var on = st.mode === m[0];
+        return { name: m[1], pressed: on ? 'true' : 'false', pick: function () { self.setState({ mode: m[0] }); },
+          style: 'height: 28px; padding: 0 10px; border-radius: 8px; border: 0; font-size: 12px; cursor: pointer; background: ' + (on ? 'rgba(255,214,102,0.3)' : 'transparent') + '; color: ' + (on ? '#FFFFFF' : '#FFE7A3') };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>
