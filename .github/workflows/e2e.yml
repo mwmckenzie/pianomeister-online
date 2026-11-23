@@ -18,7 +18,8 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A bound, not a target: a healthy shard takes a few minutes.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -30,8 +31,21 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(npx playwright --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Install Chromium's system libraries
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: Build
         run: npm run build-only
       - name: Test (shard ${{ matrix.shard }}/4)

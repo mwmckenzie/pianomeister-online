@@ -34,6 +34,11 @@ const QUALITY_OFF = {
                 bloomResolution: 'off',
                 particleBudget: 512,
                 shaderDetail: 'minimal',
+                // CI runners have no GPU: WebGL renders in software on the cores the tests use.
+                // Half the pixels and no anti-aliasing keep the frame cheap there.
+                ...(process.env.CI
+                  ? { scaleAuto: false, scale: 0.5, maxPixelRatio: 1, antialias: 'off' }
+                  : {}),
               },
               // Tests seed sessions from hours or days ago; Home on a new session would open
               // over the page they test. homeOnNewSession.spec turns it back on.
