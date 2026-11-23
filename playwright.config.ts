@@ -12,7 +12,8 @@ const baseURL = `http://localhost:${port}/pianomeister-online/`
 
 /**
  * Functional e2e tests run at render quality Off (no bloom, the smallest particle pool), so
- * parallel headless runs don't time out rendering bloom in software. This only seeds the
+ * parallel headless runs don't time out rendering bloom in software, and without "Open Home when
+ * a new session starts" (milestone 9.2), which seeded old sessions would set off. This only seeds the
  * stored settings; the app's defaults are unchanged. visualPolish (which exercises quality),
  * the visual shots and the perf runs use their own settings. A test that seeds its own stored
  * settings (e.g. a migration) opts out with `test.use({ storageState: EMPTY_STORAGE })`.
@@ -34,6 +35,9 @@ const QUALITY_OFF = {
                 particleBudget: 512,
                 shaderDetail: 'minimal',
               },
+              // Tests seed sessions from hours or days ago; Home on a new session would open
+              // over the page they test. homeOnNewSession.spec turns it back on.
+              appearance: { homeOnNewSession: false },
             },
           }),
         },
