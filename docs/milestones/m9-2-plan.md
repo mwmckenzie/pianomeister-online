@@ -1,6 +1,6 @@
 # Milestone 9.2 plan: Practice clarity
 
-Spec: `docs/milestones/m9-2.md`. Branch `feat/m9-2-practice-clarity` from `main` (9.1 merged). **Draft, waiting for approval.** Questions are in §8.
+Spec: `docs/milestones/m9-2.md`. Branch `feat/m9-2-practice-clarity` from `main` (9.1 merged). Approved 2026-11-23 with the answers in §9 (they override §1–§8 where they differ).
 
 Build order (spec): C (keyboard geometry) → B (black notes) → A (loop visibility) → D and E. Local commits per step, no push until approved.
 
@@ -175,3 +175,26 @@ Build order (spec): C (keyboard geometry) → B (black notes) → A (loop visibi
 10. **Idle with the tab in front.** If you leave the player open and visible, without playback, and the 10 min pass, should Home open by itself? The spec lists load, refresh and refocus. I'd say **no**, only on those three, so the screen never changes while you might be looking at it.
 11. **Picker search on open (E2).** The picker clears its search every time it opens, so it can never hide the current song, and the "hidden by the filter" line would only ever show in the Library. Keep clearing it, or should the picker now keep its search and sort between opens (then it gets the line too)? The spec's e2e mentions a filter in the picker; with clearing kept, that test targets the Library.
 12. **Focus in the picker (E3).** Today focus starts in the search field (type to search), and the list keys already work from there (decisions 90–91). Moving focus to the song list means typing no longer goes straight into the search. Keep it in the search field with the selection on the current song? Or move focus to the list as the spec says?
+
+## 9. Answers (approved 2026-11-23)
+
+1. Dim per fragment in the shaders, not an overlay.
+2. Only [loop start, loop end) is undimmed. Pre-roll, before it, and after the end in Song continues are dimmed, live and in the repeat. The spec is amended.
+3. A separate sidebar section **Loop**, after Highway; keys in `loop.*`.
+4. One shared colour, width and glow; the end line is drawn stronger by default (fixed ≈ 1.5× glow).
+5. Ridges only with 3D heads on. The sheet shows both translucency variants (one-alpha faces; opaque darker sides with a translucent top) for a pick.
+6. **Black side shading**: a setting, 0–100 %, default ≈ 40 %, part of looks, pinned in Classic and BASE.
+7. Classic uses the new taller black head height default.
+8. "Open Home when a new session starts" in Settings → Appearance → Start.
+9. **One session rule for Home and stats:**
+   - "New session after" (Appearance → Start): 10 / 20 / 30 / 60 min, default 30. It replaces `SESSION_GAP_MS` everywhere.
+   - New session = at least the gap since the last playback ended (from the play log), once per gap. A reload within the gap continues the same stats session. One shared core function, unit-tested; decision 5 amended.
+   - Report whether stats sessions are stored or derived from the log (whether the new default changes how past sessions count).
+10. Home also opens by itself when the gap passes while the app is open and idle (a timer for the remaining gap, re-armed on playback).
+    - Blocks: playback running, an unsaved draft (bookmark draft, loop-editor edits); then it waits for the next new session.
+    - Plain menus, dialogs and settings without unsaved work don't block: they close and Home opens.
+    - **Tracking suspended** (for 9.5): one store flag, unused for now. While on, nothing is recorded (sessions, time, song and bookmark plays) and the session/idle timer is paused. Unit-tested. Roadmap 9.5 notes it.
+11. The picker keeps clearing its search on open; the hidden-by-filter line is Library-only. The spec's e2e is adjusted.
+12. The picker's focus stays in the search field, with the current song and bookmark selected (overrides E3). The Library's focus starts on the song list.
+
+Order C → B → A → D/E. Stop after B6 for the shadow decision. Local commits, no push.

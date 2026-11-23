@@ -202,7 +202,7 @@ Play full songs back-to-back as background music, with the piano and highway as 
 - Crossfade between songs: a setting, 0–8 s in 0.5 s steps, default 2 s, with its reset icon. At 0 there's a short silent gap (~1 s) instead. Design question: how the highway transitions while two songs overlap in audio.
 - Play UI in listening mode: show (normal HUD), minimal (title and composer only), or hidden (pure visualizer). In every option the menu icons stay reachable and follow the idle-hide setting, so you can change settings or leave listening mode at any time. Mute as a quick toggle.
 - Full songs at 100% (tempo changeable for the session); no loops, pre-roll or count-in.
-- Listening is not practice and is not logged: no plays, practice time or listening stats.
+- Listening is not practice and is not logged: no plays, practice time or listening stats. Playlist mode turns on the **tracking suspended** switch (added in 9.2): nothing is recorded and the session/idle timer is paused while it's on.
 - Entry points: a Playlists tab next to Library | Bookmarks, and possibly a Welcome-screen tile (7.7).
 
 **Later idea — bookmarks can have a look** _(9.5 or later)_: a bookmark may name a look that's applied temporarily while practising that section (e.g. more look-ahead or a different tilt for a tricky passage), using the same temporary-look overlay as playlists. The overlay function stays pure and reusable for this.
