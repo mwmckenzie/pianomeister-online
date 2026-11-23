@@ -66,7 +66,7 @@ async function openManagerWithTwo(page: Page): Promise<void> {
 
 const row = (page: Page, name: string) => page.getByTestId('bookmark-row').filter({ hasText: name })
 
-test('B saves what is playing in one click, auto-named; the HUD names it on its own line', async ({
+test('@bookmarks @smoke B saves what is playing in one click, auto-named; the HUD names it on its own line', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -145,7 +145,7 @@ test('B saves what is playing in one click, auto-named; the HUD names it on its 
   expect(errors).toEqual([])
 })
 
-test('the save toast: Rename opens the manager on the name, Undo removes the bookmark', async ({
+test('@bookmarks the save toast: Rename opens the manager on the name, Undo removes the bookmark', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -184,7 +184,7 @@ test('the save toast: Rename opens the manager on the name, Undo removes the boo
   expect(errors).toEqual([])
 })
 
-test('saving the same settings again creates nothing: it loads the existing bookmark', async ({
+test('@bookmarks saving the same settings again creates nothing: it loads the existing bookmark', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -214,7 +214,7 @@ test('saving the same settings again creates nothing: it loads the existing book
   expect(errors).toEqual([])
 })
 
-test('player changes to a loaded bookmark: the line shows the setup, Back to, and no writes', async ({
+test('@bookmarks player changes to a loaded bookmark: the line shows the setup, Back to, and no writes', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -271,7 +271,7 @@ test('player changes to a loaded bookmark: the line shows the setup, Back to, an
   expect(errors).toEqual([])
 })
 
-test('a play is a start: the first Play and each loop wrap count, for the matching bookmark', async ({
+test('@bookmarks a play is a start: the first Play and each loop wrap count, for the matching bookmark', async ({
   page,
 }) => {
   // Loading the samples (up to 30 s on a busy machine) plus a few real loop wraps.
@@ -317,7 +317,7 @@ test('a play is a start: the first Play and each loop wrap count, for the matchi
   expect(errors).toEqual([])
 })
 
-test('the manager edits a bookmark (range, hands) that then loads that way; delete can be undone', async ({
+test('@bookmarks the manager edits a bookmark (range, hands) that then loads that way; delete can be undone', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -370,7 +370,9 @@ test('the manager edits a bookmark (range, hands) that then loads that way; dele
   expect(errors).toEqual([])
 })
 
-test('the manager lists only real bookmarks: no Full song, no New bookmark', async ({ page }) => {
+test('@bookmarks the manager lists only real bookmarks: no Full song, no New bookmark', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/bookmarks')
   await expect(page.getByTestId('bookmarks-empty')).toHaveText(
@@ -388,7 +390,7 @@ test('the manager lists only real bookmarks: no Full song, no New bookmark', asy
   expect(errors).toEqual([])
 })
 
-test('Duplicate makes a draft; leaving it unchanged asks, and Discard drops it', async ({
+test('@bookmarks Duplicate makes a draft; leaving it unchanged asks, and Discard drops it', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -434,7 +436,7 @@ test('Duplicate makes a draft; leaving it unchanged asks, and Discard drops it',
   expect(errors).toEqual([])
 })
 
-test('a draft is saved as soon as an edit makes it different', async ({ page }) => {
+test('@bookmarks a draft is saved as soon as an edit makes it different', async ({ page }) => {
   const errors = watchErrors(page)
   await openManagerWithTwo(page)
   await row(page, 'Opening').click()
@@ -467,7 +469,7 @@ test('a draft is saved as soon as an edit makes it different', async ({ page }) 
   expect(errors).toEqual([])
 })
 
-test('Keep editing stays on the draft; leaving the page asks too', async ({ page }) => {
+test('@bookmarks Keep editing stays on the draft; leaving the page asks too', async ({ page }) => {
   const errors = watchErrors(page)
   await openManagerWithTwo(page)
   await row(page, 'Ending').click()
@@ -502,7 +504,7 @@ test('Keep editing stays on the draft; leaving the page asks too', async ({ page
   expect(errors).toEqual([])
 })
 
-test('the metronome is part of a bookmark: temporary in the player, a row in the manager', async ({
+test('@bookmarks the metronome is part of a bookmark: temporary in the player, a row in the manager', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -544,7 +546,9 @@ test('the metronome is part of a bookmark: temporary in the player, a row in the
   expect(errors).toEqual([])
 })
 
-test('the Practice tab stays global with a bookmark loaded, and says so', async ({ page }) => {
+test('@bookmarks the Practice tab stays global with a bookmark loaded, and says so', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await page.getByTestId('menu-settings').click()

@@ -22,7 +22,9 @@ async function uploadPedalDemo(page: Page) {
   await expect(row(page, 'Pedal demo')).toBeVisible()
 }
 
-test('uploads a MIDI file, and reports duplicates and rejected files', async ({ page }) => {
+test('@library @smoke uploads a MIDI file, and reports duplicates and rejected files', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await uploadPedalDemo(page)
   // The source shows in the filter counts and the details panel, not in the row.
@@ -46,7 +48,9 @@ test('uploads a MIDI file, and reports duplicates and rejected files', async ({ 
   expect(errors).toEqual([])
 })
 
-test('uploads files dropped anywhere on the page, with a drop overlay', async ({ page }) => {
+test('@library uploads files dropped anywhere on the page, with a drop overlay', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await expect(page.getByTestId('song-row')).toHaveCount(3)
@@ -65,7 +69,7 @@ test('uploads files dropped anywhere on the page, with a drop overlay', async ({
   expect(errors).toEqual([])
 })
 
-test('an upload gets a guessed title and composer; Guess from file guesses again', async ({
+test('@library an upload gets a guessed title and composer; Guess from file guesses again', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -106,7 +110,9 @@ test('an upload gets a guessed title and composer; Guess from file guesses again
   expect(errors).toEqual([])
 })
 
-test('edits title, composer and tags; they persist and are searchable', async ({ page }) => {
+test('@library edits title, composer and tags; they persist and are searchable', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await row(page, 'Canon in D').click()
@@ -138,7 +144,7 @@ test('edits title, composer and tags; they persist and are searchable', async ({
   expect(errors).toEqual([])
 })
 
-test('hand channels and a meter override carry over to the player', async ({ page }) => {
+test('@library hand channels and a meter override carry over to the player', async ({ page }) => {
   const errors = watchErrors(page)
   await uploadPedalDemo(page)
   await row(page, 'Pedal demo').click()
@@ -184,7 +190,7 @@ async function reopenDetails(page: Page, title: string) {
   await expect(page.getByTestId('hand-ch0')).toBeVisible()
 }
 
-test('swap hands, per-channel changes and restore default persist', async ({ page }) => {
+test('@library swap hands, per-channel changes and restore default persist', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await row(page, 'Canon in D').click()
@@ -216,7 +222,7 @@ test('swap hands, per-channel changes and restore default persist', async ({ pag
   expect(errors).toEqual([])
 })
 
-test('a failed save is shown, logged, and undone in the panel', async ({ page }) => {
+test('@library a failed save is shown, logged, and undone in the panel', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await row(page, 'Canon in D').click()
@@ -234,7 +240,9 @@ test('a failed save is shown, logged, and undone in the panel', async ({ page })
   await expect(page.getByTestId('details-error')).toBeHidden()
 })
 
-test('a failed title or composer save shows the error and restores the field', async ({ page }) => {
+test('@library a failed title or composer save shows the error and restores the field', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await row(page, 'Canon in D').click()
@@ -258,7 +266,7 @@ test('a failed title or composer save shows the error and restores the field', a
   await expect(page.getByTestId('meta-composer')).toHaveValue('Johann Pachelbel')
 })
 
-test('the player reopens the last opened song after a reload', async ({ page }) => {
+test('@library the player reopens the last opened song after a reload', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
@@ -272,7 +280,7 @@ test('the player reopens the last opened song after a reload', async ({ page }) 
   expect(errors).toEqual([])
 })
 
-test('exports, deletes and re-imports an upload with its metadata', async ({ page }) => {
+test('@library exports, deletes and re-imports an upload with its metadata', async ({ page }) => {
   const errors = watchErrors(page)
   await uploadPedalDemo(page)
   await row(page, 'Pedal demo').click()
@@ -308,7 +316,7 @@ test('exports, deletes and re-imports an upload with its metadata', async ({ pag
   expect(errors).toEqual([])
 })
 
-test('the details panel always shows a song; headers sort, including by date added', async ({
+test('@library the details panel always shows a song; headers sort, including by date added', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -344,7 +352,7 @@ test('the details panel always shows a song; headers sort, including by date add
   expect(errors).toEqual([])
 })
 
-test('practice columns sort by header; rows show bookmark counts; Added hides at 1024 px', async ({
+test('@library practice columns sort by header; rows show bookmark counts; Added hides at 1024 px', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -387,7 +395,9 @@ const midiFile = (name: string, note: number) => ({
   ),
 })
 
-test('an upload is selected, scrolled into view, pulsed and tagged New', async ({ page }) => {
+test('@library an upload is selected, scrolled into view, pulsed and tagged New', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await expect(page.getByTestId('song-row')).toHaveCount(3)
@@ -404,7 +414,7 @@ test('an upload is selected, scrolled into view, pulsed and tagged New', async (
   expect(errors).toEqual([])
 })
 
-test('several uploads: all tagged New until the library is left, the first selected', async ({
+test('@library several uploads: all tagged New until the library is left, the first selected', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -429,7 +439,9 @@ test('several uploads: all tagged New until the library is left, the first selec
   expect(errors).toEqual([])
 })
 
-test('an upload hidden by the search or a filter clears it and says so', async ({ page }) => {
+test('@library an upload hidden by the search or a filter clears it and says so', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await page.getByTestId('source-bundled').click()
@@ -448,7 +460,7 @@ test('an upload hidden by the search or a filter clears it and says so', async (
   expect(errors).toEqual([])
 })
 
-test('a file already in the library selects that song; mixed drops report both', async ({
+test('@library a file already in the library selects that song; mixed drops report both', async ({
   page,
 }) => {
   const errors = watchErrors(page)

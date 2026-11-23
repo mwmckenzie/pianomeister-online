@@ -21,7 +21,7 @@ async function openSettings(page: Page, tab: string) {
 const cssVar = (page: Page, name: string) =>
   page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name)
 
-test('Esc closes the settings window, focus is trapped and returns to the opener', async ({
+test('@settings @smoke Esc closes the settings window, focus is trapped and returns to the opener', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -38,7 +38,7 @@ test('Esc closes the settings window, focus is trapped and returns to the opener
   expect(errors).toEqual([])
 })
 
-test('tab reset applies at once, counts changes, and can be undone', async ({ page }) => {
+test('@settings tab reset applies at once, counts changes, and can be undone', async ({ page }) => {
   const errors = watchErrors(page)
   await openSettings(page, 'audio')
   await expect(page.getByTestId('changed-count')).toHaveText('0 settings changed from default')
@@ -64,7 +64,9 @@ test('tab reset applies at once, counts changes, and can be undone', async ({ pa
   expect(errors).toEqual([])
 })
 
-test('a theme preset and a custom primary colour persist across a reload', async ({ page }) => {
+test('@settings a theme preset and a custom primary colour persist across a reload', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openSettings(page, 'appearance')
   await page.getByTestId('preset-ember').click()
@@ -89,7 +91,7 @@ test('a theme preset and a custom primary colour persist across a reload', async
   expect(errors).toEqual([])
 })
 
-test('reduced motion turns menu transitions into fades', async ({ page }) => {
+test('@settings reduced motion turns menu transitions into fades', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await openSettings(page, 'appearance')
   const html = page.locator('html')
@@ -114,7 +116,7 @@ test('reduced motion turns menu transitions into fades', async ({ page }) => {
   expect(await animation()).toBe('pm-rise-in')
 })
 
-test('glass blur 0 keeps panels opaque enough to read', async ({ page }) => {
+test('@settings glass blur 0 keeps panels opaque enough to read', async ({ page }) => {
   await openSettings(page, 'appearance')
   await nudge(page, 'appearance.blur', 'Home')
   await expect(page.locator('html')).toHaveAttribute('data-glass-blur', '0')

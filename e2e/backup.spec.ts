@@ -102,7 +102,9 @@ async function expectDialogWording(page: Page): Promise<void> {
 
 const toast = (page: Page, text: string) => page.getByTestId('toast').filter({ hasText: text })
 
-test('import, Merge: adds the backup bookmarks to Me, as the dialog says', async ({ page }) => {
+test('@library import, Merge: adds the backup bookmarks to Me, as the dialog says', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   const path = await divergedMe(page)
   await importBackup(page, path)
@@ -113,7 +115,7 @@ test('import, Merge: adds the backup bookmarks to Me, as the dialog says', async
   expect(errors).toEqual([])
 })
 
-test('import, Add as a new profile: "Me (imported)" with the backup bookmarks; Me unchanged', async ({
+test('@library import, Add as a new profile: "Me (imported)" with the backup bookmarks; Me unchanged', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -132,7 +134,7 @@ test('import, Add as a new profile: "Me (imported)" with the backup bookmarks; M
   expect(errors).toEqual([])
 })
 
-test('import, Replace: warns, offers an export first, then Me has only the backup bookmarks', async ({
+test('@library import, Replace: warns, offers an export first, then Me has only the backup bookmarks', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -154,7 +156,9 @@ test('import, Replace: warns, offers an export first, then Me has only the backu
   expect(errors).toEqual([])
 })
 
-test('Cancel import writes nothing; several collisions are asked one by one', async ({ page }) => {
+test('@library Cancel import writes nothing; several collisions are asked one by one', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await expect(page.getByTestId('song-row').first()).toBeVisible()
@@ -187,7 +191,7 @@ test('Cancel import writes nothing; several collisions are asked one by one', as
   expect(errors).toEqual([])
 })
 
-test('export, clear storage, import: bookmarks and stats come back; importing again adds no duplicates', async ({
+test('@library export, clear storage, import: bookmarks and stats come back; importing again adds no duplicates', async ({
   page,
 }) => {
   const errors = watchErrors(page)

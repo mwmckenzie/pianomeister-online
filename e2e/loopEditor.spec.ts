@@ -49,7 +49,7 @@ async function openEditor(page: Page, query = ''): Promise<void> {
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
 }
 
-test('E opens the loop editor and playback keeps running; Space, E and ‹ Player work there', async ({
+test('@loop @smoke E opens the loop editor and playback keeps running; Space, E and ‹ Player work there', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -88,7 +88,7 @@ test('E opens the loop editor and playback keeps running; Space, E and ‹ Playe
   expect(errors).toEqual([])
 })
 
-test('drag a bookmark’s end: saved on release, the automatic name follows, Undo restores it', async ({
+test('@loop drag a bookmark’s end: saved on release, the automatic name follows, Undo restores it', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -130,7 +130,7 @@ test('drag a bookmark’s end: saved on release, the automatic name follows, Und
   expect(errors).toEqual([])
 })
 
-test('From/To edit the range; "Same settings as"; the loaded bookmark’s loop follows with one jump', async ({
+test('@loop From/To edit the range; "Same settings as"; the loaded bookmark’s loop follows with one jump', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -171,7 +171,7 @@ test('From/To edit the range; "Same settings as"; the loaded bookmark’s loop f
   expect(errors).toEqual([])
 })
 
-test('presets zoom, the minimap window drags to pan, and Play from shows where play really starts', async ({
+test('@loop presets zoom, the minimap window drags to pan, and Play from shows where play really starts', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -213,7 +213,7 @@ test('presets zoom, the minimap window drags to pan, and Play from shows where p
   expect(errors).toEqual([])
 })
 
-test('Open in editor from the bookmark manager loads its song first and selects it', async ({
+test('@loop Open in editor from the bookmark manager loads its song first and selects it', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -250,7 +250,7 @@ test('Open in editor from the bookmark manager loads its song first and selects 
   expect(errors).toEqual([])
 })
 
-test('the hand toggles are remembered; the editor lanes are one Tab stop, Enter selects', async ({
+test('@loop the hand toggles are remembered; the editor lanes are one Tab stop, Enter selects', async ({
   page,
 }) => {
   const errors = watchErrors(page)

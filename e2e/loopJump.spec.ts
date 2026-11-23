@@ -67,8 +67,14 @@ async function enter(page: Page, state: State, bar = 1): Promise<void> {
   if (state === 'paused') {
     await page.getByTestId('play-pause').click()
     await expect(page.getByTestId('transport-state')).toHaveText('paused')
+    // Under load the pause can land a few bars in: park the playhead back on the bar (a seek
+    // while paused), so later "the playhead hasn't moved" checks read a bar the test chose.
+    await page.mouse.click(box.x + ((bar - 0.5) / 64) * box.width, box.y + box.height / 2)
+    await expect(page.getByTestId('hud-bar-beat')).toHaveText(`${bar}:1`)
+    await expect(page.getByTestId('transport-state')).toHaveText('paused')
+  } else {
+    expect(await barNow(page)).toBeLessThan(bar + 4)
   }
-  expect(await barNow(page)).toBeLessThan(bar + 4)
 }
 
 /** Plays counted so far (decision 70: starts, wraps and loop jumps). */
@@ -93,7 +99,7 @@ async function expectAt(page: Page, bar: number, state: State): Promise<void> {
 
 for (const state of ['playing', 'paused'] as const) {
   test.describe(`loop changes move the playhead (${state})`, () => {
-    test(`turning the loop on jumps to its start (${state})`, async ({ page }) => {
+    test(`@loop @smoke turning the loop on jumps to its start (${state})`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
       // With the loop off, the fields only choose what the loop button turns on.
@@ -109,7 +115,9 @@ for (const state of ['playing', 'paused'] as const) {
       expect(errors).toEqual([])
     })
 
-    test(`releasing the range slider jumps, dragging doesn't (${state})`, async ({ page }) => {
+    test(`@loop releasing the range slider jumps, dragging doesn't (${state})`, async ({
+      page,
+    }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
       await setLoop(page, 10, 44)
@@ -132,7 +140,7 @@ for (const state of ['playing', 'paused'] as const) {
       expect(errors).toEqual([])
     })
 
-    test(`committing From or To jumps to the new start (${state})`, async ({ page }) => {
+    test(`@loop committing From or To jumps to the new start (${state})`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page)
       await setLoop(page, 10, 44)
@@ -149,7 +157,9 @@ for (const state of ['playing', 'paused'] as const) {
       expect(errors).toEqual([])
     })
 
-    test(`Back to the bookmark jumps to the bookmark's start (${state})`, async ({ page }) => {
+    test(`@loop Back to the bookmark jumps to the bookmark's start (${state})`, async ({
+      page,
+    }) => {
       const errors = watchErrors(page)
       await openPlayer(page, { bookmark: true, loaded: true })
       await expect(page.getByTestId('hud-bookmark')).toHaveText('Bars 40 to 44')
@@ -167,7 +177,7 @@ for (const state of ['playing', 'paused'] as const) {
       expect(errors).toEqual([])
     })
 
-    test(`loading a bookmark jumps to its start (${state})`, async ({ page }) => {
+    test(`@loop loading a bookmark jumps to its start (${state})`, async ({ page }) => {
       const errors = watchErrors(page)
       await openPlayer(page, { bookmark: true })
       await expect(page.getByTestId('hud-full-song')).toBeVisible()
@@ -182,7 +192,7 @@ for (const state of ['playing', 'paused'] as const) {
   })
 }
 
-test('a loop jump while playing is a start, counted at once', async ({ page }) => {
+test('@loop a loop jump while playing is a start, counted at once', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await setLoop(page, 10, 44)
@@ -197,7 +207,7 @@ test('a loop jump while playing is a start, counted at once', async ({ page }) =
   expect(errors).toEqual([])
 })
 
-test('a loop jump while paused arms a start: the next Play counts', async ({ page }) => {
+test('@loop a loop jump while paused arms a start: the next Play counts', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await setLoop(page, 10, 44)
@@ -215,7 +225,7 @@ test('a loop jump while paused arms a start: the next Play counts', async ({ pag
   expect(errors).toEqual([])
 })
 
-test('turning the loop off leaves the playhead where it is', async ({ page }) => {
+test('@loop turning the loop off leaves the playhead where it is', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await loopFrom40(page)
@@ -227,7 +237,7 @@ test('turning the loop off leaves the playhead where it is', async ({ page }) =>
   expect(errors).toEqual([])
 })
 
-test('the Stop button rewinds like Home: to the loop start, else the song start', async ({
+test('@loop the Stop button rewinds like Home: to the loop start, else the song start', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -256,7 +266,7 @@ test('the Stop button rewinds like Home: to the loop start, else the song start'
   expect(errors).toEqual([])
 })
 
-test('arrow keys on the range slider apply the loop once they settle, or on focus loss', async ({
+test('@loop arrow keys on the range slider apply the loop once they settle, or on focus loss', async ({
   page,
 }) => {
   const errors = watchErrors(page)

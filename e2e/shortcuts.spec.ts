@@ -26,7 +26,7 @@ async function record(page: Page, id: string, key: string, index = 0): Promise<v
   await page.keyboard.press(key)
 }
 
-test('rebind Play/pause to K: K plays, Space no longer does; it persists; reset restores Space', async ({
+test('@shortcuts rebind Play/pause to K: K plays, Space no longer does; it persists; reset restores Space', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -60,7 +60,7 @@ test('rebind Play/pause to K: K plays, Space no longer does; it persists; reset 
   expect(errors).toEqual([])
 })
 
-test('a second key, removing keys, and a command with none', async ({ page }) => {
+test('@shortcuts a second key, removing keys, and a command with none', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await openShortcutsTab(page)
@@ -87,7 +87,9 @@ test('a second key, removing keys, and a command with none', async ({ page }) =>
   expect(errors).toEqual([])
 })
 
-test('a key another command uses: Replace moves it, Cancel changes nothing', async ({ page }) => {
+test('@shortcuts a key another command uses: Replace moves it, Cancel changes nothing', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await openShortcutsTab(page)
@@ -113,7 +115,7 @@ test('a key another command uses: Replace moves it, Cancel changes nothing', asy
   expect(errors).toEqual([])
 })
 
-test('reserved keys are refused; Esc cancels recording without closing settings', async ({
+test('@shortcuts reserved keys are refused; Esc cancels recording without closing settings', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -150,7 +152,7 @@ test('reserved keys are refused; Esc cancels recording without closing settings'
   expect(errors).toEqual([])
 })
 
-test('Reset all shortcuts, with Undo', async ({ page }) => {
+test('@shortcuts Reset all shortcuts, with Undo', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await openShortcutsTab(page)
@@ -166,7 +168,9 @@ test('Reset all shortcuts, with Undo', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test('tempo keys follow the tempo step and a bookmark’s temporary layer', async ({ page }) => {
+test('@shortcuts tempo keys follow the tempo step and a bookmark’s temporary layer', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await page.getByTestId('stage').click()
@@ -207,7 +211,9 @@ test('tempo keys follow the tempo step and a bookmark’s temporary layer', asyn
   expect(errors).toEqual([])
 })
 
-test('? shows the shortcuts on the player, library and bookmark manager', async ({ page }) => {
+test('@shortcuts @smoke ? shows the shortcuts on the player, library and bookmark manager', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await page.keyboard.press('?')
@@ -249,7 +255,7 @@ test('? shows the shortcuts on the player, library and bookmark manager', async 
   expect(errors).toEqual([])
 })
 
-test('hints and tooltips show the new key; a rebound list key still types in search', async ({
+test('@shortcuts hints and tooltips show the new key; a rebound list key still types in search', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -280,7 +286,7 @@ test('hints and tooltips show the new key; a rebound list key still types in sea
   expect(errors).toEqual([])
 })
 
-test('↑/↓ move through the bookmark manager list', async ({ page }) => {
+test('@shortcuts ↑/↓ move through the bookmark manager list', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await seedPractice(page, {

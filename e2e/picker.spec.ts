@@ -7,7 +7,7 @@ import { seedPractice, watchErrors } from './support'
 
 const METER_DEMO = fileURLToPath(new URL('../test-fixtures/midi/meter-demo.mid', import.meta.url))
 
-test('the picker opens from the toolbar, shows details, and loads the chosen song', async ({
+test('@library @smoke the picker opens from the toolbar, shows details, and loads the chosen song', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -34,7 +34,7 @@ test('the picker opens from the toolbar, shows details, and loads the chosen son
   expect(errors).toEqual([])
 })
 
-test('O opens the picker; arrows move, Enter loads; typing in search triggers no shortcuts', async ({
+test('@library O opens the picker; arrows move, Enter loads; typing in search triggers no shortcuts', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -63,7 +63,9 @@ test('O opens the picker; arrows move, Enter loads; typing in search triggers no
   expect(errors).toEqual([])
 })
 
-test('Esc closes the picker and returns focus; Library… opens the library', async ({ page }) => {
+test('@library Esc closes the picker and returns focus; Library… opens the library', async ({
+  page,
+}) => {
   await page.goto('./#/')
   await expect(page.getByTestId('hud-title')).toHaveText('Minuet in G')
   await page.getByTestId('open-picker').click()
@@ -82,7 +84,7 @@ test('Esc closes the picker and returns focus; Library… opens the library', as
   await expect(page.getByTestId('library-backdrop')).toHaveClass(/snapshot/)
 })
 
-test('the picker shows stored facts at once: hands, range, and meter changes with a popover', async ({
+test('@library the picker shows stored facts at once: hands, range, and meter changes with a popover', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -138,7 +140,7 @@ test('the picker shows stored facts at once: hands, range, and meter changes wit
   expect(errors).toEqual([])
 })
 
-test('uploads stored with old-shape facts are brought up to date in the background', async ({
+test('@library uploads stored with old-shape facts are brought up to date in the background', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -183,7 +185,7 @@ test('uploads stored with old-shape facts are brought up to date in the backgrou
   expect(errors).toEqual([])
 })
 
-test('the picker sorts songs by last practiced by default, and by plays, time and bookmarks', async ({
+test('@library the picker sorts songs by last practiced by default, and by plays, time and bookmarks', async ({
   page,
 }) => {
   const errors = watchErrors(page)

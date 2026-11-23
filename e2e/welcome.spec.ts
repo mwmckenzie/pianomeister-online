@@ -42,7 +42,9 @@ async function seedResume(page: Page, bar: number): Promise<void> {
   })
 }
 
-test('the app starts on Welcome; with Start on = Player it opens the player', async ({ page }) => {
+test('@welcome @smoke the app starts on Welcome; with Start on = Player it opens the player', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openWelcome(page)
   // A profile still named "Me" is welcomed back, without a name.
@@ -61,7 +63,9 @@ test('the app starts on Welcome; with Start on = Player it opens the player', as
   expect(errors).toEqual([])
 })
 
-test('Resume goes back to the stored bar of the last entry (inside its loop)', async ({ page }) => {
+test('@welcome Resume goes back to the stored bar of the last entry (inside its loop)', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
@@ -84,7 +88,7 @@ test('Resume goes back to the stored bar of the last entry (inside its loop)', a
   expect(errors).toEqual([])
 })
 
-test('a stored bar outside the loop resumes at the loop start', async ({ page }) => {
+test('@welcome a stored bar outside the loop resumes at the loop start', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
@@ -95,7 +99,7 @@ test('a stored bar outside the loop resumes at the loop start', async ({ page })
   expect(errors).toEqual([])
 })
 
-test('going Home stores where playback stopped', async ({ page }) => {
+test('@welcome going Home stores where playback stopped', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
@@ -110,7 +114,7 @@ test('going Home stores where playback stopped', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test('H goes Home and S to Stats from the player and the library', async ({ page }) => {
+test('@welcome H goes Home and S to Stats from the player and the library', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
@@ -129,7 +133,9 @@ test('H goes Home and S to Stats from the player and the library', async ({ page
   expect(errors).toEqual([])
 })
 
-test('Choose another opens the picker; loading from it opens the player', async ({ page }) => {
+test('@welcome Choose another opens the picker; loading from it opens the player', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openWelcome(page)
   await page.getByTestId('choose-another').click()
@@ -141,7 +147,7 @@ test('Choose another opens the picker; loading from it opens the player', async 
   expect(errors).toEqual([])
 })
 
-test('highlights rotate every 8 s and pause while hovered; a suggestion loads', async ({
+test('@welcome highlights rotate every 8 s and pause while hovered; a suggestion loads', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -169,7 +175,10 @@ test('highlights rotate every 8 s and pause while hovered; a suggestion loads', 
   await page.goto('./')
   const title = page.getByTestId('highlight-title')
   await expect(title).toHaveText('B section went from 70% to 85% this month')
-  await expect(page.getByTestId('highlight-dot')).not.toHaveCount(0)
+  // Two or more highlights, and nothing holding the rotation (hover, focus), before time moves.
+  await expect.poll(() => page.getByTestId('highlight-dot').count()).toBeGreaterThanOrEqual(2)
+  await page.mouse.move(0, 0)
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   await page.clock.runFor(8100)
   await expect(title).not.toHaveText('B section went from 70% to 85% this month')
   const second = await title.textContent()
@@ -189,7 +198,9 @@ test('highlights rotate every 8 s and pause while hovered; a suggestion loads', 
   expect(errors).toEqual([])
 })
 
-test('This week and the 12-week calendar show the practice, and the streak', async ({ page }) => {
+test('@welcome This week and the 12-week calendar show the practice, and the streak', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
@@ -229,7 +240,7 @@ const rendered = (page: Page) =>
       ).pianomeisterEngineStats?.().rendered ?? -1,
   )
 
-test('the scene behind Welcome is frozen: one frame per change, the loop again on Resume', async ({
+test('@welcome the scene behind Welcome is frozen: one frame per change, the loop again on Resume', async ({
   page,
 }) => {
   const errors = watchErrors(page)

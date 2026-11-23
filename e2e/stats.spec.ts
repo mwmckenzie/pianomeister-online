@@ -46,7 +46,7 @@ async function openStats(page: Page): Promise<void> {
   await expect(page.getByTestId('stats-title')).toHaveText('Stats · Me')
 }
 
-test('the range and the song filter change the numbers', async ({ page }) => {
+test('@stats @smoke the range and the song filter change the numbers', async ({ page }) => {
   const errors = watchErrors(page)
   await openStats(page)
   const time = headline(page, 'Practice time').getByTestId('headline-value')
@@ -75,7 +75,9 @@ test('the range and the song filter change the numbers', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test('a change against the previous window, top songs and the minutes table', async ({ page }) => {
+test('@stats a change against the previous window, top songs and the minutes table', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openStats(page)
   await page.getByTestId('stats-range').getByText('12 months', { exact: true }).click()
@@ -98,7 +100,7 @@ test('a change against the previous window, top songs and the minutes table', as
   expect(errors).toEqual([])
 })
 
-test('Export CSV downloads the records of the range and filter', async ({ page }) => {
+test('@stats Export CSV downloads the records of the range and filter', async ({ page }) => {
   const errors = watchErrors(page)
   await openStats(page)
   await page.getByTestId('stats-range').getByText('All', { exact: true }).click()
@@ -117,7 +119,7 @@ test('Export CSV downloads the records of the range and filter', async ({ page }
   expect(errors).toEqual([])
 })
 
-test('with no history the page says so and nothing can be exported', async ({ page }) => {
+test('@stats with no history the page says so and nothing can be exported', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/stats')
   await expect(page.getByTestId('stats-empty')).toBeVisible()

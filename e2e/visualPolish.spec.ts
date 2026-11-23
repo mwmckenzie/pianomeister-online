@@ -24,18 +24,20 @@ async function openPlayer(page: Page, query = '') {
 }
 
 /**
- * A frame once the scene has settled (samples loaded, layout and fonts done): two consecutive
- * frames the same. Under parallel load the first frames can still change.
+ * A frame once the scene has settled (samples loaded, layout and fonts done, wall-clock fades
+ * finished): two consecutive frames the same. Waits on the scene, not a fixed time, so load
+ * only makes it slower.
  */
 async function stableFrame(page: Page): Promise<string> {
   await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
   let previous = await frame(page)
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 20; i++) {
     const next = await frame(page)
-    if (next === previous) return next
+    // The same tolerance the stillness checks use: a few anti-aliasing pixels may flicker.
+    if (next === previous || (await changedPixels(page, previous, next)) < 50) return next
     previous = next
   }
-  return previous
+  throw new Error('The scene never settled')
 }
 
 /** Lets real time pass in the page (frames keep rendering meanwhile). */
@@ -180,7 +182,7 @@ async function workSection(page: Page, section: string) {
 }
 
 for (const section of ['lines', 'noteStyle', 'effects', 'cages', 'names', 'render']) {
-  test(`every control in "${section}" applies without console errors`, async ({ page }) => {
+  test(`@looks every control in "${section}" applies without console errors`, async ({ page }) => {
     test.setTimeout(240_000)
     const errors = watchErrors(page)
     await seed(page, EVERYTHING_SHOWN)
@@ -191,7 +193,7 @@ for (const section of ['lines', 'noteStyle', 'effects', 'cages', 'names', 'rende
   })
 }
 
-test('new playfield controls change what the highway shows', async ({ page }) => {
+test('@looks new playfield controls change what the highway shows', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   const before = await frame(page)
@@ -209,7 +211,9 @@ test('new playfield controls change what the highway shows', async ({ page }) =>
   expect(errors).toEqual([])
 })
 
-test('quality presets set their cost settings; a tweak shows "modified"', async ({ page }) => {
+test('@looks quality presets set their cost settings; a tweak shows "modified"', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await openSidebarSection(page, 'render')
@@ -241,7 +245,7 @@ test('quality presets set their cost settings; a tweak shows "modified"', async 
   expect(errors).toEqual([])
 })
 
-test('looks: apply with Undo, modified, save as new, persist, delete with Undo', async ({
+test('@looks looks: apply with Undo, modified, save as new, persist, delete with Undo', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -284,7 +288,7 @@ test('looks: apply with Undo, modified, save as new, persist, delete with Undo',
   expect(errors).toEqual([])
 })
 
-test('looks: save, rename, export, delete, import the file back, Undo; cost stays', async ({
+test('@looks looks: save, rename, export, delete, import the file back, Undo; cost stays', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -365,7 +369,7 @@ test('looks: save, rename, export, delete, import the file back, Undo; cost stay
   expect(errors).toEqual([])
 })
 
-test('note names on and off', async ({ page }) => {
+test('@looks note names on and off', async ({ page }) => {
   const errors = watchErrors(page)
   // Reduced motion keeps the scene still (the held glow pulses otherwise), so frames compare.
   await seed(page, { highway: { lookAheadBeats: 4 }, appearance: { motion: 'reduced' } })
@@ -388,32 +392,30 @@ test('note names on and off', async ({ page }) => {
 
 const ANIMATED = { noteStyle: { headFill: 'hotCore', sustainFill: 'smoke' } }
 
-test('animated fills hold still while stopped, even with full motion', async ({ page }) => {
+test('@looks animated fills hold still while stopped, even with full motion', async ({ page }) => {
   // Looping animation runs only while playing (brief decision 119), so the frame settles.
   const errors = watchErrors(page)
   await seed(page, { ...ANIMATED, appearance: { motion: 'full' } })
   await openPlayer(page)
-  // Keys and pulses from loading settle first (wall-clock fades).
-  await pause(page, 1500)
+  // Keys and pulses from loading settle first (wall-clock fades): wait for a still frame.
   const a = await stableFrame(page)
   await pause(page, 400)
   expect(await changedPixels(page, a, await frame(page))).toBeLessThan(50)
   expect(errors).toEqual([])
 })
 
-test('reduced motion stops animated fills', async ({ page }) => {
+test('@looks reduced motion stops animated fills', async ({ page }) => {
   const errors = watchErrors(page)
   await seed(page, { ...ANIMATED, appearance: { motion: 'reduced' } })
   await openPlayer(page)
-  // Keys and pulses from loading settle first (wall-clock fades).
-  await pause(page, 1500)
+  // Keys and pulses from loading settle first (wall-clock fades): wait for a still frame.
   const a = await stableFrame(page)
   await pause(page, 400)
   expect(await changedPixels(page, a, await frame(page))).toBeLessThan(50)
   expect(errors).toEqual([])
 })
 
-test('Copy look puts the current look on the clipboard as .pmlook.json', async ({
+test('@looks Copy look puts the current look on the clipboard as .pmlook.json', async ({
   page,
   context,
 }) => {
@@ -443,7 +445,7 @@ const LIVELY = {
   appearance: { motion: 'full' },
 }
 
-test('a paused frame settles, then holds still', async ({ page }) => {
+test('@looks a paused frame settles, then holds still', async ({ page }) => {
   test.setTimeout(90_000)
   const errors = watchErrors(page)
   await seed(page, LIVELY)
@@ -453,15 +455,14 @@ test('a paused frame settles, then holds still', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   await pause(page, 2000)
   await page.getByRole('button', { name: 'Pause', exact: true }).click()
-  // Pulses, flashes and particles in flight finish (well under 3 s), then nothing moves.
-  await pause(page, 3000)
-  const still = await frame(page)
+  // Pulses, flashes and particles in flight finish, then nothing moves: wait for a still frame.
+  const still = await stableFrame(page)
   await pause(page, 500)
   expect(await changedPixels(page, still, await frame(page))).toBeLessThan(50)
   expect(errors).toEqual([])
 })
 
-test('seeking while paused starts no pulse', async ({ page }) => {
+test('@looks seeking while paused starts no pulse', async ({ page }) => {
   test.setTimeout(90_000)
   const errors = watchErrors(page)
   await seed(page, LIVELY)
@@ -543,7 +544,7 @@ for (const song of [
   // Chords in neighbouring lanes: stacked labels.
   { title: 'Clarity demo', file: CLARITY_DEMO, check: (l: LabelSnapshot) => l.slot > 0 },
 ] as const) {
-  test(`note labels never blink or jump while playing (${song.title})`, async ({ page }) => {
+  test(`@looks note labels never blink or jump while playing (${song.title})`, async ({ page }) => {
     test.setTimeout(120_000)
     const errors = watchErrors(page)
     await openWithLabels(page, song.file, song.title)
@@ -560,7 +561,7 @@ for (const song of [
   })
 }
 
-test('a seek places note labels at once (no fades)', async ({ page }) => {
+test('@looks a seek places note labels at once (no fades)', async ({ page }) => {
   test.setTimeout(120_000)
   const errors = watchErrors(page)
   await openWithLabels(page)
@@ -574,7 +575,9 @@ test('a seek places note labels at once (no fades)', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test('log sliders step through the dense low end; a limited size says why', async ({ page }) => {
+test('@looks log sliders step through the dense low end; a limited size says why', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   await openSidebarSection(page, 'lines')
@@ -604,7 +607,7 @@ test('log sliders step through the dense low end; a limited size says why', asyn
   expect(errors).toEqual([])
 })
 
-test('note colours recolour the notes and the keys', async ({ page }) => {
+test('@looks note colours recolour the notes and the keys', async ({ page }) => {
   const errors = watchErrors(page)
   await openPlayer(page)
   // The baseline with the sidebar open: opening it reframes the canvas.
@@ -650,7 +653,7 @@ async function loopFrame(
   return (await canvas.screenshot()).toString('base64')
 }
 
-test('the first frame after a loop change shows it: no stale or flashing frame', async ({
+test('@looks @smoke the first frame after a loop change shows it: no stale or flashing frame', async ({
   page,
 }) => {
   const errors = watchErrors(page)

@@ -16,7 +16,7 @@ async function openPlayer(page: Page): Promise<void> {
 const pickerSong = (page: Page, title: string) =>
   page.getByTestId('picker-song').filter({ hasText: title })
 
-test('Change song opens on the current song and its bookmark, whatever the sort', async ({
+test('@library @smoke Change song opens on the current song and its bookmark, whatever the sort', async ({
   page,
 }) => {
   const errors = watchErrors(page)
@@ -59,7 +59,7 @@ test('Change song opens on the current song and its bookmark, whatever the sort'
   expect(errors).toEqual([])
 })
 
-test('the Library opens on the current song, whatever the sort; a hiding filter says so', async ({
+test('@library the Library opens on the current song, whatever the sort; a hiding filter says so', async ({
   page,
 }) => {
   const errors = watchErrors(page)
