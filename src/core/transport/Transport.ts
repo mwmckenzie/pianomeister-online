@@ -116,6 +116,58 @@ export class Transport {
     this.stopWith('song')
   }
 
+  /**
+   * Swaps in a new song without stopping (a playlist timeline rebuilt mid-song, milestone 9.5):
+   * the position continues at `positionSec` in the new song's time, playing or not, with nothing
+   * silenced and no pre-roll. Listeners hear 'resync', so the scheduler re-plans what it had
+   * already queued from the old mapping.
+   */
+  replaceSong(song: TransportSong, positionSec: number): void {
+    const { tempoMap } = song
+    const notes = song.notes
+      .map((note) => ({
+        note,
+        startSec: tempoMap.tickToSeconds(note.startTick),
+        endSec: tempoMap.tickToSeconds(note.endTick),
+        soundEndSec: tempoMap.tickToSeconds(note.soundEndTick),
+      }))
+      .sort((a, b) => a.startSec - b.startSec)
+    this.prepared = { source: song, notes, endSec: tempoMap.tickToSeconds(song.endTick) }
+    this.loopRange = null
+    this.window = null
+    // Notes still sounding belong to the old song's objects: their note-offs would never match.
+    this.sounding.clear()
+    if (this.currentState === 'playing') {
+      this.anchor(positionSec)
+      this.lastPos = positionSec
+    } else {
+      this.heldPosition = positionSec
+    }
+    this.armedTick = null
+    this.changed('resync')
+  }
+
+  /**
+   * Moves to a song time (Next and Previous song in a playlist, milestone 9.5): playing, it plays
+   * on from there without a pre-roll; paused or stopped, it parks there.
+   */
+  seekToSeconds(seconds: number): void {
+    const song = this.prepared
+    if (song === null) return
+    const target = Math.min(song.endSec, Math.max(0, seconds))
+    this.silence()
+    this.window = null
+    if (this.currentState === 'playing') {
+      this.anchor(target)
+      this.lastPos = target
+      this.armedTick = null
+    } else {
+      this.heldPosition = target
+      this.armedTick = null
+    }
+    this.changed('seek')
+  }
+
   play(): void {
     if (this.prepared === null || this.currentState === 'playing') return
     // Safety net (decision 8): playing never starts outside an active loop. From a playhead

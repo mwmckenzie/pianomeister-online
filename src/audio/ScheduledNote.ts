@@ -12,4 +12,6 @@ export interface ScheduledNote {
   readonly hand: Hand
   /** Onset falls inside a pre-roll count-in: routed through the pre-roll gain. */
   readonly preRoll: boolean
+  /** The playlist deck it sounds on (0 or 1; 0 outside listening). */
+  readonly deck: number
 }

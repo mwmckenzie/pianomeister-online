@@ -47,6 +47,42 @@ export class BarMap {
     return new BarMap(segments, song.durationTicks)
   }
 
+  /**
+   * One grid for songs placed one after another (a playlist timeline, milestone 9.5): each part
+   * starts a fresh bar at its start tick, whatever meter came before, and keeps its own meter
+   * changes (`events`, in the joined ticks). Bars count on across parts; the HUD numbers bars
+   * per song from each song's own map.
+   */
+  static joined(
+    ppq: number,
+    durationTicks: number,
+    parts: readonly {
+      readonly startTick: number
+      readonly events: readonly TimeSignatureEvent[]
+    }[],
+  ): BarMap {
+    const segments: MeterSegment[] = []
+    for (const part of parts) {
+      const own = fileSegments(
+        ppq,
+        part.events.map((e) => ({ ...e, tick: Math.max(0, e.tick - part.startTick) })),
+      )
+      const prev = segments[segments.length - 1]
+      const firstBar =
+        prev === undefined
+          ? 1
+          : prev.startBar +
+            Math.ceil((part.startTick - prev.startTick) / prev.ticksPerBar - EPSILON)
+      for (const s of own) {
+        segments.push(
+          segment(ppq, s.startTick + part.startTick, s.startBar - 1 + firstBar, s.timeSignature),
+        )
+      }
+    }
+    if (segments.length === 0) segments.push(segment(ppq, 0, 1, DEFAULT_TIME_SIGNATURE))
+    return new BarMap(segments, durationTicks)
+  }
+
   get firstBar(): number {
     return this.hasBarZero ? 0 : 1
   }

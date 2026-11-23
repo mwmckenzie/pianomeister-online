@@ -8,6 +8,8 @@ import { sampleFileName } from './sampleFileName'
 import type { ScheduledNote } from './ScheduledNote'
 
 type Route = `${Hand}-${'normal' | 'preRoll'}`
+/** A route on one of the two playlist decks (milestone 9.5: a crossfade fades one into the other). */
+type DeckRoute = `${Route}:${0 | 1}`
 
 /** Release time in seconds for a note's natural end (smplr's SplendidGrandPiano default). */
 const DECAY_SEC = 0.5
@@ -29,6 +31,10 @@ const SelfHostedPiano = Instrument<{ readonly baseUrl: string }>((_ctx, options,
   smplr.loadInstrument(selfHostedPianoPreset(options.baseUrl)),
 )
 const ROUTES: readonly Route[] = ['right-normal', 'left-normal', 'right-preRoll', 'left-preRoll']
+const DECK_ROUTES: readonly DeckRoute[] = ROUTES.flatMap((r) => [`${r}:0`, `${r}:1`] as const)
+const routeOf = (deckRoute: DeckRoute) => deckRoute.slice(0, -2) as Route
+/** Curve points for an equal-power fade (setValueCurveAtTime). */
+const FADE_POINTS = 64
 
 /**
  * Generations let releaseAll() fade out everything sounding in ~30 ms while new notes start at
@@ -41,8 +47,8 @@ const FADE_SEC = 0.03
 const GAIN_SMOOTHING_SEC = 0.015
 
 interface Generation {
-  readonly buses: Record<Route, GainNode>
-  readonly pianos: Record<Route, Smplr>
+  readonly buses: Record<DeckRoute, GainNode>
+  readonly pianos: Record<DeckRoute, Smplr>
 }
 
 interface Pending {
@@ -56,14 +62,20 @@ interface Pending {
  * its own instrument; all instruments share one SampleLoader, so samples are fetched and
  * decoded once.
  *
- *   piano (route, generation) → generation bus → route gain (1 or pre-roll level)
- *     → hand gain → master → destination;   clicks → metronome gain → master
+ *   piano (route, deck, generation) → generation bus → deck gain (crossfade)
+ *     → route gain (1 or pre-roll level) → hand gain → master → destination;
+ *   clicks → metronome gain → master
+ *
+ * Decks (milestone 9.5): outside listening everything plays on deck 0 at gain 1. A playlist
+ * timeline alternates songs between decks, and a crossfade ramps one deck's gains down as the
+ * other's come up.
  */
 export class SmplrOutput implements AudioOutput {
   readonly ready: Promise<void>
   private readonly master: GainNode
   private readonly handGains: Record<Hand, GainNode>
   private readonly routeGains: Record<Route, GainNode>
+  private readonly deckGains: Record<DeckRoute, GainNode>
   private readonly metronomeGain: GainNode
   private generations: Generation[] = []
   private active = 0
@@ -86,6 +98,8 @@ export class SmplrOutput implements AudioOutput {
       'right-preRoll': this.gain(this.handGains.right, 0),
       'left-preRoll': this.gain(this.handGains.left, 0),
     }
+    this.deckGains = {} as Record<DeckRoute, GainNode>
+    for (const dr of DECK_ROUTES) this.deckGains[dr] = this.gain(this.routeGains[routeOf(dr)])
     this.metronomeGain = this.gain(this.master)
     this.ready = this.load(options.baseUrl, options.onProgress)
   }
@@ -93,7 +107,7 @@ export class SmplrOutput implements AudioOutput {
   playNote(note: ScheduledNote): void {
     const generation = this.generations[this.active]
     if (generation === undefined || this.disposed) return
-    const route: Route = `${note.hand}-${note.preRoll ? 'preRoll' : 'normal'}`
+    const route: DeckRoute = `${note.hand}-${note.preRoll ? 'preRoll' : 'normal'}:${note.deck === 1 ? 1 : 0}`
     // A unique stopId lets cancelPending() stop just this note, not every note of that pitch.
     const stop = generation.pianos[route].start({
       note: note.midi,
@@ -136,7 +150,7 @@ export class SmplrOutput implements AudioOutput {
     if (old === undefined) return
     const now = this.context.currentTime
     this.cancelPending(now)
-    for (const route of ROUTES) {
+    for (const route of DECK_ROUTES) {
       const bus = old.buses[route].gain
       bus.cancelScheduledValues(now)
       bus.setValueAtTime(bus.value, now)
@@ -146,7 +160,7 @@ export class SmplrOutput implements AudioOutput {
     }
     this.active = (this.active + 1) % this.generations.length
     const next = this.generations[this.active] as Generation
-    for (const route of ROUTES) {
+    for (const route of DECK_ROUTES) {
       const bus = next.buses[route].gain
       bus.cancelScheduledValues(now)
       bus.setValueAtTime(1, now)
@@ -164,11 +178,48 @@ export class SmplrOutput implements AudioOutput {
     set(this.metronomeGain, gains.metronome)
   }
 
+  /** Sets a deck's gain now (both 1 outside a crossfade; a seek skips any fade in progress). */
+  setDeckGain(deck: 0 | 1, value: number): void {
+    const now = this.context.currentTime
+    for (const route of ROUTES) {
+      const gain = this.deckGains[`${route}:${deck}`].gain
+      gain.cancelScheduledValues(now)
+      gain.setValueAtTime(value, now)
+    }
+  }
+
+  /**
+   * An equal-power crossfade (milestone 9.5 D2): from `time` over `duration` seconds, deck `from`
+   * falls as cos and deck `to` rises as sin. Both decks end where the next song plays alone.
+   */
+  crossfade(from: 0 | 1, time: number, duration: number): void {
+    const to = from === 0 ? 1 : 0
+    const out = new Float32Array(FADE_POINTS)
+    const fadeIn = new Float32Array(FADE_POINTS)
+    for (let i = 0; i < FADE_POINTS; i++) {
+      const t = i / (FADE_POINTS - 1)
+      out[i] = Math.cos((t * Math.PI) / 2)
+      fadeIn[i] = Math.sin((t * Math.PI) / 2)
+    }
+    const start = Math.max(time, this.context.currentTime)
+    const length = Math.max(0.01, duration)
+    for (const route of ROUTES) {
+      for (const [deck, curve] of [
+        [from, out],
+        [to, fadeIn],
+      ] as const) {
+        const gain = this.deckGains[`${route}:${deck}`].gain
+        gain.cancelScheduledValues(start)
+        gain.setValueCurveAtTime(curve, start, length)
+      }
+    }
+  }
+
   dispose(): void {
     this.disposed = true
     this.cancelPending(-Infinity)
     for (const generation of this.generations) {
-      for (const route of ROUTES) {
+      for (const route of DECK_ROUTES) {
         generation.pianos[route].dispose()
         generation.buses[route].disconnect()
       }
@@ -182,7 +233,7 @@ export class SmplrOutput implements AudioOutput {
     onProgress?: (loaded: number, total: number) => void,
   ): Promise<void> {
     const loader = SampleLoader(this.context)
-    const make = (route: Route, bus: GainNode, report: boolean): Smplr =>
+    const make = (route: DeckRoute, bus: GainNode, report: boolean): Smplr =>
       SelfHostedPiano(this.context, {
         baseUrl,
         loader,
@@ -190,29 +241,30 @@ export class SmplrOutput implements AudioOutput {
         onLoadProgress: report ? (p) => onProgress?.(p.loaded, p.total) : undefined,
       })
 
-    const buses = (gen: number): Record<Route, GainNode> => {
-      const out = {} as Record<Route, GainNode>
-      for (const route of ROUTES) out[route] = this.gain(this.routeGains[route], gen === 0 ? 1 : 0)
+    const buses = (gen: number): Record<DeckRoute, GainNode> => {
+      const out = {} as Record<DeckRoute, GainNode>
+      for (const route of DECK_ROUTES)
+        out[route] = this.gain(this.deckGains[route], gen === 0 ? 1 : 0)
       return out
     }
 
     // The loader has no in-flight dedupe: load once, then every other instrument hits its cache.
     const firstBuses = buses(0)
-    const first = make('right-normal', firstBuses['right-normal'], true)
+    const first = make('right-normal:0', firstBuses['right-normal:0'], true)
     await first.ready
     const generations: Generation[] = []
     for (let gen = 0; gen < GENERATIONS; gen++) {
       const genBuses = gen === 0 ? firstBuses : buses(gen)
-      const pianos = {} as Record<Route, Smplr>
-      for (const route of ROUTES) {
+      const pianos = {} as Record<DeckRoute, Smplr>
+      for (const route of DECK_ROUTES) {
         pianos[route] =
-          gen === 0 && route === 'right-normal' ? first : make(route, genBuses[route], false)
+          gen === 0 && route === 'right-normal:0' ? first : make(route, genBuses[route], false)
       }
       generations.push({ buses: genBuses, pianos })
     }
-    await Promise.all(generations.flatMap((g) => ROUTES.map((r) => g.pianos[r].ready)))
+    await Promise.all(generations.flatMap((g) => DECK_ROUTES.map((r) => g.pianos[r].ready)))
     if (this.disposed) {
-      for (const g of generations) for (const r of ROUTES) g.pianos[r].dispose()
+      for (const g of generations) for (const r of DECK_ROUTES) g.pianos[r].dispose()
       return
     }
     this.generations = generations
