@@ -26,6 +26,10 @@ track.name = 'Right hand'
 const note = (m, ticks, beats, velocity = 0.7) =>
   track.addNote({ midi: m, ticks, durationTicks: Math.round(beats * PPQ), velocity })
 
+// First, the occlusion case: A3 and B3 with A♯3 a 32nd later, between them and just behind
+// their heads, so a nearer white head stands in front of a taller black one (bar 1, beat 3).
+for (const m of [57, 59]) note(m, 2 * PPQ, 1)
+note(58, 2 * PPQ + PPQ / 8, 1)
 // Near: a C major chord with C♯ and F♯ sounding beside it, the black ones starting half a beat later.
 for (const m of [60, 64, 67]) note(m, BAR, 3)
 for (const m of [61, 66]) note(m, BAR + PPQ / 2, 2.5)

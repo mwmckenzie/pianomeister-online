@@ -97,6 +97,8 @@ void main() {
   float fade = 1.0 - smoothstep(uShowWithin, uShowWithin + max(uFadeLength, 1e-3), ahead);
   fade *= smoothstep(0.0, ${HANDOVER.toFixed(2)}, ahead) * aShown * hazeAlpha(tick);
   fade *= step(uMinRank - 0.5, aRank);
+  // The drawn range (loop repeat) and the loop dim.
+  fade *= step(uClipLo, aTicks.x) * (1.0 - step(uClipHi, tick)) * (1.0 - loopDim(tick));
   float heightPx = uTextPx * ${(CELL_H / ATLAS_FONT_PX).toFixed(4)} * uPixelRatio;
   vec2 corner = uv - 0.5;
   float slot = aSlot * uStack;

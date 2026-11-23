@@ -18,7 +18,8 @@ varying float vTick;
 
 void main() {
   float lo = max(aTicks.x, uTick);
-  float hi = max(lo, min(aTicks.y, uTick + 1.5 * uLookAheadTicks));
+  float hi = max(lo, min(min(aTicks.y, uTick + 1.5 * uLookAheadTicks), uClipHi));
+  hi = mix(lo, hi, step(uClipLo, aTicks.x));
   float zNear = tickToZ(lo);
   float zFar = tickToZ(hi);
   vec2 halfSize = vec2(aLane.y, zNear - zFar) * 0.5;
@@ -49,6 +50,7 @@ void main() {
   vec2 q = abs(vLocal) - vHalf;
   float d = length(max(q, 0.0)) / ${RIM.toFixed(3)};
   float alpha = uStrength * (1.0 - smoothstep(0.55, 1.0, d)) * hazeAlpha(vTick);
+  alpha *= 1.0 - loopDim(vTick);
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
 }
@@ -57,8 +59,9 @@ void main() {
 /**
  * The black note outline (brief decision 41, milestone 9.2): a thin dark rim the same width on
  * every side of each black-lane note, on the highway. Drawn after the white-lane notes and before
- * the black-lane notes, without depth testing, so it separates a black note from the highway and
- * the white notes beside and under it but never darkens the black note itself. No shadow maps.
+ * the black-lane notes, depth-tested: it darkens the highway and the white sustains beside and
+ * under a black note, never the black note itself, and nearer white heads cover it. No shadow
+ * maps.
  */
 export class BlackOutline {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
@@ -72,7 +75,6 @@ export class BlackOutline {
         uniforms: { ...time, uStrength: { value: 0.8 } },
         transparent: true,
         depthWrite: false,
-        depthTest: false,
       }),
     )
     this.mesh.frustumCulled = false

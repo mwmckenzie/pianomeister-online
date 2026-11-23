@@ -106,6 +106,20 @@ export interface PlayerSettings {
    * Glowing lines (brief decision 111). Widths are world units; glow is the line's strength on
    * the glow layer (0 = it doesn't bloom). Colours name a UI colour or use the `…Custom` value.
    */
+  /** Loop visibility on the highway (milestone 9.2). */
+  readonly loop: {
+    /** Everything on the highway outside [loop start, loop end) is dimmed while a loop is on. */
+    readonly dim: boolean
+    readonly dimStrength: number
+    /** Lines across the highway at the loop start and end. */
+    readonly lines: boolean
+    readonly linesColor: LineColor
+    readonly linesCustom: string
+    readonly linesWidth: number
+    readonly linesGlow: number
+    /** Beyond the loop end: the next iteration ('repeat') or the song as it is ('continue'). */
+    readonly after: 'repeat' | 'continue'
+  }
   readonly lines: {
     readonly nowStyle: 'thin' | 'glowing' | 'neon'
     readonly nowColor: LineColor | 'pitch'

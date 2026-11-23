@@ -54,6 +54,7 @@ import { useSaveSelection } from '../overview/useSaveSelection'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { usePracticeStore } from '../stores/practiceStore'
+import { loopWindowFor } from '@/core/transport/loopWindowFor'
 import { useProfileStore } from '../stores/profileStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useReducedMotion } from '../theme/useReducedMotion'
@@ -344,6 +345,7 @@ function showSong(
     pedalIntervals: prepared.pedalIntervals,
     endTick: opened.song.durationTicks,
   })
+  syncEngineLoop()
   return sameEntry
 }
 
@@ -427,7 +429,24 @@ function applyPractice(): void {
     appliedJump = practice.loopJump
     transport.seekToLoopStart()
   }
+  syncEngineLoop()
   applyAudio()
+}
+
+/**
+ * The loop on the highway (milestone 9.2) follows the transport's loop and pre-roll, set in the
+ * same tick as them, so the frame that shows the jump to the loop start shows the loop too.
+ */
+function syncEngineLoop(): void {
+  const song = session?.song ?? null
+  const transport = session?.transport
+  if (song === null || transport === undefined) {
+    engine?.setLoop(null)
+    return
+  }
+  engine?.setLoop(
+    loopWindowFor(transport.loop, transport.preRoll.beats, song.barMap, song.tempoMap),
+  )
 }
 
 /** Volumes and the metronome are global; hand modes come from the practice setup. */
@@ -830,6 +849,11 @@ onMounted(() => {
         },
         step: (tick: number, dt: number) => engine?.captureStep(tick, dt),
         particles: () => engine?.particleStats(),
+        /** A loop with its pre-roll (the loop sheets, milestone 9.2); null turns it off. */
+        loop: (range: LoopRange | null, preRollBeats = 0) => {
+          practice.setPreRollBeats(preRollBeats)
+          practice.setLoop(range)
+        },
       },
     })
   }

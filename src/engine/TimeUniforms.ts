@@ -25,4 +25,19 @@ export interface TimeUniforms {
   uJumpTick: IUniform<number>
   /** 1 under reduced motion: no flicker, breathing, drift or noise animation. */
   uReducedMotion: IUniform<number>
+  /**
+   * Song ticks a layer draws, [uClipLo, uClipHi): notes starting before uClipLo are left out,
+   * anything at or past uClipHi is cut. Open (±1e9) except while the loop repeat draws
+   * (milestone 9.2): the song is cut at the loop end, and each repeat shows one iteration.
+   */
+  uClipLo: IUniform<number>
+  uClipHi: IUniform<number>
+  /** The loop's practice section [start, end) in song ticks, and one iteration's period. */
+  uLoopStart: IUniform<number>
+  uLoopEnd: IUniform<number>
+  uLoopPeriod: IUniform<number>
+  /** 1 while the repeat shows beyond the loop end: static surfaces map ticks back (loopSongTick). */
+  uLoopRepeat: IUniform<number>
+  /** How strongly everything outside the practice section is dimmed (0: not at all, no loop). */
+  uLoopDim: IUniform<number>
 }

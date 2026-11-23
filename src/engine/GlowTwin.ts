@@ -64,9 +64,14 @@ export class GlowTwin<G extends BufferGeometry = BufferGeometry> {
     source.updateWorldMatrix(true, false)
     mesh.matrix.copy(source.matrixWorld)
     mesh.matrixWorldNeedsUpdate = true
-    // Black-lane notes drawn on top of the white ones (see HeadLayer.setLift) stay on top here.
-    mesh.material.depthTest = source.material.depthTest
-    mesh.material.depthFunc = source.material.depthFunc
+    // The same depth state as the source (black-lane notes win ties by a bias, HeadLayer.setLift).
+    const from = source.material
+    const to = mesh.material
+    to.depthTest = from.depthTest
+    to.depthFunc = from.depthFunc
+    to.polygonOffset = from.polygonOffset
+    to.polygonOffsetFactor = from.polygonOffsetFactor
+    to.polygonOffsetUnits = from.polygonOffsetUnits
   }
 
   dispose(): void {

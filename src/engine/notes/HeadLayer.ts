@@ -1,6 +1,6 @@
 import {
-  AlwaysDepth,
   BufferAttribute,
+  Color,
   FrontSide,
   LessEqualDepth,
   type InstancedBufferGeometry,
@@ -50,11 +50,13 @@ void main() {
   // (a raised sustain) spans the rest of the note, from the head's end.
 #ifdef RIDGE
   float lo = max(aTicks.z, uTick);
-  float hi = max(lo, min(aTicks.y, uTick + 1.5 * uLookAheadTicks));
+  float hi = max(lo, min(min(aTicks.y, uTick + 1.5 * uLookAheadTicks), uClipHi));
 #else
   float lo = max(aTicks.x, uTick);
-  float hi = max(lo, min(aTicks.z, uTick + 1.5 * uLookAheadTicks));
+  float hi = max(lo, min(min(aTicks.z, uTick + 1.5 * uLookAheadTicks), uClipHi));
 #endif
+  // A note starting before the drawn range is left out (see uClipLo).
+  hi = mix(lo, hi, step(uClipLo, aTicks.x));
   float zNear = tickToZ(lo);
   float zFar = tickToZ(hi);
   // A head with no visible length (already played, or not yet in view) collapses entirely;
@@ -90,6 +92,7 @@ ${LIGHT_GLSL}
 ${NOTE_FILL_GLSL}
 uniform float uSideShade;   // 0–1: how much darker the vertical faces are than the top
 uniform float uOpacity;     // ridges: the top's opacity, the sustain's (heads: 1)
+uniform vec3 uDimColor;     // outside the loop, blocks fade toward the highway's colour
 varying vec3 vNormal;
 varying vec3 vWorld;
 varying vec3 vColor;
@@ -130,6 +133,7 @@ void main() {
 #ifdef GLOW_PASS
   // An occluder on the glow layer: black, except what glows.
   float glow = (rim * uEdgeIntensity + f.emission + sounding + pulse) * haze;
+  glow *= 1.0 - loopDim(vTick);
   gl_FragColor = vec4(mix(glowColor(f), rimColor, rim) * glow, 1.0);
 #else
   vec3 n = normalize(vNormal);
@@ -142,6 +146,8 @@ void main() {
   color *= 1.0 - uSideShade * side;
   // A ridge's top takes the sustain's transparency; its sides are opaque, so it reads as a block.
   float alpha = f.alpha * mix(uOpacity, 1.0, step(0.5, side));
+  // Dimmed like an overlay in the highway's colour (opaque blocks: mix, not fade).
+  color = mix(color, uDimColor, loopDim(vTick));
   gl_FragColor = vec4(color, haze * alpha);
 #endif
 }
@@ -168,8 +174,7 @@ export class HeadLayer {
     /** A raised sustain (from the head's end to the note's end) instead of the head. */
     private readonly ridge = false,
   ) {
-    // Far to near: when drawn on top without depth testing (see setLift), nearer heads must
-    // land last to overlap farther ones correctly.
+    // Far to near: translucent heads (haze, see-through fills) blend over the farther ones.
     this.notes = [...notes].sort((a, b) => b.startTick - a.startTick)
     this.mesh = new Mesh(
       noteGeometry(this.notes, shape(true), colors),
@@ -184,6 +189,7 @@ export class HeadLayer {
           uRadius: { value: HEAD_EDGE_RADIUS },
           uSideShade: { value: 0 },
           uOpacity: { value: 1 },
+          uDimColor: { value: new Color(0, 0, 0) },
         },
         defines: ridge ? { RIDGE: '' } : {},
         transparent: true,
@@ -197,18 +203,27 @@ export class HeadLayer {
   }
 
   /**
-   * `onTop`: draw over everything already drawn (the white-lane notes) instead of depth
-   * testing. Used for black-lane heads when they float lower than the white heads' tops, where
-   * the blocks would otherwise intersect and z-fight; black-lane heads always win.
+   * Heads are depth-tested and write depth, white and black alike, so a nearer note always
+   * covers a farther one whatever its colour. `winsTies` (black-lane notes) adds a small depth
+   * bias toward the camera: where a black and a white block share a face (a chord's front
+   * faces, side by side on the highway) the black one shows, with no z-fighting. The bias is far
+   * smaller than the gap between different notes, so it never lifts a farther block over a
+   * nearer one.
    */
-  setLift(y: number, onTop = false): void {
+  setLift(y: number, winsTies = false): void {
     this.uniform('uLift', y)
-    this.mesh.material.depthFunc = onTop ? AlwaysDepth : LessEqualDepth
+    biasToward(this.mesh.material, winsTies)
   }
 
   /** How much darker the vertical faces are than the top, 0–1. */
   setSideShading(amount: number): void {
     this.uniform('uSideShade', amount)
+  }
+
+  /** The colour dimmed blocks fade toward (the highway's), outside the loop. */
+  setDimColor(color: Color): void {
+    const u = this.mesh.material.uniforms.uDimColor
+    if (u) u.value = color
   }
 
   /** Ridges: the top's opacity (the sustain's); the sides stay opaque. */
@@ -244,6 +259,15 @@ export class HeadLayer {
     const u = this.mesh.material.uniforms[name]
     if (u) u.value = value
   }
+}
+
+/** A depth bias toward the camera for layers that win coplanar ties (black-lane notes). */
+export function biasToward(material: ShaderMaterial, on: boolean): void {
+  material.depthTest = true
+  material.depthFunc = LessEqualDepth
+  material.polygonOffset = on
+  material.polygonOffsetFactor = on ? -1 : 0
+  material.polygonOffsetUnits = on ? -4 : 0
 }
 
 function shape(rounded: boolean): Record<string, BufferAttribute> {

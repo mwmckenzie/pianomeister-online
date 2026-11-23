@@ -118,6 +118,14 @@ interface CaptureApi {
   particles():
     | { particles: { live: number; capacity: number; evicted: number }; smoke: { live: number } }
     | undefined
+  loop(range: { startBar: number; endBar: number } | null, preRollBeats?: number): void
+}
+
+/** A loop to set before a capture (milestone 9.2 loop sheets). */
+export interface CaptureLoop {
+  readonly startBar: number
+  readonly endBar: number
+  readonly preRollBeats?: number
 }
 
 /**
@@ -131,8 +139,9 @@ export async function captureWith(
   bar: number,
   moments: readonly number[],
   crop?: Crop,
-  /** Extra query parameters, e.g. `&ridgeSides=solid` (review seams). */
+  /** Extra query parameters (review seams). */
   query = '',
+  loop: CaptureLoop | null = null,
 ): Promise<{ readonly pngs: readonly Buffer[]; readonly load: ParticleLoad }> {
   await page.evaluate(
     (value) => localStorage.setItem('pianomeister.settings', value),
@@ -149,6 +158,16 @@ export async function captureWith(
   await page.evaluate(() =>
     (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture.start(1),
   )
+  if (loop !== null) {
+    await page.evaluate(
+      (l) =>
+        (window as unknown as { pianomeisterCapture: CaptureApi }).pianomeisterCapture.loop(
+          { startBar: l.startBar, endBar: l.endBar },
+          l.preRollBeats ?? 0,
+        ),
+      loop,
+    )
+  }
   const pngs: Buffer[] = []
   // Start a little before the bar, so its first onsets are crossed while playing.
   let elapsed = -0.1

@@ -387,6 +387,49 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       group: 'Now line',
     },
     'lines.nowGlow': { ...glow(0.6), group: 'Now line' },
+    // Loop visibility (milestone 9.2).
+    'loop.dim': bool('Dim outside the loop', true, sidebar('loop')),
+    'loop.dimStrength': {
+      ...num('Dim strength', 0.6, sidebar('loop'), [0, 0.95, 0.05]),
+      ...percent,
+      visible: (s) => s.loop.dim,
+    },
+    'loop.after': {
+      kind: 'choice',
+      label: 'After the loop end',
+      default: 'repeat',
+      home: sidebar('loop'),
+      options: [
+        { value: 'repeat', label: 'Next repeat' },
+        { value: 'continue', label: 'Song continues' },
+      ],
+    },
+    'loop.lines': {
+      ...bool('Loop boundary lines', true, sidebar('loop')),
+      group: 'Boundary lines',
+    },
+    'loop.linesColor': {
+      ...lineColor('secondary'),
+      home: sidebar('loop'),
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines,
+    },
+    'loop.linesCustom': {
+      ...color('Custom colour', '#7EE0C3', sidebar('loop')),
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines && s.loop.linesColor === 'custom',
+    },
+    'loop.linesWidth': {
+      ...num('Width', 0.14, sidebar('loop'), [0.02, 0.3, 0.01], 'mm'),
+      ...log,
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines,
+    },
+    'loop.linesGlow': {
+      ...glow(1, 'Glow', 3, sidebar('loop')),
+      group: 'Boundary lines',
+      visible: (s) => s.loop.lines,
+    },
     'lines.borders': { ...bool('Highway borders', true, sidebar('lines')), group: 'Borders' },
     'lines.bordersColor': {
       ...lineColor('custom'),

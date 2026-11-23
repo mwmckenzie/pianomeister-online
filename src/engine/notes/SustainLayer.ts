@@ -7,6 +7,7 @@ import type { TimeUniforms } from '../TimeUniforms'
 import { NOTE_FILL_GLSL } from './NOTE_FILL_GLSL'
 import type { NoteColors } from '../NoteColors'
 import { noteGeometry, recolorNotes } from './noteGeometry'
+import { biasToward } from './HeadLayer'
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
 
 const VERTEX = /* glsl */ `
@@ -34,7 +35,9 @@ void main() {
   // play) to 1.5 look-aheads out. With 3D heads the strip starts where the head block ends.
   float start = mix(aTicks.z, aTicks.x, uFlatHeads);
   float lo = max(start, uTick);
-  float hi = max(lo, min(aTicks.y, uTick + 1.5 * uLookAheadTicks));
+  float hi = max(lo, min(min(aTicks.y, uTick + 1.5 * uLookAheadTicks), uClipHi));
+  // A note starting before the drawn range is left out (see uClipLo).
+  hi = mix(lo, hi, step(uClipLo, aTicks.x));
   float tick = mix(lo, hi, position.y);
   vec3 world = vec3(aLane.x + (position.x + 0.5) * aLane.y, uLift, tickToZ(tick));
   vU = position.x * 2.0;
@@ -95,7 +98,8 @@ void main() {
   float lit = mix(opacity, 1.0, f.keep);
 #ifdef GLOW_PASS
   float glow = (rim * uEdgeIntensity + (f.emission + sounding + pulse) * f.alpha) * lit;
-  glow *= haze;
+  float dim = 1.0 - loopDim(vTick);
+  glow *= haze * dim;
   if (glow <= 0.002) discard;
   gl_FragColor = vec4(mix(glowColor(f), rimColor, rim) * glow, 1.0);
 #else
@@ -113,7 +117,7 @@ void main() {
     color += mix(vColor, vec3(1.0), 0.5) * pulse;
     alpha = min(1.0, alpha + pulse * opacity);
   }
-  alpha *= haze;
+  alpha *= haze * (1.0 - loopDim(vTick));
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(color, alpha);
 #endif
@@ -161,10 +165,14 @@ export class SustainLayer {
     this.twin = new GlowTwin(this.mesh, 'emitter')
   }
 
-  /** `onTop`: skip the depth test so the strips draw over the white-lane heads (see HeadLayer). */
-  setLift(y: number, onTop = false): void {
+  /**
+   * Depth-tested (nearer heads cover the strips) without writing depth. `winsTies` (black-lane
+   * sustains, a hair above the white ones): a depth bias, so where the strips overlap on the
+   * highway the black one shows (see HeadLayer.setLift).
+   */
+  setLift(y: number, winsTies = false): void {
     this.uniform('uLift', y)
-    this.mesh.material.depthTest = !onTop
+    biasToward(this.mesh.material, winsTies)
   }
 
   /** Takes the palette's current colours (after a change of note colours). */

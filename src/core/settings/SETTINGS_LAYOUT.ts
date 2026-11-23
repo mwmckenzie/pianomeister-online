@@ -6,6 +6,7 @@ export const SETTINGS_LAYOUT = {
     { id: 'camera', title: 'Camera' },
     { id: 'keyboard', title: 'Keyboard', resetLabel: 'Reset keyboard to grand piano' },
     { id: 'highway', title: 'Highway' },
+    { id: 'loop', title: 'Loop' },
     { id: 'lines', title: 'Lines & glow' },
     { id: 'notes', title: 'Notes' },
     { id: 'noteStyle', title: 'Note style' },

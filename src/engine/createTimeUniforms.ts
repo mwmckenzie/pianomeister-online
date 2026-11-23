@@ -12,5 +12,12 @@ export function createTimeUniforms(): TimeUniforms {
     uTicksPerSecond: { value: 0 },
     uJumpTick: { value: -1e9 },
     uReducedMotion: { value: 0 },
+    uClipLo: { value: -1e9 },
+    uClipHi: { value: 1e9 },
+    uLoopStart: { value: 0 },
+    uLoopEnd: { value: 0 },
+    uLoopPeriod: { value: 0 },
+    uLoopRepeat: { value: 0 },
+    uLoopDim: { value: 0 },
   }
 }
