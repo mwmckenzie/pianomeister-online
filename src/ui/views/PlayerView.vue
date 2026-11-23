@@ -38,6 +38,11 @@ import { sharedSession } from '../playback/sharedSession'
 import { toAudioSettings } from '../playback/toAudioSettings'
 import BarBeatCounter from '../player/BarBeatCounter.vue'
 import HudMenuButton from '../player/HudMenuButton.vue'
+import ListeningHud from '../player/ListeningHud.vue'
+import { ListeningController, type ListeningUpdate } from '../playback/ListeningController'
+import { useListeningStore } from '../stores/listeningStore'
+import { usePlaylistStore } from '../stores/playlistStore'
+import { useStatsStore } from '../stores/statsStore'
 import { playerActionsKey } from '../player/playerActionsKey'
 import HudToggle from '../player/HudToggle.vue'
 import LoopPopover from '../player/LoopPopover.vue'
@@ -83,6 +88,9 @@ const ui = useUiStateStore()
 const practice = usePracticeStore()
 const bookmarks = useBookmarkStore()
 const profiles = useProfileStore()
+const listening = useListeningStore()
+const playlistStore = usePlaylistStore()
+const statsStore = useStatsStore()
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 
 // Engine and audio live outside Vue's reactivity; the HUD copies what it shows once per frame.
@@ -96,6 +104,8 @@ let unmounted = false
 /** The stored bar to start at, read with the start entry. */
 let stoppedBar: number | null = null
 let stopBarWatch: (() => void) | null = null
+/** Listening mode (milestone 9.5): plays a playlist through the same session and engine. */
+let listener: ListeningController | null = null
 
 const entry = shallowRef<LibraryEntry | null>(null)
 const hands = shallowRef<HandAssignment | null>(null)
@@ -257,6 +267,8 @@ function barAt(fraction: number): number {
  * temporary changes included.
  */
 async function openSong(songId?: string, bookmarkId: string | null = null): Promise<void> {
+  // Any song opened normally (picker, Library, a bookmark, Resume) ends listening (9.5 C7).
+  if (listening.active) listener?.leave()
   const fresh = practice.takeFreshLoad() || songId !== undefined
   error.value = ''
   let opened: OpenedSong | null = null
@@ -359,6 +371,123 @@ function showSong(
   return sameEntry
 }
 
+function listenerFor(playback: PlaybackSession): ListeningController {
+  listener ??= new ListeningController({
+    session: playback,
+    openSong: (songId) => library.openSong(songId),
+    entry: (songId) => library.entries.find((e) => e.songId === songId),
+    savedLooks: () => settingsStore.looks.saved,
+    deviceClass: settingsStore.deviceClass,
+    ownSettings: () => settingsStore.ownSettings(),
+    setOverlay: (next) => settingsStore.setOverlay(next),
+    endOverlay: () => settingsStore.endOverlay(),
+    setTrackingSuspended: (on) => (statsStore.trackingSuspended = on),
+    crossfadeSec: () => settingsStore.settings.audio.crossfade,
+    showTimeline: (timeline, shiftTicks) => {
+      const started = performance.now()
+      engine?.setSong(
+        {
+          notes: timeline.notes,
+          ppq: timeline.ppq,
+          barMap: timeline.song.barMap,
+          pedalIntervals: timeline.pedalIntervals,
+          endTick: timeline.song.endTick,
+        },
+        shiftTicks === null ? null : { shiftTicks },
+      )
+      engine?.setLoop(null)
+      return performance.now() - started
+    },
+    update: applyListeningUpdate,
+    markPlayed: (id) => void playlistStore.markPlayed(id),
+    random: Math.random,
+  })
+  return listener
+}
+
+function applyListeningUpdate(update: ListeningUpdate): void {
+  const { announce, ...fields } = update
+  Object.assign(listening, fields)
+  if (announce === true) listening.announced++
+}
+
+/** Starts the playlist a Play button asked for (Playlists tab, Welcome tile, a song row). */
+async function startRequested(): Promise<void> {
+  const request = listening.request
+  if (request === null) return
+  listening.request = null
+  const playback = session ?? attachSession()
+  if (!playlistStore.loaded) await playlistStore.refresh()
+  if (!library.loaded) await library.refresh()
+  const playlist = playlistStore.byId.get(request.playlistId)
+  if (playlist === undefined || unmounted) return
+  if (route.name !== 'player') await router.push({ name: 'player' })
+  pickerOpen.value = false
+  listening.tempoPercent = 100
+  listening.muted = false
+  await listenerFor(playback).start(playlist, request.start)
+}
+
+/** Leaves listening (Esc, Leave): the last song comes back as Full song, parked at its bar. */
+async function leaveListening(): Promise<void> {
+  const last = listener?.leave() ?? null
+  if (last === null) return
+  await openSong(last.songId, null)
+  session?.transport.seekToBar(last.bar)
+}
+
+function listeningTempo(direction: -1 | 0 | 1): void {
+  const range = tempoSliderRange(settingsStore.settings.practice.tempoStep)
+  const next =
+    direction === 0
+      ? 100
+      : Math.min(range.max, Math.max(range.min, listening.tempoPercent + direction * range.step))
+  listening.tempoPercent = next
+  listener?.setTempo(next)
+}
+
+function toggleListeningMute(): void {
+  listening.muted = !listening.muted
+  session?.setMuted(listening.muted)
+}
+
+const HUD_MODES = ['show', 'minimal', 'hidden'] as const
+function cycleListeningHud(): void {
+  const now = HUD_MODES.indexOf(settingsStore.settings.appearance.listeningHud)
+  settingsStore.set('appearance.listeningHud', HUD_MODES[(now + 1) % HUD_MODES.length] ?? 'show')
+}
+
+/** Listening keys (milestone 9.5): its own commands, then the player's few that still apply. */
+const LISTENING_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
+  nextSong: () => void listener?.next(),
+  previousSong: () => void listener?.previous(),
+  toggleMute: toggleListeningMute,
+  cycleListeningHud,
+  leaveListening: () => void leaveListening(),
+  playPause: togglePlay,
+  togglePlayfield: () => (ui.sidebarOpen = !ui.sidebarOpen),
+  openSettings: () => openSettings(),
+  tempoDown: () => listeningTempo(-1),
+  tempoUp: () => listeningTempo(1),
+  tempoReset: () => listeningTempo(0),
+}
+
+function onListeningKey(event: KeyboardEvent): void {
+  const command =
+    commandForEvent(settingsStore.bindings, 'listening', event) ??
+    commandForEvent(settingsStore.bindings, 'player', event)
+  // Esc closes the open panel first.
+  if (command === 'leaveListening' && ui.sidebarOpen) {
+    event.preventDefault()
+    ui.sidebarOpen = false
+    return
+  }
+  const action = command === null ? undefined : LISTENING_ACTIONS[command]
+  if (action === undefined) return
+  event.preventDefault()
+  action()
+}
+
 function showError(message: string): void {
   error.value = message
   if (message !== '') toasts.show(message, 'error')
@@ -418,6 +547,11 @@ let appliedJump = -1
  */
 function applyPractice(): void {
   if (session === null) return
+  // Listening: no loop, pre-roll or bookmark; tempo is the session's own (9.5 C2).
+  if (listening.active) {
+    applyAudio()
+    return
+  }
   const { transport } = session
   const current = practice.current
   const preRoll = transport.preRoll
@@ -461,7 +595,9 @@ function syncEngineLoop(): void {
 
 /** Volumes and the metronome are global; hand modes come from the practice setup. */
 function applyAudio(): void {
-  const { handAudio, metronomeMode } = practice.current
+  const { handAudio, metronomeMode } = listening.active
+    ? { handAudio: { right: 'on', left: 'on' } as const, metronomeMode: 'off' as const }
+    : practice.current
   session?.setAudioSettings(
     toAudioSettings({
       ...settingsStore.settings.audio,
@@ -489,6 +625,13 @@ const saveAsBookmark = useSaveBookmark()
 
 function updateHud(): void {
   hudFrame = requestAnimationFrame(updateHud)
+  if (session !== null && listening.active) {
+    listener?.frame()
+    if (hud.value.state !== session.transport.state) {
+      hud.value = { ...hud.value, state: session.transport.state }
+    }
+    return
+  }
   const prepared = loaded.value
   if (session === null || prepared === null) return
   const { transport } = session
@@ -604,6 +747,13 @@ function loadBookmark(id: string): void {
   const songId = entry.value?.songId
   if (songId !== undefined) void openSong(songId, id)
 }
+
+watch(
+  () => listening.request,
+  (request) => {
+    if (request !== null && engine !== null) void startRequested()
+  },
+)
 
 const saveSelection = useSaveSelection(loadBookmark)
 
@@ -777,6 +927,10 @@ function onKeyDown(event: KeyboardEvent): void {
   // Behind Welcome the player's keys rest; Welcome has its own (Enter resumes).
   if (onWelcome.value) return
   if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return
+  if (listening.active) {
+    onListeningKey(event)
+    return
+  }
   const command = commandForEvent(settingsStore.bindings, 'player', event)
   // In the loop editor playback keeps its keys; the playfield panel and the strip aren't there.
   if (onEditor.value && (command === 'togglePlayfield' || command === 'toggleOverview')) return
@@ -840,6 +994,15 @@ onMounted(() => {
     const renderInfo = () => engine?.renderInfo()
     const labels = () => engine?.labelSnapshot()
     Object.assign(window, {
+      // Listening (milestone 9.5): start a playlist, and read the timeline swaps for the report.
+      pianomeisterListening: {
+        play: (playlistId: string, start = 0) => listening.requestPlay(playlistId, start),
+        swapMs: () => [...(listener?.swapMs ?? [])],
+        lateSeams: () => listener?.lateSeams ?? 0,
+        state: () => listener?.debugState() ?? null,
+        position: () => session?.transport.position ?? 0,
+        seek: (seconds: number) => session?.transport.seekToSeconds(seconds),
+      },
       pianomeisterEngineStats: stats,
       pianomeisterRenderInfo: renderInfo,
       pianomeisterLabels: labels,
@@ -886,11 +1049,13 @@ onMounted(() => {
   watchStripRoom(frozen.value)
   void loadOverviewStrip()
   void loadLoopEditor()
-  void openSong()
+  if (listening.request !== null) void startRequested()
+  else void openSong()
 })
 
 onBeforeUnmount(() => {
   unmounted = true
+  if (listening.active) listener?.leave()
   // The library shows the scene's last frame behind its glass.
   sceneSnapshot.value = engine?.captureFrame() ?? sceneSnapshot.value
   window.removeEventListener('keydown', onKeyDown)
@@ -923,295 +1088,319 @@ onBeforeUnmount(() => {
       <canvas ref="canvas" class="canvas" data-testid="stage" />
       <div v-if="onWelcome" class="welcome-dim" aria-hidden="true" />
 
-      <!-- Decision 60: the timeline runs along the top edge and never hides. -->
-      <PlayerTimeline
-        class="timeline-strip"
-        :position="position"
-        :loop="loopRegion"
-        :ticks="barTicks"
-        :bar="hud.bar"
-        :first-bar="firstBar"
-        :last-bar="lastBar"
-        :bar-at="barAt"
-        @seek-bar="seekBar"
+      <ListeningHud
+        v-if="listening.active"
+        :idle="controlsHidden"
+        :reduced-motion="reducedMotion"
+        :sidebar-open="ui.sidebarOpen"
+        @leave="leaveListening"
+        @next="listener?.next()"
+        @previous="listener?.previous()"
+        @toggle-play="togglePlay"
+        @toggle-mute="toggleListeningMute"
+        @play-again="listener?.playAgain()"
+        @open-playlists="router.push({ name: 'playlists' })"
+        @toggle-playfield="ui.sidebarOpen = !ui.sidebarOpen"
+        @open-settings="openSettings"
+        @set-shuffle="listener?.setShuffle($event)"
+        @set-repeat="listener?.setRepeat($event)"
       />
-      <button
-        type="button"
-        class="overview-toggle"
-        :class="{ open: stripShown }"
-        :aria-label="overviewHint"
-        :title="overviewHint"
-        :aria-expanded="stripShown"
-        :data-room="stripFits ? 'yes' : 'no'"
-        data-testid="overview-toggle"
-        @click="toggleOverview"
-      >
-        <AppIcon :name="stripShown ? 'chevronUp' : 'chevronDown'" :size="16" />
-      </button>
+      <template v-else>
+        <!-- Decision 60: the timeline runs along the top edge and never hides. -->
+        <PlayerTimeline
+          class="timeline-strip"
+          :position="position"
+          :loop="loopRegion"
+          :ticks="barTicks"
+          :bar="hud.bar"
+          :first-bar="firstBar"
+          :last-bar="lastBar"
+          :bar-at="barAt"
+          @seek-bar="seekBar"
+        />
+        <button
+          type="button"
+          class="overview-toggle"
+          :class="{ open: stripShown }"
+          :aria-label="overviewHint"
+          :title="overviewHint"
+          :aria-expanded="stripShown"
+          :data-room="stripFits ? 'yes' : 'no'"
+          data-testid="overview-toggle"
+          @click="toggleOverview"
+        >
+          <AppIcon :name="stripShown ? 'chevronUp' : 'chevronDown'" :size="16" />
+        </button>
 
-      <!-- Brief decision 105: the overview strip, under the timeline between the columns. -->
-      <OverviewStrip
-        v-if="stripShown && loaded"
-        class="overview-strip"
-        :style="{ left: `${stripBox.left}px`, right: `${stripBox.right}px` }"
-        :song="loaded"
-        :title="title"
-        :bookmarks="stripBookmarks"
-        :playing-id="playingBookmarkId"
-        :loop="shownLoop"
-        :tick="tick"
-        :playing="playing"
-        :controls-hidden="controlsHidden"
-        :save-key="shortcutLabel('saveBookmark')"
-        :editor-key="shortcutLabel('openLoopEditor')"
-        :close-key="shortcutLabel('toggleOverview')"
-        @seek-bar="seekBar"
-        @set-loop="setLoop"
-        @load-bookmark="loadBookmark"
-        @save-selection="saveSelection"
-        @open-editor="openLoopEditor"
-        @close="ui.overviewOpen = false"
-        @pointerenter="overStrip = true"
-        @pointerleave="overStrip = false"
-      />
+        <!-- Brief decision 105: the overview strip, under the timeline between the columns. -->
+        <OverviewStrip
+          v-if="stripShown && loaded"
+          class="overview-strip"
+          :style="{ left: `${stripBox.left}px`, right: `${stripBox.right}px` }"
+          :song="loaded"
+          :title="title"
+          :bookmarks="stripBookmarks"
+          :playing-id="playingBookmarkId"
+          :loop="shownLoop"
+          :tick="tick"
+          :playing="playing"
+          :controls-hidden="controlsHidden"
+          :save-key="shortcutLabel('saveBookmark')"
+          :editor-key="shortcutLabel('openLoopEditor')"
+          :close-key="shortcutLabel('toggleOverview')"
+          @seek-bar="seekBar"
+          @set-loop="setLoop"
+          @load-bookmark="loadBookmark"
+          @save-selection="saveSelection"
+          @open-editor="openLoopEditor"
+          @close="ui.overviewOpen = false"
+          @pointerenter="overStrip = true"
+          @pointerleave="overStrip = false"
+        />
 
-      <!-- Left: what you're playing and where you are, then the app menu. -->
-      <div ref="leftColumn" class="side left" data-testid="hud-left">
-        <section class="hud-text song" aria-label="Song">
-          <h1 class="title" :title="title" data-testid="hud-title">
-            {{ title }}
-          </h1>
-          <p v-if="composer" class="composer" :title="composer" data-testid="hud-composer">
-            {{ composer }}
-          </p>
-          <p
-            v-if="entry && nowPlaying"
-            class="composer entry"
-            :class="{ custom: nowPlaying.kind === 'custom' }"
-            :title="
-              nowPlaying.kind === 'custom'
-                ? `${nowPlaying.label}
+        <!-- Left: what you're playing and where you are, then the app menu. -->
+        <div ref="leftColumn" class="side left" data-testid="hud-left">
+          <section class="hud-text song" aria-label="Song">
+            <h1 class="title" :title="title" data-testid="hud-title">
+              {{ title }}
+            </h1>
+            <p v-if="composer" class="composer" :title="composer" data-testid="hud-composer">
+              {{ composer }}
+            </p>
+            <p
+              v-if="entry && nowPlaying"
+              class="composer entry"
+              :class="{ custom: nowPlaying.kind === 'custom' }"
+              :title="
+                nowPlaying.kind === 'custom'
+                  ? `${nowPlaying.label}
 ${customHint}`
-                : nowPlaying.label
-            "
-            :data-kind="nowPlaying.kind"
-            data-testid="hud-entry"
-          >
-            <template v-if="nowPlaying.kind !== 'custom'">
-              <AppIcon name="bookmark" :size="15" class="entry-icon" data-testid="hud-entry-icon" />
-              <span
-                :data-testid="nowPlaying.kind === 'bookmark' ? 'hud-bookmark' : 'hud-full-song'"
-                >{{ nowPlaying.label }}</span
-              >
-            </template>
-            <span v-else data-testid="hud-custom">{{ nowPlaying.label }}</span>
-          </p>
-          <BarBeatCounter
-            ref="counterBlock"
-            :bar="hud.bar"
-            :beat="hud.beat"
-            :pre-roll="hud.preRoll"
-            :dot-beat="hud.dotBeat"
-            :dot-beats="hud.dotBeats"
-            :bar-digits="barDigits"
-            :beat-digits="beatDigits"
-          />
-          <p ref="barOf" class="sub bar-of">
-            bar {{ hud.bar }} of
-            <span data-testid="hud-bars">{{ barCount }}</span>
-          </p>
-          <p class="visually-hidden" data-testid="hud-hands">
-            {{ handsLabel }}
-          </p>
-        </section>
-
-        <nav
-          class="app-menu fades"
-          :class="{ hidden: controlsHidden }"
-          aria-label="App"
-          data-testid="app-menu"
-          @pointerenter="overMenu = true"
-          @pointerleave="overMenu = false"
-        >
-          <HudMenuButton
-            icon="home"
-            label="Home"
-            :shortcut="shortcutLabel('goHome')"
-            :active="onWelcome"
-            data-testid="menu-home"
-            @click="goHome"
-          />
-          <HudMenuButton
-            icon="song"
-            label="Change song"
-            :shortcut="shortcutLabel('openPicker')"
-            data-testid="open-picker"
-            @click="openPicker"
-          />
-          <HudMenuButton
-            icon="loopEditor"
-            label="Loop editor"
-            :shortcut="shortcutLabel('openLoopEditor')"
-            :active="onEditor"
-            data-testid="menu-loop-editor"
-            @click="router.push({ name: 'editor' })"
-          />
-          <HudMenuButton
-            icon="library"
-            label="Library"
-            :shortcut="shortcutLabel('openLibrary')"
-            data-testid="menu-library"
-            @click="openLibrary"
-          />
-          <HudMenuButton
-            icon="stats"
-            label="Stats"
-            :shortcut="shortcutLabel('openStats')"
-            data-testid="menu-stats"
-            @click="openStats"
-          />
-          <HudMenuButton
-            icon="sliders"
-            label="Playfield panel"
-            :shortcut="shortcutLabel('togglePlayfield')"
-            :active="ui.sidebarOpen"
-            data-testid="toggle-sidebar"
-            @click="toggleSidebar"
-          />
-          <HudMenuButton
-            icon="settings"
-            label="Settings"
-            :shortcut="shortcutLabel('openSettings')"
-            data-testid="menu-settings"
-            @click="openSettings"
-          />
-          <HudMenuButton
-            icon="keyboard"
-            label="Keyboard shortcuts"
-            :shortcut="shortcutLabel('showShortcuts')"
-            data-testid="menu-shortcuts"
-            @click="ui.shortcutsOpen = true"
-          />
-          <ProfileMenu v-if="profiles.profiles.length > 1" />
-        </nav>
-      </div>
-
-      <!-- Right: tempo and time, then playback. -->
-      <div ref="rightColumn" class="side right">
-        <section class="hud-text tempo" aria-label="Tempo and time">
-          <p class="bpm-line">
-            <span class="bpm" data-testid="hud-bpm">{{ hud.currentBpm.toFixed(0) }}</span>
-            <span class="unit">bpm</span>
-          </p>
-          <p class="sub" data-testid="hud-tempo">
-            <span :class="{ accent: tempoChanged }" data-testid="hud-tempo-percent"
-              >{{ tempoPercent }}%</span
+                  : nowPlaying.label
+              "
+              :data-kind="nowPlaying.kind"
+              data-testid="hud-entry"
             >
-            of {{ hud.songBpm.toFixed(0) }} bpm
-          </p>
-          <p class="time">
-            <span data-testid="hud-position">{{ formatTime(hud.seconds) }}</span>
-            / {{ length }}
-          </p>
-        </section>
+              <template v-if="nowPlaying.kind !== 'custom'">
+                <AppIcon
+                  name="bookmark"
+                  :size="15"
+                  class="entry-icon"
+                  data-testid="hud-entry-icon"
+                />
+                <span
+                  :data-testid="nowPlaying.kind === 'bookmark' ? 'hud-bookmark' : 'hud-full-song'"
+                  >{{ nowPlaying.label }}</span
+                >
+              </template>
+              <span v-else data-testid="hud-custom">{{ nowPlaying.label }}</span>
+            </p>
+            <BarBeatCounter
+              ref="counterBlock"
+              :bar="hud.bar"
+              :beat="hud.beat"
+              :pre-roll="hud.preRoll"
+              :dot-beat="hud.dotBeat"
+              :dot-beats="hud.dotBeats"
+              :bar-digits="barDigits"
+              :beat-digits="beatDigits"
+            />
+            <p ref="barOf" class="sub bar-of">
+              bar {{ hud.bar }} of
+              <span data-testid="hud-bars">{{ barCount }}</span>
+            </p>
+            <p class="visually-hidden" data-testid="hud-hands">
+              {{ handsLabel }}
+            </p>
+          </section>
 
-        <section
-          class="playback fades"
-          :class="{ hidden: controlsHidden }"
-          aria-label="Playback"
-          data-testid="player-controls"
-          @pointerenter="overPlayback = true"
-          @pointerleave="overPlayback = false"
-        >
-          <div class="transport" role="toolbar" aria-label="Transport">
-            <IconButton
-              icon="stop"
-              label="Stop"
-              :shortcut="shortcutLabel('stop')"
-              data-testid="stop"
-              @click="backToStart"
+          <nav
+            class="app-menu fades"
+            :class="{ hidden: controlsHidden }"
+            aria-label="App"
+            data-testid="app-menu"
+            @pointerenter="overMenu = true"
+            @pointerleave="overMenu = false"
+          >
+            <HudMenuButton
+              icon="home"
+              label="Home"
+              :shortcut="shortcutLabel('goHome')"
+              :active="onWelcome"
+              data-testid="menu-home"
+              @click="goHome"
             />
-            <IconButton
-              icon="prevBar"
-              label="Previous bar"
-              :shortcut="shortcutLabel('previousBar')"
-              @click="session?.transport.prevBar()"
+            <HudMenuButton
+              icon="song"
+              label="Change song"
+              :shortcut="shortcutLabel('openPicker')"
+              data-testid="open-picker"
+              @click="openPicker"
             />
-            <IconButton
-              :icon="hud.state === 'playing' ? 'pause' : 'play'"
-              :label="hud.state === 'playing' ? 'Pause' : 'Play'"
-              :shortcut="shortcutLabel('playPause')"
-              size="lg"
-              variant="outline"
-              :disabled="!samplesReady"
-              data-testid="play-pause"
-              @click="togglePlay"
+            <HudMenuButton
+              icon="loopEditor"
+              label="Loop editor"
+              :shortcut="shortcutLabel('openLoopEditor')"
+              :active="onEditor"
+              data-testid="menu-loop-editor"
+              @click="router.push({ name: 'editor' })"
             />
-            <IconButton
-              icon="nextBar"
-              label="Next bar"
-              :shortcut="shortcutLabel('nextBar')"
-              @click="session?.transport.nextBar()"
+            <HudMenuButton
+              icon="library"
+              label="Library"
+              :shortcut="shortcutLabel('openLibrary')"
+              data-testid="menu-library"
+              @click="openLibrary"
             />
-          </div>
-          <div class="toggles">
-            <LoopPopover
-              v-model:open="loopOpen"
-              :loop="shownLoop"
-              :draft="loopDraft"
-              :first-bar="firstBar"
-              :last-bar="lastBar"
-              @update:draft="loopDraft = $event"
-              @toggle="toggleLoop"
-              @set="setLoop"
-              @clear="setLoop(null)"
-              @nudge="loopNudge.nudge"
-              @to-start="backToStart"
-              @save-bookmark="saveAsBookmark"
-              @revert="practice.backToLoaded()"
+            <HudMenuButton
+              icon="stats"
+              label="Stats"
+              :shortcut="shortcutLabel('openStats')"
+              data-testid="menu-stats"
+              @click="openStats"
             />
-            <TempoPopover
-              v-model:open="tempoOpen"
-              v-model:tempo-percent="tempoPercent"
-              :current-bpm="hud.currentBpm"
+            <HudMenuButton
+              icon="sliders"
+              label="Playfield panel"
+              :shortcut="shortcutLabel('togglePlayfield')"
+              :active="ui.sidebarOpen"
+              data-testid="toggle-sidebar"
+              @click="toggleSidebar"
             />
-            <div class="hud-row">
-              <span v-if="metronomeMode === 'preRoll'" class="value" data-testid="metronome-value"
-                >pre-roll</span
+            <HudMenuButton
+              icon="settings"
+              label="Settings"
+              :shortcut="shortcutLabel('openSettings')"
+              data-testid="menu-settings"
+              @click="openSettings"
+            />
+            <HudMenuButton
+              icon="keyboard"
+              label="Keyboard shortcuts"
+              :shortcut="shortcutLabel('showShortcuts')"
+              data-testid="menu-shortcuts"
+              @click="ui.shortcutsOpen = true"
+            />
+            <ProfileMenu v-if="profiles.profiles.length > 1" />
+          </nav>
+        </div>
+
+        <!-- Right: tempo and time, then playback. -->
+        <div ref="rightColumn" class="side right">
+          <section class="hud-text tempo" aria-label="Tempo and time">
+            <p class="bpm-line">
+              <span class="bpm" data-testid="hud-bpm">{{ hud.currentBpm.toFixed(0) }}</span>
+              <span class="unit">bpm</span>
+            </p>
+            <p class="sub" data-testid="hud-tempo">
+              <span :class="{ accent: tempoChanged }" data-testid="hud-tempo-percent"
+                >{{ tempoPercent }}%</span
               >
-              <HudToggle
-                icon="metronome"
-                :on="metronomeMode !== 'off'"
-                hint="Metronome"
-                :shortcut="shortcutLabel('toggleMetronome')"
-                :aria-label="`Metronome (${shortcutLabel('toggleMetronome')})`"
-                :aria-pressed="metronomeMode !== 'off'"
-                data-testid="toggle-metronome"
-                @click="toggleMetronome"
+              of {{ hud.songBpm.toFixed(0) }} bpm
+            </p>
+            <p class="time">
+              <span data-testid="hud-position">{{ formatTime(hud.seconds) }}</span>
+              / {{ length }}
+            </p>
+          </section>
+
+          <section
+            class="playback fades"
+            :class="{ hidden: controlsHidden }"
+            aria-label="Playback"
+            data-testid="player-controls"
+            @pointerenter="overPlayback = true"
+            @pointerleave="overPlayback = false"
+          >
+            <div class="transport" role="toolbar" aria-label="Transport">
+              <IconButton
+                icon="stop"
+                label="Stop"
+                :shortcut="shortcutLabel('stop')"
+                data-testid="stop"
+                @click="backToStart"
+              />
+              <IconButton
+                icon="prevBar"
+                label="Previous bar"
+                :shortcut="shortcutLabel('previousBar')"
+                @click="session?.transport.prevBar()"
+              />
+              <IconButton
+                :icon="hud.state === 'playing' ? 'pause' : 'play'"
+                :label="hud.state === 'playing' ? 'Pause' : 'Play'"
+                :shortcut="shortcutLabel('playPause')"
+                size="lg"
+                variant="outline"
+                :disabled="!samplesReady"
+                data-testid="play-pause"
+                @click="togglePlay"
+              />
+              <IconButton
+                icon="nextBar"
+                label="Next bar"
+                :shortcut="shortcutLabel('nextBar')"
+                @click="session?.transport.nextBar()"
               />
             </div>
-            <HudToggle
-              icon="bookmarkAdd"
-              :on="false"
-              hint="Save as bookmark"
-              :shortcut="shortcutLabel('saveBookmark')"
-              :aria-label="`Save as bookmark (${shortcutLabel('saveBookmark')})`"
-              :disabled="entry === null"
-              data-testid="save-bookmark-icon"
-              @click="saveAsBookmark"
-            />
-          </div>
-        </section>
+            <div class="toggles">
+              <LoopPopover
+                v-model:open="loopOpen"
+                :loop="shownLoop"
+                :draft="loopDraft"
+                :first-bar="firstBar"
+                :last-bar="lastBar"
+                @update:draft="loopDraft = $event"
+                @toggle="toggleLoop"
+                @set="setLoop"
+                @clear="setLoop(null)"
+                @nudge="loopNudge.nudge"
+                @to-start="backToStart"
+                @save-bookmark="saveAsBookmark"
+                @revert="practice.backToLoaded()"
+              />
+              <TempoPopover
+                v-model:open="tempoOpen"
+                v-model:tempo-percent="tempoPercent"
+                :current-bpm="hud.currentBpm"
+              />
+              <div class="hud-row">
+                <span v-if="metronomeMode === 'preRoll'" class="value" data-testid="metronome-value"
+                  >pre-roll</span
+                >
+                <HudToggle
+                  icon="metronome"
+                  :on="metronomeMode !== 'off'"
+                  hint="Metronome"
+                  :shortcut="shortcutLabel('toggleMetronome')"
+                  :aria-label="`Metronome (${shortcutLabel('toggleMetronome')})`"
+                  :aria-pressed="metronomeMode !== 'off'"
+                  data-testid="toggle-metronome"
+                  @click="toggleMetronome"
+                />
+              </div>
+              <HudToggle
+                icon="bookmarkAdd"
+                :on="false"
+                hint="Save as bookmark"
+                :shortcut="shortcutLabel('saveBookmark')"
+                :aria-label="`Save as bookmark (${shortcutLabel('saveBookmark')})`"
+                :disabled="entry === null"
+                data-testid="save-bookmark-icon"
+                @click="saveAsBookmark"
+              />
+            </div>
+          </section>
 
-        <p class="status">
-          <span v-if="!samplesReady">Piano samples </span>
-          <span :class="{ 'visually-hidden': samplesReady }" data-testid="sample-status">{{
-            sampleStatus
-          }}</span>
-          <span class="visually-hidden" data-testid="transport-state">{{ hud.state }}</span>
-          <span v-if="error" class="visually-hidden" data-testid="player-error">{{ error }}</span>
-        </p>
-      </div>
+          <p class="status">
+            <span v-if="!samplesReady">Piano samples </span>
+            <span :class="{ 'visually-hidden': samplesReady }" data-testid="sample-status">{{
+              sampleStatus
+            }}</span>
+            <span class="visually-hidden" data-testid="transport-state">{{ hud.state }}</span>
+            <span v-if="error" class="visually-hidden" data-testid="player-error">{{ error }}</span>
+          </p>
+        </div>
+      </template>
     </div>
 
     <!-- Welcome over the paused scene; the loop editor over the playing one. -->

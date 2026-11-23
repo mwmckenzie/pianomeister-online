@@ -113,6 +113,7 @@ describe('SETTINGS_REGISTRY', () => {
       startOn: 'welcome',
       homeOnNewSession: true,
       sessionGap: '30',
+      listeningHud: 'show',
     })
     expect(DEFAULT_SETTINGS.audio).toMatchObject({
       master: 0.8,

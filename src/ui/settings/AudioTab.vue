@@ -69,6 +69,9 @@ const metronomeOverride = computed((): SettingOverride | undefined =>
   <SettingsSection section-id="soundSource" title="Sound source">
     <SettingRow setting-key="audio.output" />
   </SettingsSection>
+  <SettingsSection section-id="playback" title="Playback">
+    <SettingRow setting-key="audio.crossfade" />
+  </SettingsSection>
 </template>
 
 <style scoped>

@@ -9,6 +9,45 @@ import { charKey, codeKey } from './keyBindings'
  * Home/End), text fields (Enter commits), tag and combo boxes — stay with those controls.
  */
 export const COMMANDS = [
+  // Listening (playlist mode, milestone 9.5): replaces the player's keys while listening; Space
+  // stays the player's Play / pause.
+  {
+    id: 'nextSong',
+    label: 'Next song',
+    description: 'Skip to the next song in the playlist',
+    keys: [codeKey('ArrowRight'), charKey('n')],
+    scope: 'listening',
+  },
+  {
+    id: 'previousSong',
+    label: 'Previous song',
+    description: 'Back to the previous song (more than 3 s in: restart this one)',
+    keys: [codeKey('ArrowLeft'), codeKey('KeyN', { shift: true })],
+    scope: 'listening',
+  },
+  {
+    id: 'toggleMute',
+    label: 'Mute',
+    description: 'Mute or unmute while listening',
+    keys: [charKey('m')],
+    scope: 'listening',
+  },
+  {
+    id: 'cycleListeningHud',
+    label: 'Cycle listening HUD',
+    description: 'Show, Minimal, Hidden',
+    keys: [charKey('d')],
+    scope: 'listening',
+  },
+  {
+    id: 'leaveListening',
+    label: 'Leave listening',
+    description: 'Stop the playlist and go back to the player',
+    keys: [codeKey('Escape')],
+    scope: 'listening',
+    // Esc, like Close: fixed (an open panel or dialog takes it first).
+    fixed: true,
+  },
   // Player (decision 60)
   {
     id: 'playPause',

@@ -22,6 +22,8 @@ export type WindowSectionId =
   | 'volume'
   | 'preRollMetronome'
   | 'soundSource'
+  | 'playback'
+  | 'listening'
   | 'menuColors'
   | 'glass'
   | 'motion'

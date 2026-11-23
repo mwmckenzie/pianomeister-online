@@ -201,7 +201,13 @@ export class Engine {
     this.timeSource = source
   }
 
-  setSong(song: EngineSong): void {
+  /**
+   * A new song. `continuity` (a playlist timeline swapped mid-song, milestone 9.5) keeps what's in
+   * flight: particles and pulses go on, and the tick history moves by `shiftTicks` (the rebased
+   * timeline's ticks are the old ones minus that), so the swap isn't read as a seek.
+   */
+  setSong(song: EngineSong, continuity: { readonly shiftTicks: number } | null = null): void {
+    const lastTick = this.lastTick
     this.disposeSong()
     const instances = noteInstances(song.notes, song.ppq)
     const white = instances.filter((n) => !n.isBlack)
@@ -326,8 +332,13 @@ export class Engine {
     )
     this.labelScene.add(s.names.white.mesh, s.names.black.mesh)
     this.loopRepeat.setSources(this.repeatSources(s))
-    this.lastTick = null
-    this.effects.clear()
+    if (continuity === null) {
+      this.lastTick = null
+      this.effects.clear()
+    } else {
+      this.lastTick = lastTick === null ? null : lastTick - continuity.shiftTicks
+      this.time.uJumpTick.value -= continuity.shiftTicks
+    }
     this.applySettings(this.settings)
     this.invalidate()
   }

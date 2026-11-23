@@ -127,6 +127,9 @@ const blocks = computed(() =>
 
     <!-- Outside the sections and the scroll area: always at the top. -->
     <LookPicker />
+    <p v-if="settings.overlayActive" class="overlay-note" data-testid="listening-overlay-note">
+      Changes here last until you leave listening
+    </p>
     <div class="scroll">
       <AppAccordion v-model="ui.sidebarSection" :items="sections">
         <template v-for="section in SETTINGS_LAYOUT.sidebar" :key="section.id" #[section.id]>
@@ -236,5 +239,10 @@ const blocks = computed(() =>
   gap: var(--space-2);
   padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--divider);
+}
+.overlay-note {
+  margin: 4px 16px 8px;
+  color: var(--secondary);
+  font-size: var(--text-sm);
 }
 </style>

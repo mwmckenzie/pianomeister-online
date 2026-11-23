@@ -74,6 +74,25 @@ export class PlaybackSession {
     return () => this.progressListeners.delete(listener)
   }
 
+  /** A song set up for playback (hands, sustain, maps) without loading it: a playlist's next song. */
+  static prepare(
+    song: Song,
+    options: { readonly hands?: HandAssignment; readonly override?: MeterOverride | null } = {},
+  ): LoadedSong {
+    const hands = options.hands ?? DEFAULT_HAND_ASSIGNMENT
+    const tempoMap = new TempoMap(song.ppq, song.tempoEvents)
+    const barMap = BarMap.fromSong(song, options.override ?? null)
+    const notes = assignHands(applySustain(song.notes, song.pedalIntervals), hands)
+    const assigned = new Set([...hands.right, ...hands.left])
+    return {
+      song,
+      tempoMap,
+      barMap,
+      notes,
+      pedalIntervals: song.pedalIntervals.filter((p) => assigned.has(p.channel)),
+    }
+  }
+
   load(
     song: Song,
     options: {
@@ -82,22 +101,39 @@ export class PlaybackSession {
       readonly key?: string
     } = {},
   ): LoadedSong {
-    const hands = options.hands ?? DEFAULT_HAND_ASSIGNMENT
-    const tempoMap = new TempoMap(song.ppq, song.tempoEvents)
-    const barMap = BarMap.fromSong(song, options.override ?? null)
-    const notes = assignHands(applySustain(song.notes, song.pedalIntervals), hands)
-    const assigned = new Set([...hands.right, ...hands.left])
-    const loaded: LoadedSong = {
-      song,
-      tempoMap,
-      barMap,
-      notes,
-      pedalIntervals: song.pedalIntervals.filter((p) => assigned.has(p.channel)),
-    }
+    const loaded = PlaybackSession.prepare(song, options)
     this.loaded = loaded
     this.loadedKey = options.key ?? null
-    this.transport.setSong({ notes, tempoMap, barMap, endTick: song.durationTicks })
+    this.transport.setSong({
+      notes: loaded.notes,
+      tempoMap: loaded.tempoMap,
+      barMap: loaded.barMap,
+      endTick: song.durationTicks,
+    })
     return loaded
+  }
+
+  /**
+   * Plays a playlist timeline (milestone 9.5): `loaded` describes it for rendering. `swap` keeps
+   * the transport going (a timeline rebuilt mid-song) at `positionSec`; otherwise the transport
+   * takes it as a new song, stopped at the start.
+   */
+  loadTimeline(loaded: LoadedSong, endTick: number, positionSec: number, swap: boolean): void {
+    this.loaded = loaded
+    this.loadedKey = null
+    const song = {
+      notes: loaded.notes,
+      tempoMap: loaded.tempoMap,
+      barMap: loaded.barMap,
+      endTick,
+    }
+    if (swap) this.transport.replaceSong(song, positionSec)
+    else this.transport.setSong(song)
+  }
+
+  /** Listening's quick mute (session only; the volume settings stay as they are). */
+  setMuted(muted: boolean): void {
+    this.output.setMuted(muted)
   }
 
   setAudioSettings(settings: AudioSettings): void {

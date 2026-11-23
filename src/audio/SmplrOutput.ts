@@ -82,6 +82,8 @@ export class SmplrOutput implements AudioOutput {
   private pending: Pending[] = []
   private stopIds = 0
   private disposed = false
+  private masterLevel = 1
+  private muted = false
 
   constructor(
     private readonly context: AudioContext,
@@ -170,12 +172,23 @@ export class SmplrOutput implements AudioOutput {
   setGains(gains: OutputGains): void {
     const set = (node: GainNode, value: number) =>
       node.gain.setTargetAtTime(value, this.context.currentTime, GAIN_SMOOTHING_SEC)
-    set(this.master, gains.master)
+    this.masterLevel = gains.master
+    set(this.master, this.muted ? 0 : gains.master)
     set(this.handGains.right, gains.right)
     set(this.handGains.left, gains.left)
     set(this.routeGains['right-preRoll'], gains.preRoll)
     set(this.routeGains['left-preRoll'], gains.preRoll)
     set(this.metronomeGain, gains.metronome)
+  }
+
+  /** Listening's mute: silences the master without touching the volume settings. */
+  setMuted(muted: boolean): void {
+    this.muted = muted
+    this.master.gain.setTargetAtTime(
+      muted ? 0 : this.masterLevel,
+      this.context.currentTime,
+      GAIN_SMOOTHING_SEC,
+    )
   }
 
   /** Sets a deck's gain now (both 1 outside a crossfade; a seek skips any fade in progress). */
@@ -192,12 +205,14 @@ export class SmplrOutput implements AudioOutput {
    * An equal-power crossfade (milestone 9.5 D2): from `time` over `duration` seconds, deck `from`
    * falls as cos and deck `to` rises as sin. Both decks end where the next song plays alone.
    */
-  crossfade(from: 0 | 1, time: number, duration: number): void {
+  crossfade(from: 0 | 1, time: number, duration: number, fromProgress = 0): void {
     const to = from === 0 ? 1 : 0
     const out = new Float32Array(FADE_POINTS)
     const fadeIn = new Float32Array(FADE_POINTS)
+    // A fade picked up part-way (playback resumed mid-overlap) runs from `fromProgress` to the end.
+    const p0 = Math.min(1, Math.max(0, fromProgress))
     for (let i = 0; i < FADE_POINTS; i++) {
-      const t = i / (FADE_POINTS - 1)
+      const t = p0 + (1 - p0) * (i / (FADE_POINTS - 1))
       out[i] = Math.cos((t * Math.PI) / 2)
       fadeIn[i] = Math.sin((t * Math.PI) / 2)
     }

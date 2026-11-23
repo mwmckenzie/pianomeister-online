@@ -448,6 +448,18 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.lines.borders,
     },
     'lines.bordersGlow': { ...glow(0.3), group: 'Borders', visible: (s) => s.lines.borders },
+    // The playlist seam (milestone 9.5): where the next song starts, with its title.
+    'lines.seam': { ...bool('Seam line', true, sidebar('lines')), group: 'Playlist seam' },
+    'lines.seamColor': {
+      ...lineColor('secondary'),
+      group: 'Playlist seam',
+      visible: (s) => s.lines.seam,
+    },
+    'lines.seamCustom': {
+      ...color('Custom colour', '#7EE0C3', sidebar('lines')),
+      group: 'Playlist seam',
+      visible: (s) => s.lines.seam && s.lines.seamColor === 'custom',
+    },
     'lines.octaves': { ...bool('Octave lines (B/C)', false, sidebar('lines')), group: 'Octaves' },
     'lines.octavesEF': {
       ...bool('Also on E/F', false, sidebar('lines')),
@@ -1048,6 +1060,14 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
 
     // Audio (decisions 14–16, 61)
     'audio.master': { ...num('Master', 0.8, tab('audio', 'volume'), [0, 1, 0.01]), ...percent },
+    'audio.crossfade': num(
+      'Crossfade between songs',
+      2,
+      tab('audio', 'playback'),
+      [0, 8, 0.5],
+      'seconds',
+      1,
+    ),
     'audio.rightVolume': {
       ...num('Right hand', 1, tab('audio', 'volume'), [0, 1, 0.01]),
       ...percent,
@@ -1164,6 +1184,17 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       options: [
         { value: 'welcome', label: 'Welcome' },
         { value: 'player', label: 'Player' },
+      ],
+    },
+    'appearance.listeningHud': {
+      kind: 'choice',
+      label: 'Listening HUD',
+      default: 'show',
+      home: tab('appearance', 'listening'),
+      options: [
+        { value: 'show', label: 'Show' },
+        { value: 'minimal', label: 'Minimal' },
+        { value: 'hidden', label: 'Hidden' },
       ],
     },
     'appearance.homeOnNewSession': bool(

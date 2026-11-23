@@ -11,6 +11,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUiStateStore } from '../stores/uiStateStore'
 import ListRolesTable from './ListRolesTable.vue'
 import { SHORTCUT_GROUPS } from './SHORTCUT_GROUPS'
+import { useListeningStore } from '../stores/listeningStore'
 
 /**
  * The keyboard shortcuts cheat sheet (brief decision 89): every command with its keys in effect,
@@ -21,16 +22,20 @@ const ui = useUiStateStore()
 const route = useRoute()
 const router = useRouter()
 
+const listening = useListeningStore()
+// The Listening keys only while listening (milestone 9.5); the Shortcuts tab always lists them.
 const groups = computed(() =>
-  SHORTCUT_GROUPS.map((group) => ({
-    ...group,
-    commands: COMMANDS.filter((c) => c.scope === group.scope).map((c) => ({
-      id: c.id,
-      label: c.label,
-      description: c.description,
-      keys: (settings.bindings.get(c.id) ?? []).map((b) => settings.keyLabel(b)),
-    })),
-  })),
+  SHORTCUT_GROUPS.filter((group) => group.scope !== 'listening' || listening.active).map(
+    (group) => ({
+      ...group,
+      commands: COMMANDS.filter((c) => c.scope === group.scope).map((c) => ({
+        id: c.id,
+        label: c.label,
+        description: c.description,
+        keys: (settings.bindings.get(c.id) ?? []).map((b) => settings.keyLabel(b)),
+      })),
+    }),
+  ),
 )
 
 function onKeyDown(event: KeyboardEvent): void {
