@@ -93,9 +93,12 @@ export interface ListeningUpdate {
   readonly repeat?: Playlist['repeat']
   readonly finished?: boolean
   readonly announce?: boolean
+  /** The saved look the current song shows as the playlist's look ("Update playlist look"). */
+  readonly playlistLook?: string | null
   readonly clock?: {
     readonly bar: number
     readonly beat: number
+    readonly beats: number
     readonly bpm: number
     readonly elapsedSec: number
     readonly durationSec: number
@@ -113,6 +116,8 @@ export interface ListeningUpdate {
  */
 export class ListeningController {
   private playlist: Playlist | null = null
+  /** Per entry: its look is the playlist's (no override of its own). */
+  private lookFromPlaylist: boolean[] = []
   private playable: number[] = []
   private parts: Part[] = []
   private current = 0
@@ -174,6 +179,7 @@ export class ListeningController {
         lookId: resolved.entries[i]?.lookId ?? null,
       })),
     }
+    this.lookFromPlaylist = resolved.entries.map((e) => e.override === null)
     this.host.setTrackingSuspended(true)
     this.host.markPlayed(playlist.id)
     this.tempoPercent = 100
@@ -212,6 +218,7 @@ export class ListeningController {
       upNext: null,
       finished: false,
       clock: null,
+      playlistLook: null,
     })
     return last
   }
@@ -551,6 +558,10 @@ export class ListeningController {
         : [...BUILT_IN_LOOKS, ...this.host.savedLooks()].find((l) => l.id === id)
     const own = this.host.ownSettings()
     const target = look === undefined ? own : lookSettings(own, look, this.host.deviceClass)
+    const fromPlaylist = this.lookFromPlaylist[part.prepared.entryIndex] === true
+    this.host.update({
+      playlistLook: look !== undefined && !look.builtIn && fromPlaylist ? look.id : null,
+    })
     const from = this.host.currentSettings()
     if (!ease || JSON.stringify(from) === JSON.stringify(target)) {
       this.easing = null
@@ -595,6 +606,7 @@ export class ListeningController {
   private localPosition(part: Part): {
     bar: number
     beat: number
+    beats: number
     bpm: number
     elapsedSec: number
   } {
@@ -605,6 +617,7 @@ export class ListeningController {
     return {
       bar: at.bar,
       beat: at.beat,
+      beats: barMap.beatsPerBar(Math.max(at.bar, barMap.firstBar)),
       bpm: (tempoMap.bpmAt(tick) * this.tempoPercent) / 100,
       elapsedSec: Math.max(0, Math.min(t, part.prepared.endSec)),
     }

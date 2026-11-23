@@ -11,6 +11,7 @@ import AppButton from '../components/AppButton.vue'
 import AppPopover from '../components/AppPopover.vue'
 import IconButton from '../components/IconButton.vue'
 import SelectField from '../components/SelectField.vue'
+import { useListeningStore } from '../stores/listeningStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useToastStore } from '../stores/toastStore'
 import { useLooks } from './useLooks'
@@ -23,6 +24,29 @@ import { useLooks } from './useLooks'
  */
 const settings = useSettingsStore()
 const toasts = useToastStore()
+const listening = useListeningStore()
+
+/**
+ * While listening, the playlist's saved look the song shows (milestone 9.5 C): "Update playlist
+ * look" saves the sidebar's changes over it, so they outlast leaving listening.
+ */
+const playlistLook = computed(() =>
+  listening.active && listening.playlistLook !== null
+    ? (settings.looks.saved.find((l) => l.id === listening.playlistLook) ?? null)
+    : null,
+)
+
+function updatePlaylistLook(): void {
+  const look = playlistLook.value
+  if (look === null) return
+  const before = settings.looks
+  const updated = captureLook(settings.settings, look.id, look.name, now(), look.createdAt)
+  settings.setLooks({
+    ...before,
+    saved: before.saved.map((l) => (l.id === look.id ? updated : l)),
+  })
+  toasts.showUndo(`Updated playlist look "${look.name}"`, () => settings.setLooks(before))
+}
 const { active, modified, apply, importText, importFile, exportLooks } = useLooks()
 
 /** The select's value when no look is picked. */
@@ -287,6 +311,14 @@ function remove(): void {
     <div v-else class="actions">
       <AppButton v-if="saved !== null && modified" size="sm" data-testid="look-save" @click="save">
         Save
+      </AppButton>
+      <AppButton
+        v-if="playlistLook !== null"
+        size="sm"
+        data-testid="look-update-playlist"
+        @click="updatePlaylistLook"
+      >
+        Update playlist look
       </AppButton>
       <AppButton size="sm" variant="text" data-testid="look-save-new" @click="startNaming('new')">
         {{ active !== null && modified ? 'Save as new…' : 'Save current look…' }}

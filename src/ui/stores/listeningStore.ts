@@ -15,6 +15,8 @@ export interface ListeningSong {
 export interface ListeningClock {
   readonly bar: number
   readonly beat: number
+  /** Beats in the current bar (the beat dots). */
+  readonly beats: number
   readonly bpm: number
   /** Seconds into the current song and its length. */
   readonly elapsedSec: number
@@ -45,6 +47,8 @@ export const useListeningStore = defineStore('listening', () => {
   /** Bumped when a new song starts (the seam crossed the now line): the announcement shows. */
   const announced = ref(0)
   const clock = shallowRef<ListeningClock | null>(null)
+  /** The playlist's saved look the current song shows, if any ("Update playlist look"). */
+  const playlistLook = ref<string | null>(null)
   /** A Play elsewhere: the player starts listening when it sees this. */
   const request = shallowRef<{ readonly playlistId: string; readonly start: number } | null>(null)
 
@@ -67,6 +71,7 @@ export const useListeningStore = defineStore('listening', () => {
     finished,
     announced,
     clock,
+    playlistLook,
     request,
     requestPlay,
   }

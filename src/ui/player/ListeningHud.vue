@@ -115,7 +115,7 @@ onBeforeUnmount(() => clearTimeout(announceTimer))
           :beat="clock.beat"
           :pre-roll="false"
           :dot-beat="clock.beat"
-          :dot-beats="4"
+          :dot-beats="clock.beats"
           :bar-digits="3"
           :beat-digits="1"
         />
