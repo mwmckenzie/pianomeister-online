@@ -54,6 +54,15 @@ const AREA_MAP = [
   ['src/ui/stores/settingsStore', ['@settings', '@looks']],
   ['src/ui/stores/profileStore', ['@settings']],
   ['src/ui/stores/uiStateStore', ['@player']],
+  ['src/core/playlists', ['@playlists']],
+  ['src/ui/playlists', ['@playlists', '@library']],
+  ['src/ui/views/PlaylistsView.vue', ['@playlists']],
+  ['src/ui/stores/playlistStore', ['@playlists']],
+  ['src/ui/stores/listeningStore', ['@playlists']],
+  ['src/ui/playback/ListeningController', ['@playlists']],
+  ['src/ui/player/ListeningHud.vue', ['@playlists']],
+  ['src/ui/welcome/ListenCard.vue', ['@playlists', '@welcome']],
+  ['src/data/Playlists', ['@playlists']],
   ['public/songs', ['@library']],
 ]
 

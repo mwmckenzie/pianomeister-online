@@ -11,7 +11,7 @@ import { useUiStateStore } from '../stores/uiStateStore'
 
 const STORAGE_KEY = 'pianomeister.homeAutoOpen'
 /** Pages Home may replace; the debug page is left alone. */
-const APP_PAGES = new Set(['player', 'welcome', 'editor', 'library', 'bookmarks', 'stats'])
+const APP_PAGES = new Set(['player', 'welcome', 'editor', 'library', 'bookmarks', 'playlists', 'stats'])
 /** Longer than setTimeout can wait (≈24.8 days): checked on focus instead. */
 const MAX_DELAY = 2 ** 31 - 1
 

@@ -69,6 +69,7 @@ export interface PracticeSeed {
   readonly sessions?: readonly object[]
   readonly playRecords?: readonly object[]
   readonly appState?: readonly object[]
+  readonly playlists?: readonly object[]
 }
 
 /**

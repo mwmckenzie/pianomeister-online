@@ -30,6 +30,7 @@ import RangeBar from '../components/RangeBar.vue'
 import SearchField from '../components/SearchField.vue'
 import BookmarkEditPanel from '../library/BookmarkEditPanel.vue'
 import ManageTabs from '../library/ManageTabs.vue'
+import { manageTabStep } from '../library/manageTabStep'
 import { sceneSnapshot } from '../playback/sceneSnapshot'
 import { useBookmarkStore } from '../stores/bookmarkStore'
 import { useLibraryStore } from '../stores/libraryStore'
@@ -263,8 +264,8 @@ function onPageKeyDown(event: KeyboardEvent): void {
       break
     case 'nextTab':
     case 'previousTab':
-      // Library | Bookmarks: either way, the other tab (the tabs wrap).
-      void router.push({ name: 'library' })
+      // Library | Bookmarks | Playlists: the tabs wrap.
+      void router.push({ name: manageTabStep('bookmarks', command === 'nextTab' ? 1 : -1) })
       break
     default:
       return

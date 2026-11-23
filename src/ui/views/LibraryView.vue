@@ -25,6 +25,7 @@ import { formatStorage } from '../format/formatStorage'
 import { formatTime } from '../format/formatTime'
 import { summariseImport, summariseUploads } from '../format/summariseUploads'
 import ManageTabs from '../library/ManageTabs.vue'
+import { manageTabStep } from '../library/manageTabStep'
 import { useLibraryBackup } from '../library/useLibraryBackup'
 import { sceneSnapshot } from '../playback/sceneSnapshot'
 import { useBookmarkStore } from '../stores/bookmarkStore'
@@ -340,8 +341,8 @@ function onPageKeyDown(event: KeyboardEvent): void {
       break
     case 'nextTab':
     case 'previousTab':
-      // Library | Bookmarks: either way, the other tab (the tabs wrap).
-      void router.push({ name: 'bookmarks' })
+      // Library | Bookmarks | Playlists: the tabs wrap.
+      void router.push({ name: manageTabStep('library', command === 'nextTab' ? 1 : -1) })
       break
     default:
       return
