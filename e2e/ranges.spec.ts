@@ -11,6 +11,7 @@ import { SETTING_KEYS } from '../src/core/settings/SETTING_KEYS'
 import { formatSettingValue } from '../src/core/settings/formatSettingValue'
 import { settingDefinition } from '../src/core/settings/settingValues'
 import {
+  BLACK_NOTES_DEMO,
   type Cell,
   type Crop,
   captureWith,
@@ -55,7 +56,7 @@ function prerequisites(key: SettingKey): Settings {
   if (field.startsWith('headStripe')) return { noteStyle: { headFill: 'stripes' } }
   if (field.startsWith('sustainStripe')) return { noteStyle: { sustainFill: 'stripes' } }
   if (field.startsWith('edge') && section === 'noteStyle') return { noteStyle: { edgeGlow: true } }
-  if (key === 'notes.blackLift') return { notes: { blackLiftMode: 'manual' } }
+  if (key === 'notes.blackRidgeHeight') return { notes: { blackRidge: true } }
   if (key === 'names.keySize') return { names: { mode: 'both' } }
   if (section === 'names') return { names: { mode: 'notes' } }
   if (key.startsWith('pedal.border') || key === 'pedal.cornerRadius') {
@@ -220,7 +221,12 @@ function saveBudgets(name: string): void {
   writeFileSync(`${OUT}/budget/${name}.json`, JSON.stringify(budgets, null, 2))
 }
 
-type Motion = { readonly song: 'long' | 'pedal'; readonly moments: readonly number[] }
+type Motion = {
+  readonly song: 'long' | 'pedal' | 'black'
+  readonly moments: readonly number[]
+  /** The bar the run starts at (default 2). */
+  readonly bar?: number
+}
 
 /** A sheet's variation on the standard one (another camera, motion or crop). */
 interface SheetOptions {
@@ -251,7 +257,7 @@ async function rangeSheet(
       cells.push({ label: label(key, value), png: await frameWith(page, settings, 2, crop) })
       continue
     }
-    const { pngs, load } = await captureWith(page, settings, 2, motion.moments, crop)
+    const { pngs, load } = await captureWith(page, settings, motion.bar ?? 2, motion.moments, crop)
     pngs.forEach((png, i) =>
       cells.push({ label: `${label(key, value)} · t ${motion.moments[i]} s`, png }),
     )
@@ -469,11 +475,40 @@ const LOW_KEYS_CROP: Crop = { x: 280, y: 520, width: 440, height: 200 }
 const MID_PRESS: Motion = { song: 'pedal', moments: [0.017, 0.034, 0.3] }
 const CONE: Motion = { song: 'pedal', moments: [0.05, 0.15, 0.4] }
 
+/**
+ * Milestone 9.2: black notes on the highway. The head heights, the raised black sustains and
+ * the black side shading, from the lowest and highest tilt, on the Black notes demo as its chords
+ * approach and reach the keys (white chords next to black notes, long sustains).
+ */
+/** Approaching, reaching the keys, and (5.1 s) the black sustains ending: the release check. */
+const BLACK_CHORDS: Motion = { song: 'black', bar: 1, moments: [2.2, 2.85, 5.1] }
+const BLACK_CROP: Record<number, Crop> = {
+  25: { x: 470, y: 320, width: 400, height: 240 },
+  85: { x: 470, y: 290, width: 400, height: 240 },
+}
+
+test('@visual range black notes', async ({ page, browser }) => {
+  test.setTimeout(3_600_000)
+  await openSong(page, BLACK_NOTES_DEMO, 'Black notes demo')
+  for (const tilt of [25, 85]) {
+    const extra = { camera: { tiltDeg: tilt } }
+    for (const key of [
+      'notes.whiteHeadHeight',
+      'notes.blackHeadHeight',
+      'notes.blackRidgeHeight',
+      'notes.blackSideShading',
+      'notes.shadowStrength',
+    ] as const) {
+      const options = { extra, motion: BLACK_CHORDS, crop: BLACK_CROP[tilt], tag: `tilt-${tilt}` }
+      expect(await rangeSheet(page, browser, key, options)).toBeGreaterThan(0)
+    }
+  }
+})
+
 test('@visual range low camera', async ({ page, browser }) => {
   test.setTimeout(3_600_000)
   await openSong(page, PEDAL_DEMO, 'Pedal demo')
   const sheets: [SettingKey, SheetOptions][] = [
-    ['notes.headHeight', { extra: LOW, crop: LOW_NOTES_CROP, tag: 'tilt-25' }],
     ['notes.shadowStrength', { extra: LOW, crop: LOW_NOTES_CROP, tag: 'tilt-25' }],
     [
       'keyboard.pressDepthWhite',

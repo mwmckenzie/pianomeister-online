@@ -23,6 +23,10 @@ export const LONG_DEMO = fileURLToPath(
 export const FILLS_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/fills-demo.mid', import.meta.url),
 )
+/** White-key chords next to black keys with long sustains, from bar 2 (milestone 9.2). */
+export const BLACK_NOTES_DEMO = fileURLToPath(
+  new URL('../test-fixtures/midi/black-notes-demo.mid', import.meta.url),
+)
 /** Neighbouring-lane chords from bar 1: stacked labels. */
 export const CLARITY_DEMO = fileURLToPath(
   new URL('../test-fixtures/midi/clarity-demo.mid', import.meta.url),
@@ -127,12 +131,14 @@ export async function captureWith(
   bar: number,
   moments: readonly number[],
   crop?: Crop,
+  /** Extra query parameters, e.g. `&ridgeSides=solid` (review seams). */
+  query = '',
 ): Promise<{ readonly pngs: readonly Buffer[]; readonly load: ParticleLoad }> {
   await page.evaluate(
     (value) => localStorage.setItem('pianomeister.settings', value),
     JSON.stringify({ version: SETTINGS_VERSION, settings }),
   )
-  await page.goto('./#/?capture=1')
+  await page.goto(`./#/?capture=1${query}`)
   await page.reload()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('1:1')
   await page.mouse.move(2, 300)
