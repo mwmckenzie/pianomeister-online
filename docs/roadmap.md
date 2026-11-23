@@ -36,6 +36,12 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 
 ## Standalone items (not tied to a milestone)
 
+### E2e hardening _(housekeeping: first thing in the next milestone)_
+
+- `loopJump.spec.ts:259` (range-slider arrow keys) failed in 9.1 and 9.2 the same way: it reads the bar while playback is running. Pause, or wait for the value to settle, before asserting.
+- Replace fixed timeouts that wait on animations or timers (the settings close animation, the Welcome highlight rotation, the loop nudge) with waits on the actual state (the element gone, the attribute set), so load doesn't fail them.
+- **Done when:** a full green run (`chromium` + `polish`, `--retries=0`) twice in a row.
+
 ### Looks & defaults tuning pass _(done when there is time)_
 
 The built-in looks (milestone 9.1) and the playfield defaults (milestones 9 and 9.1) are provisional. In the app, each built-in look and the defaults are tuned by hand and sent as Copy-look JSON; Claude pins them (built-ins in `BUILT_IN_LOOKS`, defaults in the registry) with their tests and the all-looks sheet.
