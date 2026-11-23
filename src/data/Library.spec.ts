@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { SongManifest } from '@/core/library/SongManifest'
+import { captureLook } from '@/core/looks/lookValues'
+import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import { buildSmf, ev } from '@/core/testing/buildSmf'
 import { readFixture } from '@/core/testing/readFixture'
 
@@ -280,6 +282,29 @@ describe('Library', () => {
     expect(again.uploads).toMatchObject([{ outcome: 'duplicate' }])
     expect(again).toMatchObject({ metaApplied: 0, metaKept: 2, overridesKept: 1 })
     expect((await library.entry(id))?.title).toBe('Changed locally')
+  })
+
+  it('backs up saved looks: identical ones are skipped, changed ones added, nothing overwritten', async () => {
+    const look = captureLook(DEFAULT_SETTINGS, 'look-a', 'Synth', '2026-11-22T10:00:00.000Z')
+    await db.looks.put(look)
+    const zip = await library.exportArchive()
+    // Restoring onto the same device: the look is already here.
+    const same = await library.applyImport(await library.prepareImport(zip), new Map())
+    expect(same.looksAdded).toBe(0)
+    // Changed here since the backup: the backup's version comes back beside it.
+    await db.looks.put({ ...look, values: { ...look.values, 'lines.nowGlow': 2 } })
+    const changed = await library.applyImport(
+      await library.prepareImport(zip),
+      new Map(),
+      () => 'new-id',
+    )
+    expect(changed.looksAdded).toBe(1)
+    const looks = await db.looks.orderBy('createdAt').toArray()
+    expect(looks.map((l) => [l.id, l.name])).toEqual([
+      ['look-a', 'Synth'],
+      ['new-id', 'Synth (2)'],
+    ])
+    expect(looks[0]?.values['lines.nowGlow']).toBe(2)
   })
 
   it('rejects an archive that is not a library export', async () => {

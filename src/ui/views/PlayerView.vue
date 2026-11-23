@@ -816,6 +816,23 @@ onMounted(() => {
       pianomeisterLabels: labels,
     })
   }
+  if (route.query.capture === '1') {
+    // Test-only (like ?stats=1): fixed-step, repeatable frames for the range contact sheets.
+    Object.assign(window, {
+      pianomeisterCapture: {
+        start: (seed?: number) => engine?.startCapture(seed),
+        /** The song position `seconds` after the start of `bar`. */
+        tickAt: (bar: number, seconds: number) => {
+          const song = loaded.value
+          if (song === null) return 0
+          const from = song.tempoMap.tickToSeconds(song.barMap.barStartTick(bar))
+          return song.tempoMap.secondsToTick(from + seconds)
+        },
+        step: (tick: number, dt: number) => engine?.captureStep(tick, dt),
+        particles: () => engine?.particleStats(),
+      },
+    })
+  }
   engine.setTimeSource(() => session?.audibleTick() ?? 0)
   if (canvas.value !== null) {
     engine.mount(canvas.value)

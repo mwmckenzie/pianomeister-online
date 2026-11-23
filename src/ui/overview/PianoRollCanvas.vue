@@ -17,7 +17,7 @@ import { pitchRange } from '@/core/overview/pitchRange'
 import { resizeRange } from '@/core/overview/resizeRange'
 import { snapSelection } from '@/core/overview/snapSelection'
 import { zoomAround } from '@/core/overview/zoomAround'
-import { pitchClassColor } from '@/core/pitchClassColors'
+import { notePaletteColors } from '@/core/color/notePaletteColors'
 import { sameRange } from '@/core/practice/diffFromBookmark'
 import type { LoopRange } from '@/core/transport/LoopRange'
 
@@ -61,6 +61,8 @@ const emit = defineEmits<{
 }>()
 
 const settings = useSettingsStore()
+/** The same note colours as the highway (Note colours, brief decision 122). */
+const palette = computed(() => notePaletteColors(settings.settings.notes))
 const box = useTemplateRef<HTMLElement>('box')
 const notesCanvas = useTemplateRef<HTMLCanvasElement>('notesCanvas')
 const overlayCanvas = useTemplateRef<HTMLCanvasElement>('overlayCanvas')
@@ -233,7 +235,7 @@ function drawNotesLayer(): void {
     const note = sorted.value[i]
     if (note === undefined || note.endTick <= startTick) continue
     if (note.hand === 'right' ? !props.hands.right : !props.hands.left) continue
-    const style = pitchClassColor(note.midi).hex
+    const style = palette.value[note.midi % 12] ?? '#FFFFFF'
     if (style !== lastStyle) {
       ctx.fillStyle = style
       lastStyle = style
@@ -341,7 +343,15 @@ function drawOverlay(): void {
 }
 
 watch(
-  () => [props.view, size.value, sorted.value, props.hands.right, props.hands.left, props.frame],
+  () => [
+    props.view,
+    size.value,
+    sorted.value,
+    props.hands.right,
+    props.hands.left,
+    props.frame,
+    palette.value,
+  ],
   () => schedule(true),
 )
 watch(

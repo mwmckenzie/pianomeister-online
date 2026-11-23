@@ -8,13 +8,13 @@ import {
   ShaderMaterial,
 } from 'three'
 
-import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import { GlowTwin } from '../GlowTwin'
 import { keyLayout } from '../model/keyLayout'
 import { KEYBOARD } from '../model/KEYBOARD'
 import { lineColor } from '../model/lineColor'
+import { NoteColors } from '../NoteColors'
 import { srgb } from '../srgb'
 import type { TimeUniforms } from '../TimeUniforms'
 
@@ -85,6 +85,9 @@ void main() {
 }
 `
 
+/** The default palette, until the engine hands over the shared one. */
+const DEFAULT_COLORS = new NoteColors()
+
 /**
  * The now line (brief decision 111): thin (the milestone 8 line), glowing or neon, in a fixed
  * colour or the pitch colour of the key underneath, with a glow twin for bloom.
@@ -101,7 +104,7 @@ export class NowLine {
       new BufferAttribute(new Float32Array([0, -1, 0, 1, -1, 0, 1, 1, 0, 0, 1, 0]), 3),
     )
     geometry.setIndex([0, 1, 2, 0, 2, 3])
-    this.pitchColors = pitchColorTexture()
+    this.pitchColors = pitchColorTexture(DEFAULT_COLORS)
     this.mesh = new Mesh(
       geometry,
       new ShaderMaterial({
@@ -148,6 +151,12 @@ export class NowLine {
     this.twin.enabled = lines.nowGlow > 0
   }
 
+  /** The pitch colour under each point of the line, from the shared note colours. */
+  recolor(colors: NoteColors): void {
+    fillPitchColors(this.pitchColors.image.data as Uint8Array, colors)
+    this.pitchColors.needsUpdate = true
+  }
+
   dispose(): void {
     this.mesh.geometry.dispose()
     this.mesh.material.dispose()
@@ -162,22 +171,27 @@ function set(uniforms: ShaderMaterial['uniforms'], name: string, value: unknown)
 }
 
 /** The pitch colour under each texel across the keyboard; black keys cover their width. */
-function pitchColorTexture(): DataTexture {
-  const keys = keyLayout()
-  const whites = keys.filter((k) => !k.isBlack)
-  const blacks = keys.filter((k) => k.isBlack)
+function pitchColorTexture(colors: NoteColors): DataTexture {
   const data = new Uint8Array(PITCH_TEXELS * 4)
-  for (let i = 0; i < PITCH_TEXELS; i++) {
-    const x = ((i + 0.5) / PITCH_TEXELS) * KEYBOARD.width
-    const key =
-      blacks.find((k) => x >= k.x && x < k.x + k.width) ??
-      whites[Math.min(whites.length - 1, Math.floor(x))]
-    const c = srgb(PITCH_CLASS_COLORS[(key?.midi ?? 0) % 12]?.hex ?? '#FFFFFF')
-    data.set([c.r * 255, c.g * 255, c.b * 255, 255], i * 4)
-  }
+  fillPitchColors(data, colors)
   const texture = new DataTexture(data, PITCH_TEXELS, 1, RGBAFormat)
   texture.magFilter = LinearFilter
   texture.minFilter = LinearFilter
   texture.needsUpdate = true
   return texture
+}
+
+/** Each texel: the note colour of the key under it (black keys over white). */
+function fillPitchColors(data: Uint8Array, colors: NoteColors): void {
+  const keys = keyLayout()
+  const whites = keys.filter((k) => !k.isBlack)
+  const blacks = keys.filter((k) => k.isBlack)
+  for (let i = 0; i < PITCH_TEXELS; i++) {
+    const x = ((i + 0.5) / PITCH_TEXELS) * KEYBOARD.width
+    const key =
+      blacks.find((k) => x >= k.x && x < k.x + k.width) ??
+      whites[Math.min(whites.length - 1, Math.floor(x))]
+    const c = colors.at((key?.midi ?? 0) % 12)
+    data.set([c.r * 255, c.g * 255, c.b * 255, 255], i * 4)
+  }
 }

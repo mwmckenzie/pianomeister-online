@@ -2,6 +2,13 @@
 import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from 'reka-ui'
 import { computed } from 'vue'
 
+import {
+  LOG_SLIDER_STEPS,
+  logSliderPosition,
+  logSliderValue,
+  snapToStep,
+} from '@/core/settings/logSlider'
+
 /**
  * A single-thumb slider on Reka's accessible Slider; the value is clamped to [min, max].
  * `inverted` runs it right to left (min at the right end), and `endLabel` marks that end, as
@@ -19,14 +26,33 @@ const props = defineProps<{
   readonly disabled?: boolean
   readonly inverted?: boolean
   readonly endLabel?: string
+  /** 'log': the thumb moves per ratio, not per unit (the value stays the real one). */
+  readonly scale?: 'log'
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 
-const value = computed(() => [Math.min(props.max, Math.max(props.min, props.modelValue))])
+const range = computed(() => ({ min: props.min, max: props.max, step: props.step }))
+const log = computed(() => props.scale === 'log')
+const clamped = computed(() => Math.min(props.max, Math.max(props.min, props.modelValue)))
+// A log slider runs Reka on positions 0..LOG_SLIDER_STEPS; a linear one on the value itself.
+const value = computed(() => [
+  log.value ? logSliderPosition(clamped.value, range.value) : clamped.value,
+])
 
 function update(next: number[] | undefined): void {
-  const v = next?.[0]
-  if (v !== undefined && v !== props.modelValue) emit('update:modelValue', v)
+  const raw = next?.[0]
+  if (raw === undefined) return
+  let v = raw
+  if (log.value) {
+    v = logSliderValue(raw, range.value)
+    // Near the low end several positions snap to the same step; a key press that lands on the
+    // current value moves on one step, so arrow keys never stall there.
+    const from = value.value[0] ?? 0
+    if (v === clamped.value && raw !== from) {
+      v = snapToStep(clamped.value + (raw > from ? 1 : -1) * props.step, range.value)
+    }
+  }
+  if (v !== props.modelValue) emit('update:modelValue', v)
 }
 </script>
 
@@ -35,9 +61,9 @@ function update(next: number[] | undefined): void {
     <SliderRoot
       class="slider"
       :model-value="value"
-      :min="min"
-      :max="max"
-      :step="step"
+      :min="log ? 0 : min"
+      :max="log ? LOG_SLIDER_STEPS : max"
+      :step="log ? 1 : step"
       :disabled="disabled"
       :inverted="inverted"
       @update:model-value="update"

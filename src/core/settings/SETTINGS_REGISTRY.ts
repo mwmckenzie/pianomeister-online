@@ -4,12 +4,11 @@ import type { SettingDefinition, SettingUnit } from './SettingDefinition'
 import type { SettingHome, SettingsTabId, SidebarSectionId, WindowSectionId } from './SettingHome'
 import type { SettingKey } from './SettingKey'
 import type { SettingValue } from './SettingValue'
+import { velocityScaleBounds } from './velocityScaleBounds'
 
 /** Black key top above the white keys on a grand piano: 12 mm in white-key widths (23.5 mm). */
 const GRAND_BLACK_HEIGHT = 12 / 23.5
 const BLACK_LENGTH_RATIO = 0.63
-/** Visible black key length: 63% of the 150 mm white key, in white-key widths. */
-const BLACK_VISIBLE_LENGTH = (BLACK_LENGTH_RATIO * 150) / 23.5
 
 const sidebar = (section: SidebarSectionId): SettingHome => ({ area: 'sidebar', section })
 const tab = (id: SettingsTabId, section: WindowSectionId): SettingHome => ({
@@ -38,6 +37,7 @@ const color = (label: string, value: string, home: SettingHome) =>
 const percent = { unit: 'percent', digits: 0 } as const
 
 const COLORS = 'Colors'
+const NOTE_COLOURS = 'Note colours'
 
 const LINE_COLORS = [
   { value: 'white', label: 'White' },
@@ -56,9 +56,12 @@ const lineColor = <V extends 'white' | 'primary' | 'secondary' | 'custom'>(value
     options: LINE_COLORS,
   }) as const
 
-/** Emissive strength on the glow layer (0 = no bloom). */
+/** Emissive strength on the glow layer (0 = no bloom); a log slider with a 0 stop. */
 const glow = (value: number, label = 'Glow', max = 3, home = sidebar('lines')) =>
-  num(label, value, home, [0, max, 0.05], 'times')
+  ({ ...num(label, value, home, [0, max, 0.05], 'times'), scale: 'log' }) as const
+
+/** Log slider (milestone 9.1 §B): sizes, widths, strengths, counts, lifetimes. */
+const log = { scale: 'log' } as const
 
 const FILLS = [
   { value: 'solid', label: 'Solid' },
@@ -102,7 +105,7 @@ function stripeShape(group: string, home: SettingHome, width: number, visible: S
   return {
     aOpacity: { ...num('Stripe A opacity', 1, home, [0, 1, 0.05]), ...percent, ...row },
     bOpacity: { ...num('Stripe B opacity', 1, home, [0, 1, 0.05]), ...percent, ...row },
-    width: { ...num('Stripe width', width, home, [0.05, 3, 0.05], 'mm'), ...row },
+    width: { ...num('Stripe width', width, home, [0.05, 3, 0.05], 'mm'), ...log, ...row },
     balance: { ...num('Stripe balance', 0.5, home, [0.2, 0.8, 0.05]), ...percent, ...row },
     angle: { ...num('Angle', 45, home, [-75, 75, 5], 'deg', 0), ...row },
     drift: { ...bool('Drift along', false, home), ...row },
@@ -164,30 +167,77 @@ const edgeApplies = (s: PlayerSettings) =>
   !OWN_EDGE.has(s.noteStyle.headFill) || !OWN_EDGE.has(s.noteStyle.sustainFill)
 const EDGE_HINT = 'Outline and Neon draw their own edge'
 
-/** Size, count, lifetime and spread of one onset effect, shown while it's on. */
-function onsetKnobs(group: string, on: (s: PlayerSettings) => boolean) {
+type Span = readonly [number, number]
+
+/**
+ * Size, count, lifetime and spread of one onset effect, shown while it's on. Each effect has its
+ * own useful span (milestone 9.1 §B: where it shows, where it whites out or hits the budget).
+ */
+function onsetKnobs(
+  group: string,
+  on: (s: PlayerSettings) => boolean,
+  spans: {
+    readonly size: Span
+    readonly count: Span
+    readonly lifetime: Span
+    readonly spread: Span
+  },
+) {
   const visible = (s: PlayerSettings) => s.effects.enabled && on(s)
-  const factor = (label: string, max = 3) => ({
-    ...num(label, 1, effects, [0.2, max, 0.05], 'times'),
+  const factor = (label: string, [min, max]: Span) => ({
+    ...num(label, 1, effects, [min, max, 0.05], 'times'),
+    ...log,
     group,
     visible,
   })
+  // Spread is linear: 0 (a tight column) is an ordinary value, not "off".
+  const [spreadMin, spreadMax] = spans.spread
   return {
-    size: factor('Size'),
-    count: factor('Count'),
-    lifetime: factor('Lifetime'),
-    spread: { ...num('Spread', 1, effects, [0, 3, 0.05], 'times'), group, visible },
+    size: factor('Size', spans.size),
+    count: factor('Count', spans.count),
+    lifetime: factor('Lifetime', spans.lifetime),
+    spread: {
+      ...num('Spread', 1, effects, [spreadMin, spreadMax, 0.05], 'times'),
+      group,
+      visible,
+    },
   }
 }
 
-const sparks = onsetKnobs('Sparks', (s) => s.effects.sparks)
-const scalingSparks = onsetKnobs('Scaling sparks', (s) => s.effects.scalingSparks)
-const flame = onsetKnobs('Flame burst', (s) => s.effects.flame)
-const explosion = onsetKnobs('Explosion', (s) => s.effects.explosion)
-const glitter = onsetKnobs('Glitter', (s) => s.effects.glitter)
+const sparks = onsetKnobs('Sparks', (s) => s.effects.sparks, {
+  size: [0.35, 2.5],
+  count: [0.35, 3],
+  lifetime: [0.35, 3],
+  spread: [0, 3],
+})
+const scalingSparks = onsetKnobs('Scaling sparks', (s) => s.effects.scalingSparks, {
+  size: [0.3, 1.5],
+  count: [0.2, 2],
+  lifetime: [0.2, 2],
+  spread: [0, 3],
+})
+const flame = onsetKnobs('Flame burst', (s) => s.effects.flame, {
+  size: [0.3, 1.75],
+  count: [0.2, 2],
+  lifetime: [0.2, 2],
+  spread: [0, 2],
+})
+const explosion = onsetKnobs('Explosion', (s) => s.effects.explosion, {
+  size: [0.4, 3],
+  count: [0.3, 2.5],
+  lifetime: [0.25, 3],
+  spread: [0, 3],
+})
+const glitter = onsetKnobs('Glitter', (s) => s.effects.glitter, {
+  size: [0.5, 3],
+  count: [0.35, 2],
+  lifetime: [0.4, 2.5],
+  spread: [0, 3],
+})
 const sustainKnobs = onsetKnobs(
   'While a note sustains',
   (s) => s.effects.sustain !== 'none' && s.effects.sustain !== 'glow',
+  { size: [0.35, 1.5], count: [0.35, 3], lifetime: [0.35, 2.5], spread: [0, 3] },
 )
 
 const onsetToggle = (label: string, value: boolean) => ({
@@ -212,14 +262,14 @@ const RESOLUTION = 'Resolution'
 export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<SettingValue<K>> } =
   {
     // Camera (decision 21)
-    'camera.tiltDeg': num('Tilt', 45, sidebar('camera'), [20, 85, 1], 'deg', 0),
+    'camera.tiltDeg': num('Tilt', 45, sidebar('camera'), [25, 85, 1], 'deg', 0),
     'camera.distanceOffset': num('Distance', 0, sidebar('camera'), [-0.6, 1, 0.05]),
     'camera.pan': num('Pan', 0, sidebar('camera'), [-26, 26, 0.5], 'none', 1),
 
     // Keyboard (decisions 44–46). Upper limits of blackHeight and the press depths also depend
     // on other settings: see settingMax / constrainKeyboard.
-    'keyboard.thickness': num('Key thickness', 0.6, sidebar('keyboard'), [0.2, 1.2, 0.01], 'mm'),
-    'keyboard.gap': num('Gap between keys', 0.06, sidebar('keyboard'), [0, 0.2, 0.005], 'mm'),
+    'keyboard.thickness': num('Key thickness', 0.6, sidebar('keyboard'), [0.2, 1.2, 0.05], 'mm'),
+    'keyboard.gap': num('Gap between keys', 0.06, sidebar('keyboard'), [0, 0.2, 0.01], 'mm'),
     'keyboard.blackLengthRatio': {
       ...num('Black key length', BLACK_LENGTH_RATIO, sidebar('keyboard'), [0.5, 0.8, 0.01]),
       ...percent,
@@ -228,7 +278,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       'Black key height',
       GRAND_BLACK_HEIGHT,
       sidebar('keyboard'),
-      [0, 1.2, 0.01],
+      [0, 1.2, 0.05],
       'mm',
     ),
     'keyboard.edgeProfile': {
@@ -244,38 +294,37 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'keyboard.edgeSize': {
       ...num('Edge size', 0.04, sidebar('keyboard'), [0.005, 0.12, 0.005], 'mm'),
+      ...log,
       visible: (s) => s.keyboard.edgeProfile !== 'none',
     },
     'keyboard.animate': bool('Animate keys', true, sidebar('keyboard')),
     'keyboard.pressDepthWhite': {
-      ...num('White key depth', 0.22, sidebar('keyboard'), [0, 1.2, 0.01], 'mm'),
+      ...num('White key depth', 0.22, sidebar('keyboard'), [0, 1.2, 0.05], 'mm'),
       visible: (s) => s.keyboard.animate,
     },
     'keyboard.pressDepthBlack': {
-      ...num('Black key depth', 0.3, sidebar('keyboard'), [0, 1.12, 0.01], 'mm'),
+      ...num('Black key depth', 0.3, sidebar('keyboard'), [0, 1.12, 0.05], 'mm'),
       visible: (s) => s.keyboard.animate,
     },
     'keyboard.pivotOffsetWhite': {
-      ...num('White key pivot behind the key', 0, sidebar('keyboard'), [0, 16, 0.1], 'mm'),
+      ...num('White key pivot behind the key', 0, sidebar('keyboard'), [0, 8, 0.5], 'mm'),
       visible: (s) => s.keyboard.animate,
     },
     'keyboard.pivotOffsetBlack': {
-      // Twice the visible length behind the key: black keys drop nearly level, slightly tilted.
-      ...num(
-        'Black key pivot behind the key',
-        2 * BLACK_VISIBLE_LENGTH,
-        sidebar('keyboard'),
-        [0, 16, 0.1],
-        'mm',
-      ),
+      // About twice the visible length behind the key (8.04, snapped to the 0.5 step): black
+      // keys drop nearly level, slightly tilted.
+      ...num('Black key pivot behind the key', 8, sidebar('keyboard'), [0, 8, 0.5], 'mm'),
       visible: (s) => s.keyboard.animate,
     },
 
     // Highway (decisions 18, 22, 42)
-    'highway.lookAheadBeats': num('Look-ahead', 8, sidebar('highway'), [2, 32, 1], 'beats', 0),
+    'highway.lookAheadBeats': {
+      ...num('Look-ahead', 8, sidebar('highway'), [2, 32, 1], 'beats', 0),
+      ...log,
+    },
     'highway.blackLaneShading': bool('Darker black-key lanes', true, sidebar('highway')),
     'highway.blackLaneShadingStrength': {
-      ...num('Lane shading', 0.22, sidebar('highway'), [0, 1, 0.01]),
+      ...num('Lane shading', 0.22, sidebar('highway'), [0, 1, 0.05]),
       ...percent,
       visible: (s) => s.highway.blackLaneShading,
     },
@@ -288,19 +337,19 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'colors.highway': { ...color('Highway', '#070B16', sidebar('highway')), group: COLORS },
     'colors.lane': { ...color('Lane lines', '#3A4A6E', sidebar('highway')), group: COLORS },
     'opacity.lane': {
-      ...num('Lane line opacity', 0.35, sidebar('highway'), [0, 1, 0.01]),
+      ...num('Lane line opacity', 0.35, sidebar('highway'), [0, 1, 0.05]),
       ...percent,
       group: COLORS,
     },
     'colors.bar': { ...color('Bar lines', '#5C6F99', sidebar('highway')), group: COLORS },
     'opacity.bar': {
-      ...num('Bar line opacity', 0.6, sidebar('highway'), [0, 1, 0.01]),
+      ...num('Bar line opacity', 0.6, sidebar('highway'), [0, 1, 0.05]),
       ...percent,
       group: COLORS,
     },
     'colors.beat': { ...color('Beat lines', '#5C6F99', sidebar('highway')), group: COLORS },
     'opacity.beat': {
-      ...num('Beat line opacity', 0.12, sidebar('highway'), [0, 1, 0.01]),
+      ...num('Beat line opacity', 0.12, sidebar('highway'), [0, 0.6, 0.05]),
       ...percent,
       group: COLORS,
     },
@@ -333,7 +382,8 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.lines.nowColor === 'custom',
     },
     'lines.nowWidth': {
-      ...num('Width', 0.08, sidebar('lines'), [0.02, 0.4, 0.01], 'mm'),
+      ...num('Width', 0.08, sidebar('lines'), [0.02, 0.3, 0.01], 'mm'),
+      ...log,
       group: 'Now line',
     },
     'lines.nowGlow': { ...glow(0.6), group: 'Now line' },
@@ -350,6 +400,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'lines.bordersWidth': {
       ...num('Width', 0.05, sidebar('lines'), [0.01, 0.3, 0.01], 'mm'),
+      ...log,
       group: 'Borders',
       visible: (s) => s.lines.borders,
     },
@@ -372,17 +423,51 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'lines.octavesWidth': {
       ...num('Width', 0.05, sidebar('lines'), [0.01, 0.3, 0.01], 'mm'),
+      ...log,
       group: 'Octaves',
       visible: (s) => s.lines.octaves,
     },
     'lines.octavesGlow': { ...glow(0.5), group: 'Octaves', visible: (s) => s.lines.octaves },
-    'lines.barGlow': { ...glow(0, 'Bar line glow', 1), group: 'Bar & beat lines' },
-    'lines.beatGlow': { ...glow(0, 'Beat line glow', 1), group: 'Bar & beat lines' },
+    'lines.barGlow': { ...glow(0, 'Bar line glow'), group: 'Bar & beat lines' },
+    'lines.beatGlow': { ...glow(0, 'Beat line glow', 2), group: 'Bar & beat lines' },
 
     // Notes (decisions 19, 39–41) and the key colour fade-in
+    // Note colours (milestone 9.1 §C round 2): the palette the whole scene's note colour follows.
+    'notes.palette': {
+      kind: 'choice',
+      label: 'Note colours',
+      default: 'default',
+      home: sidebar('notes'),
+      group: NOTE_COLOURS,
+      control: 'select',
+      options: [
+        { value: 'default', label: 'Default' },
+        { value: 'warm', label: 'Warm' },
+        { value: 'cool', label: 'Cool' },
+        { value: 'neon', label: 'Neon' },
+        { value: 'pastel', label: 'Pastel' },
+        { value: 'mono', label: 'Mono' },
+        { value: 'twoTone', label: 'Two-tone' },
+      ],
+    },
+    'notes.paletteMono': {
+      ...color('Colour', '#8AB4FF', sidebar('notes')),
+      group: NOTE_COLOURS,
+      visible: (s) => s.notes.palette === 'mono',
+    },
+    'notes.paletteWhite': {
+      ...color('White-key notes', '#7EE0C3', sidebar('notes')),
+      group: NOTE_COLOURS,
+      visible: (s) => s.notes.palette === 'twoTone',
+    },
+    'notes.paletteBlack': {
+      ...color('Black-key notes', '#C3A6FF', sidebar('notes')),
+      group: NOTE_COLOURS,
+      visible: (s) => s.notes.palette === 'twoTone',
+    },
     'notes.heads3d': bool('3D note heads', true, sidebar('notes')),
     'notes.headHeight': {
-      ...num('Head height', 0.35, sidebar('notes'), [0.05, 0.8, 0.05], 'mm'),
+      ...num('Head height', 0.35, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
       visible: (s) => s.notes.heads3d,
     },
     'notes.headRounded': {
@@ -405,12 +490,12 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'notes.contactShadow': bool('Shadow under black-lane notes', true, sidebar('notes')),
     'notes.shadowStrength': {
-      ...num('Shadow strength', 0.45, sidebar('notes'), [0, 1, 0.01]),
+      ...num('Shadow strength', 0.45, sidebar('notes'), [0, 1, 0.05]),
       ...percent,
       visible: (s) => s.notes.contactShadow,
     },
     'notes.sustainCenterTransparency': {
-      ...num('Sustain transparency, centre', 0.25, sidebar('notes'), [0, 1, 0.05]),
+      ...num('Sustain transparency, centre', 0.25, sidebar('notes'), [0, 0.85, 0.05]),
       ...percent,
     },
     'notes.sustainEdgeTransparency': {
@@ -419,7 +504,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'keys.fadeBeats': num('Key fade-in', 1, sidebar('notes'), [0, 4, 0.25], 'beats'),
     'keys.maxApproachAlpha': {
-      ...num('Key colour before the note', 0.7, sidebar('notes'), [0, 1, 0.05]),
+      ...num('Key colour before the note', 0.7, sidebar('notes'), [0.1, 1, 0.05]),
       ...percent,
     },
 
@@ -427,7 +512,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'noteStyle.headFill': { ...fill('Head fill', sidebar('noteStyle')), group: 'Fill' },
     'noteStyle.sustainFill': { ...fill('Sustain fill', sidebar('noteStyle')), group: 'Fill' },
     'noteStyle.gradientEnd': {
-      ...num('Gradient end brightness', 0.35, sidebar('noteStyle'), [0, 1, 0.05]),
+      ...num('Gradient end brightness', 0.35, sidebar('noteStyle'), [0, 0.8, 0.05]),
       ...percent,
       group: 'Fill',
       visible: (s) => s.noteStyle.headFill === 'gradient' || s.noteStyle.sustainFill === 'gradient',
@@ -451,7 +536,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     ),
     'noteStyle.headStripeAOpacity': headStripes.aOpacity,
     'noteStyle.headStripeBOpacity': headStripes.bOpacity,
-    'noteStyle.headStripeWidth': headStripes.width,
+    'noteStyle.headStripeWidth': { ...headStripes.width, max: 1 },
     'noteStyle.headStripeBalance': headStripes.balance,
     'noteStyle.headStripeAngle': headStripes.angle,
     'noteStyle.headStripeDrift': headStripes.drift,
@@ -469,7 +554,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     ),
     'noteStyle.sustainStripeAOpacity': sustainStripes.aOpacity,
     'noteStyle.sustainStripeBOpacity': sustainStripes.bOpacity,
-    'noteStyle.sustainStripeWidth': sustainStripes.width,
+    'noteStyle.sustainStripeWidth': { ...sustainStripes.width, min: 0.1, max: 1.5 },
     'noteStyle.sustainStripeBalance': sustainStripes.balance,
     'noteStyle.sustainStripeAngle': sustainStripes.angle,
     'noteStyle.sustainStripeDrift': sustainStripes.drift,
@@ -480,14 +565,17 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       disabledHint: EDGE_HINT,
     },
     'noteStyle.edgeWidth': {
-      ...num('Edge width', 0.04, sidebar('noteStyle'), [0.01, 0.2, 0.005], 'mm'),
+      ...num('Edge width', 0.04, sidebar('noteStyle'), [0.02, 0.2, 0.005], 'mm'),
+      ...log,
       group: 'Edges',
       visible: (s) => s.noteStyle.edgeGlow,
       enabled: edgeApplies,
       disabledHint: EDGE_HINT,
     },
     'noteStyle.edgeIntensity': {
+      // Edge glow has its own switch, so 0 isn't needed as "off": a plain log from 0.1.
       ...glow(0.5, 'Edge intensity', 3, sidebar('noteStyle')),
+      min: 0.1,
       group: 'Edges',
       visible: (s) => s.noteStyle.edgeGlow,
       enabled: edgeApplies,
@@ -559,7 +647,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ],
     },
     'names.shadow': {
-      ...num('Text shadow', 0.6, sidebar('names'), [0, 1, 0.05]),
+      ...num('Text shadow', 0.6, sidebar('names'), [0, 1, 0.1]),
       ...percent,
       ...namesOn,
       // Also behind the key-top names; listed with the note labels' look.
@@ -571,7 +659,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...onNotes,
     },
     'names.fadeLength': {
-      ...num('Fade length', 0.15, sidebar('names'), [0, 0.3, 0.01]),
+      ...num('Fade length', 0.15, sidebar('names'), [0, 0.3, 0.02]),
       ...percent,
       ...onNotes,
     },
@@ -593,7 +681,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ...onNotes,
     },
     'names.height': {
-      ...num('Height above note', 6, sidebar('names'), [0, 24, 1], 'px', 0),
+      ...num('Height above note', 6, sidebar('names'), [0, 18, 1], 'px', 0),
       group: 'On notes',
       enabled: (s) => namesOnNotes(s) && s.names.style === 'facing',
       disabledHint: (s) => (namesOnNotes(s) ? 'Needs labels facing the camera' : NAMES_HINT(s)),
@@ -627,7 +715,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       ],
     },
     'names.keySize': {
-      ...num('Key label size', 11, sidebar('names'), [8, 16, 1], 'px', 0),
+      ...num('Key label size', 11, sidebar('names'), [9, 16, 1], 'px', 0),
       group: 'On keys',
       enabled: namesOnKeys,
       disabledHint: (s) =>
@@ -639,7 +727,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'pedal.fill': { ...fill('Fill', cages), visible: (s) => s.pedal.show },
     'pedal.fillColor': { ...color('Fill colour', '#4A5468', cages), visible: (s) => s.pedal.show },
     'pedal.fillOpacity': {
-      ...num('Fill opacity', 0.22, cages, [0, 1, 0.01]),
+      ...num('Fill opacity', 0.22, cages, [0, 0.8, 0.05]),
       ...percent,
       visible: (s) => s.pedal.show,
     },
@@ -655,7 +743,8 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.pedal.show && s.pedal.border && s.pedal.borderColor === 'custom',
     },
     'pedal.borderWidth': {
-      ...num('Border width', 0.06, cages, [0.01, 0.4, 0.01], 'mm'),
+      ...num('Border width', 0.06, cages, [0.02, 0.4, 0.01], 'mm'),
+      ...log,
       visible: (s) => s.pedal.show && s.pedal.border,
     },
     'pedal.borderGlow': {
@@ -664,6 +753,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'pedal.cornerRadius': {
       ...num('Corner rounding', 0, cages, [0, 2, 0.05], 'mm'),
+      ...log,
       visible: (s) => s.pedal.show && s.pedal.border,
     },
     'pedal.stripeA': {
@@ -678,7 +768,7 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'pedal.stripeAOpacity': pedalStripes.aOpacity,
     'pedal.stripeBOpacity': pedalStripes.bOpacity,
-    'pedal.stripeWidth': pedalStripes.width,
+    'pedal.stripeWidth': { ...pedalStripes.width, min: 0.4 },
     'pedal.stripeBalance': pedalStripes.balance,
     'pedal.stripeAngle': pedalStripes.angle,
     'pedal.stripeDrift': pedalStripes.drift,
@@ -690,11 +780,15 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.effects.enabled,
     },
     'effects.minScale': {
-      ...num('Size at softest', 0.6, effects, [0.2, 3, 0.05], 'times'),
+      ...num('Size at softest', 0.6, effects, [0.2, 2, 0.05], 'times'),
+      ...log,
       visible: (s) => s.effects.enabled && s.effects.velocityScaling,
+      limitHint: (s) =>
+        velocityScaleBounds(s.effects).limited ? 'Limited by Size at loudest' : null,
     },
     'effects.maxScale': {
-      ...num('Size at loudest', 1.7, effects, [0.2, 3, 0.05], 'times'),
+      ...num('Size at loudest', 1.7, effects, [0.5, 3, 0.05], 'times'),
+      ...log,
       visible: (s) => s.effects.enabled && s.effects.velocityScaling,
     },
     'effects.sparks': onsetToggle('Sparks', true),
@@ -744,12 +838,15 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'effects.sustainSpread': sustainKnobs.spread,
     'effects.pulse': { ...bool('Note-on pulse', true, effects), group: 'Notes' },
     'effects.pulseAmount': {
-      ...glow(0.5, 'Pulse amount', 2, effects),
+      // Pulse has its own switch: from 0.15 (below, it looks like no pulse) to 1.5 (white keys).
+      ...glow(0.5, 'Pulse amount', 1.5, effects),
+      min: 0.15,
       group: 'Notes',
       visible: (s) => s.effects.pulse,
     },
     'effects.pulseDecayMs': {
-      ...num('Pulse decay', 200, effects, [40, 1000, 10], 'ms', 0),
+      ...num('Pulse decay', 200, effects, [100, 1000, 10], 'ms', 0),
+      ...log,
       group: 'Notes',
       visible: (s) => s.effects.pulse,
     },
@@ -782,7 +879,8 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.effects.keySpill,
     },
     'effects.keySpillSpread': {
-      ...num('Spill reach', 1.5, effects, [0.5, 4, 0.25], 'none', 2),
+      ...num('Spill reach', 1.5, effects, [0.75, 4, 0.25], 'none', 2),
+      ...log,
       group: 'Keys',
       visible: (s) => s.effects.keySpill,
     },
@@ -794,13 +892,14 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       disabledHint: 'Needs shader detail Medium or High',
     },
     'effects.keyConeStrength': {
-      ...num('Cone strength', 0.4, effects, [0, 1, 0.05]),
+      ...num('Cone strength', 0.4, effects, [0, 1, 0.1]),
       ...percent,
       group: 'Keys',
       visible: (s) => s.effects.keyCone,
     },
     'effects.keyConeSpread': {
       ...num('Cone spread', 1, effects, [0.25, 3, 0.05], 'times'),
+      ...log,
       group: 'Keys',
       visible: (s) => s.effects.keyCone,
     },
@@ -855,19 +954,20 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     },
     'render.bloomStrength': {
       ...num('Bloom strength', 0.8, render, [0, 3, 0.05], 'times'),
+      ...log,
       group: BLOOM,
       enabled: (s) => s.render.bloomResolution !== 'off',
       disabledHint: BLOOM_HINT,
     },
     'render.bloomRadius': {
-      ...num('Bloom radius', 0.4, render, [0, 1, 0.05]),
+      ...num('Bloom radius', 0.4, render, [0, 1, 0.1]),
       ...percent,
       group: BLOOM,
       enabled: (s) => s.render.bloomResolution !== 'off',
       disabledHint: BLOOM_HINT,
     },
     'render.bloomThreshold': {
-      ...num('Bloom threshold', 0.1, render, [0, 1, 0.01]),
+      ...num('Bloom threshold', 0.1, render, [0, 0.4, 0.02]),
       ...percent,
       group: BLOOM,
       enabled: (s) => s.render.bloomResolution !== 'off',

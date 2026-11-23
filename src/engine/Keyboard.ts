@@ -15,7 +15,6 @@ import {
   type Texture,
 } from 'three'
 
-import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
@@ -28,6 +27,7 @@ import { KEY_RESTRIKE_PROGRESS, keyPressAngle, keyPressStep } from './model/keyP
 import type { KeyState } from './model/KeyState'
 import { ATLAS_FONT_PX, atlasCell, CELL_H, CELL_W } from './names/NoteLabelAtlas'
 import { LIGHT_GLSL } from './sceneLight'
+import type { NoteColors } from './NoteColors'
 import { srgb } from './srgb'
 
 type KeyboardSettings = PlayerSettings['keyboard']
@@ -245,7 +245,10 @@ export class Keyboard {
   /** Light cones need medium shader detail or more (brief decision 110). */
   private coneOn = false
 
-  constructor(atlas: Texture) {
+  constructor(
+    atlas: Texture,
+    private readonly noteColors: NoteColors,
+  ) {
     this.light = new DataTexture(this.lightData, 88, 2, RGBAFormat, FloatType)
     this.light.magFilter = NearestFilter
     this.light.minFilter = NearestFilter
@@ -359,12 +362,9 @@ export class Keyboard {
       this.progress[i] = animate ? keyPressStep(this.progress[i] as number, state.sounding, dt) : 0
       this.pulseAge[i] = (this.pulseAge[i] as number) + dt
       // Key light: the sounding key's colour, at full strength while it sounds.
-      const c = PALETTE[state.colorIndex]
+      const c = this.noteColors.at(state.colorIndex)
       const intensity = state.sounding ? 1 : 0
-      this.lightData.set(
-        [(c?.r ?? 1) * intensity, (c?.g ?? 1) * intensity, (c?.b ?? 1) * intensity, intensity],
-        i * 4,
-      )
+      this.lightData.set([c.r * intensity, c.g * intensity, c.b * intensity, intensity], i * 4)
     })
     this.light.needsUpdate = true
     for (const group of [this.white, this.black]) {
@@ -372,12 +372,12 @@ export class Keyboard {
       group.keys.forEach((key, j) => {
         const state = states[key]
         if (state === undefined) return
-        const c = PALETTE[state.colorIndex]
-        group.overlay.set([c?.r ?? 1, c?.g ?? 1, c?.b ?? 1, state.alpha], j * 4)
+        const c = this.noteColors.at(state.colorIndex)
+        group.overlay.set([c.r, c.g, c.b, state.alpha], j * 4)
         const t = Math.max(0, 1 - (this.pulseAge[key] as number) / decay)
         group.pulse[j] = e.pulse ? e.pulseAmount * (this.pulseScale[key] as number) * t * t : 0
         const lit = state.sounding ? 1 : 0
-        group.cone.set([(c?.r ?? 1) * lit, (c?.g ?? 1) * lit, (c?.b ?? 1) * lit, lit], j * 4)
+        group.cone.set([c.r * lit, c.g * lit, c.b * lit, lit], j * 4)
       })
       for (const name of ['aOverlay', 'aPulse']) {
         group.mesh.geometry.getAttribute(name).needsUpdate = true
@@ -520,8 +520,6 @@ export class Keyboard {
     this.black = null
   }
 }
-
-const PALETTE = PITCH_CLASS_COLORS.map((c) => srgb(c.hex))
 
 function setUniform(material: ShaderMaterial, name: string, value: unknown): void {
   const u = material.uniforms[name]

@@ -13,6 +13,7 @@ import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import { GlowTwin } from './GlowTwin'
 import { NowLine } from './lines/NowLine'
+import type { NoteColors } from './NoteColors'
 import { keyLayout } from './model/keyLayout'
 import { KEYBOARD } from './model/KEYBOARD'
 import { type BoundaryKind, laneBoundaries } from './model/laneBoundaries'
@@ -38,6 +39,15 @@ const GLOW_LINE_HALF = 0.75
 
 /** Coverage of a line of world width `width` at signed world distance `d` from its centre. */
 const LINE_AA_GLSL = /* glsl */ `
+// A line's glow is its hue at full brightness: the default line colours are dark greys-blue, and
+// glowing in them gave the bloom almost nothing, so the glow slider looked broken.
+vec3 glowHue(vec3 c) {
+  return c / max(max(c.r, c.g), max(c.b, 0.05));
+}
+// A soft aura around a line for the bloom to spread: a thin far line alone covers under a pixel.
+float glowAura(float d, float width) {
+  return 0.35 * exp(-abs(d) / clamp(2.0 * width, 0.04, 0.25));
+}
 float lineCoverage(float d, float width) {
   float pixel = max(fwidth(d), 1e-5);
   float edge = clamp((0.5 * width - abs(d)) / pixel + 0.5, 0.0, 1.0);
@@ -111,7 +121,7 @@ void main() {
   float haze = hazeAlpha(zToTick(vZ));
   float core = lineCoverage(vAcross, uWidth);
 #ifdef GLOW_PASS
-  gl_FragColor = vec4(uColor * core * uGlow * haze, 1.0);
+  gl_FragColor = vec4(glowHue(uColor) * max(core, glowAura(vAcross, uWidth)) * uGlow * haze, 1.0);
 #else
   float halo = 0.35 * min(uGlow, 1.0) * exp(-abs(vAcross) / min(1.5 * uWidth + 1e-3, 0.15));
   float alpha = haze * max(core, halo);
@@ -162,8 +172,9 @@ varying float vThickness;
 void main() {
   vec3 color = mix(uBeatColor, uBarColor, vBar);
 #ifdef GLOW_PASS
-  float glow = mix(uBeatGlow, uBarGlow, vBar) * hazeAlpha(vTick) * lineCoverage(vAlong, vThickness);
-  gl_FragColor = vec4(color * glow, 1.0);
+  float shape = max(lineCoverage(vAlong, vThickness), glowAura(vAlong, vThickness));
+  float glow = mix(uBeatGlow, uBarGlow, vBar) * hazeAlpha(vTick) * shape;
+  gl_FragColor = vec4(glowHue(color) * glow, 1.0);
 #else
   float alpha = mix(uBeatOpacity, uBarOpacity, vBar) * hazeAlpha(vTick);
   alpha *= lineCoverage(vAlong, vThickness);
@@ -432,6 +443,11 @@ export class Highway {
       lines.octavesGlow,
     )
     this.nowLine.applySettings(lines, appearance)
+  }
+
+  /** The now line's pitch colours follow the shared note colours. */
+  recolor(colors: NoteColors): void {
+    this.nowLine.recolor(colors)
   }
 
   /** Glow twins of the grid, the glowing lines and the now line (for the glow scene). */

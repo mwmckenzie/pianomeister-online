@@ -267,18 +267,23 @@ export class Library {
 
   async exportArchive(now = new Date()): Promise<Uint8Array> {
     // Loaded on demand: the zip code is only needed for backups, not for playing.
-    const { buildArchive } = await import('@/core/library/buildArchive')
-    const [uploads, meta, overrides, practice] = await Promise.all([
+    const [{ buildArchive }, { toLookFile }] = await Promise.all([
+      import('@/core/library/buildArchive'),
+      import('@/core/looks/toLookFile'),
+    ])
+    const [uploads, meta, overrides, practice, looks] = await Promise.all([
       this.db.uploads.orderBy('addedAt').toArray(),
       this.db.songMeta.toArray(),
       this.db.meterOverrides.toArray(),
       this.practiceData(),
+      this.db.looks.orderBy('createdAt').toArray(),
     ])
     return buildArchive({
       uploads: uploads.map((u) => ({ ...u, bytes: new Uint8Array(u.bytes) })),
       meta: new Map(meta.map((m) => [m.songId, m.edit])),
       overrides: new Map(overrides.map((o) => [o.songId, o.override])),
       practice,
+      looks: toLookFile(looks),
       exportedAt: now,
     })
   }
@@ -349,12 +354,30 @@ export class Library {
     return {
       uploads,
       profiles,
+      looksAdded: await this.mergeLooks(archive.document.looks, newId),
       metaApplied: plan.metaApplied,
       metaKept: plan.metaKept,
       overridesApplied: plan.overridesApplied,
       overridesKept: plan.overridesKept,
       unknownSongs: plan.unknownSongs,
     }
+  }
+
+  /**
+   * Adds the backup's saved looks (milestone 9.1): identical ones are skipped, the rest are
+   * added beside the local ones under a new id or "Name (2)" when theirs is taken — nothing
+   * local is overwritten. Returns how many were added.
+   */
+  private async mergeLooks(file: unknown, newId: () => string): Promise<number> {
+    if (file === undefined) return 0
+    const { readLookFile } = await import('@/core/looks/readLookFile')
+    return this.db.transaction('rw', this.db.looks, async () => {
+      const existing = await this.db.looks.toArray()
+      const result = readLookFile(file, existing, newId, new Date().toISOString(), true)
+      if (!result.ok) return 0
+      await this.db.looks.bulkAdd([...result.looks])
+      return result.looks.length
+    })
   }
 
   /** Applies a backup merge plan in one transaction: all of it or nothing. */

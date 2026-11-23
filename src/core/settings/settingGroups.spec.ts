@@ -52,10 +52,10 @@ describe('settings groups, reset and undo', () => {
   })
 
   it('treats values within half a step of the default as default', () => {
-    // Black key height default 12/23.5 ≈ 0.5106 is off the 0.01 slider grid.
+    // Black key height default 12/23.5 ≈ 0.5106 is off the 0.05 slider grid.
     expect(isDefaultValue('keyboard.blackHeight', 12 / 23.5)).toBe(true)
-    expect(isDefaultValue('keyboard.blackHeight', 0.51)).toBe(true)
-    expect(isDefaultValue('keyboard.blackHeight', 0.52)).toBe(false)
+    expect(isDefaultValue('keyboard.blackHeight', 0.5)).toBe(true)
+    expect(isDefaultValue('keyboard.blackHeight', 0.55)).toBe(false)
     expect(isDefaultValue('appearance.primary', '#8ab4ff')).toBe(true)
     expect(isDefaultValue('keyboard.edgeProfile', 'rounded')).toBe(false)
     expect(isDefaultValue('effects.enabled', true)).toBe(true)

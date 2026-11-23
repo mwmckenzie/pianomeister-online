@@ -4,32 +4,47 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 
 ## Milestone plan
 
-| #   | Milestone                                    | Contents                                                                                                                                                                                                                                                                                  | Status      |
-| --- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 0–3 | Setup, core, sound, engine                   | —                                                                                                                                                                                                                                                                                         | ✅ done     |
-| 4   | Library                                      | Library page, uploads, song details, backup, web app manifest                                                                                                                                                                                                                             | ✅ done     |
-| 5   | **Visual clarity**                           | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing) | ✅ done     |
-| 6   | **UI foundation**                            | Design system (tokens + Reka UI components), settings registry with reset to default everywhere; settings in two homes (playfield sidebar + settings window); Quiet player HUD with toolbar and timeline; song picker; restyled Library; animated menus (respect reduced motion)          | ✅ done     |
-| 7   | **Profiles, bookmarks, stats**               | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens; bookmark manager page; picker stats and sorting (plays, time, last played, bookmarks); "Full song" tracked as a bookmark                                                                            | ✅ done     |
-| 7.5 | **Shortcuts**                                | Settings → Shortcuts tab to rebind every command (press-to-record, conflict warnings, per-command reset, reset all), built on the command registry; later reused for MIDI pedal/foot-switch mapping in milestone 11                                                                       | ✅ done     |
-| 7.6 | **Now playing & play tracking**              | The HUD shows exactly what's playing (a matching bookmark, Full song, or the setup itself); plays count starts; song stats include other setups, so editing or deleting bookmarks never changes a song's totals                                                                           | ✅ done     |
-| 7.7 | **Welcome & stats** _(design session first)_ | Welcome start screen (greeting, pick up where you left off, highlights, at a glance, suggestions, quick actions); stats page (time ranges, drill-down, charts, records, CSV export)                                                                                                       | ✅ done     |
-| 8   | **Section overview & loop editor**           | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection                                                                                                                                                                                                     | ✅ done     |
-| 9   | **Visual polish**                            | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects                                                                                                                                                           | in progress |
-| 9.5 | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                       |             |
-| 10  | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                    |             |
-| 11  | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                               |             |
-| 12  | **Benchmark mode** _(spec first)_            | A built-in, repeatable performance test for any device (PC, laptop, iPad, desktop build): scripted songs and presets, frame/CPU/GPU timings, device info, results screen with export and local history                                                                                    |             |
+| #   | Milestone                                    | Contents                                                                                                                                                                                                                                                                                                    | Status  |
+| --- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 0–3 | Setup, core, sound, engine                   | —                                                                                                                                                                                                                                                                                                           | ✅ done |
+| 4   | Library                                      | Library page, uploads, song details, backup, web app manifest                                                                                                                                                                                                                                               | ✅ done |
+| 5   | **Visual clarity**                           | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing)                   | ✅ done |
+| 6   | **UI foundation**                            | Design system (tokens + Reka UI components), settings registry with reset to default everywhere; settings in two homes (playfield sidebar + settings window); Quiet player HUD with toolbar and timeline; song picker; restyled Library; animated menus (respect reduced motion)                            | ✅ done |
+| 7   | **Profiles, bookmarks, stats**               | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens; bookmark manager page; picker stats and sorting (plays, time, last played, bookmarks); "Full song" tracked as a bookmark                                                                                              | ✅ done |
+| 7.5 | **Shortcuts**                                | Settings → Shortcuts tab to rebind every command (press-to-record, conflict warnings, per-command reset, reset all), built on the command registry; later reused for MIDI pedal/foot-switch mapping in milestone 11                                                                                         | ✅ done |
+| 7.6 | **Now playing & play tracking**              | The HUD shows exactly what's playing (a matching bookmark, Full song, or the setup itself); plays count starts; song stats include other setups, so editing or deleting bookmarks never changes a song's totals                                                                                             | ✅ done |
+| 7.7 | **Welcome & stats** _(design session first)_ | Welcome start screen (greeting, pick up where you left off, highlights, at a glance, suggestions, quick actions); stats page (time ranges, drill-down, charts, records, CSV export)                                                                                                                         | ✅ done |
+| 8   | **Section overview & loop editor**           | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection                                                                                                                                                                                                                       | ✅ done |
+| 9   | **Visual polish**                            | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects                                                                                                                                                                             | ✅ done |
+| 9.1 | **Looks v2 & built-in looks**                | Looks cover the whole playfield sidebar (except device cost); rename, export, import, paste, backup; looks stored in Dexie; every slider range trimmed to what makes visual sense, log sliders; Note colours palettes; thirteen built-in looks (looks and defaults provisional until the tuning pass below) | ✅ done |
+| 9.2 | **Practice clarity** _(spec first)_          | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       |         |
+| 9.5 | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         |         |
+| 10  | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                                      |         |
+| 11  | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                                                 |         |
+| 12  | **Benchmark mode** _(spec first)_            | A built-in, repeatable performance test for any device (PC, laptop, iPad, desktop build): scripted songs and presets, frame/CPU/GPU timings, device info, results screen with export and local history                                                                                                      |         |
 
 ### Why this order
 
 - **Visual clarity first (5):** the main issue today is separation — notes, lanes and keys blend together. Everything in this milestone is engine + settings work on the keyboard and notes, and it affects every session. A sketch session tunes the defaults before building.
 - **UI foundation before profiles (6 → 7):** milestone 7 adds several new screens (profiles, bookmarks, stats). Building the design system and app shell first means those screens are built once, in the final style, instead of being restyled later.
 - **Loop editor after bookmarks (7 → 8):** an A–B selection and a bookmark are the same thing in different clothes; the overview is the natural place to create and edit them.
-- **Visual polish after the features settle (9):** post-processing and shader styles change how everything looks; doing them once the screens and scene are stable avoids re-tuning. Quality presets keep tablets smooth.
+- **Visual polish after the features settle (9, 9.1):** post-processing and shader styles change how everything looks; doing them once the screens and scene are stable avoids re-tuning. Quality presets keep tablets smooth.
+- **Practice clarity right after looks (9.2):** while practising, the loop ending is a surprise, lifted black notes read late on a tilted camera, and pressed white keys show the black keys' bottoms. It's highway and keyboard work on the freshly settled visuals, and its new settings join looks.
 - **Hand caging (10)** is exploratory and independent — it can move earlier if it becomes the priority.
 - **Tablet pass (11)**, with a quick iPad check at the end of every milestone so problems surface early.
 - **Benchmark mode last (12):** it measures the finished app on every device, so it comes after the tablet and performance pass.
+
+## Standalone items (not tied to a milestone)
+
+### Looks & defaults tuning pass _(done when there is time)_
+
+The built-in looks (milestone 9.1) and the playfield defaults (milestones 9 and 9.1) are provisional. In the app, each built-in look and the defaults are tuned by hand and sent as Copy-look JSON; Claude pins them (built-ins in `BUILT_IN_LOOKS`, defaults in the registry) with their tests and the all-looks sheet.
+
+Known items:
+
+- Fireworks: glare at the keys where the explosion rings start.
+- The very low "subtle" bloom (0.1) in Study and Night Focus.
+- Octave glow is brighter at the same value since the 9.1 line-glow fix.
 
 ## Backlog — idea details
 
@@ -127,6 +142,57 @@ Open questions for the design session: how much animation on Welcome, which high
 - Start with a design session: collect reference videos/screenshots of looks you like, sketch them, then pick 2–3 to implement as presets.
 - Architecture: a "visual style" setting that swaps shader/material variants without touching the render model.
 
+### 9.2 Practice clarity: loop visibility, black notes, keyboard, small fixes _(spec to be written when we reach it)_
+
+#### A. Loop visibility on the highway
+
+Problem: while practising, the loop ending and resetting is a surprise.
+
+- **Dim outside the loop:** while a loop is active, everything on the highway outside it (notes, lanes, lines and effects before the loop start and after the loop end) is dimmed by an overlay in the highway background colour.
+  - Settings: on/off and dim strength (adjustable transparency).
+  - They are part of looks.
+- **Loop boundary lines** run across the highway at the loop start and end (colour, width, glow), so the loop end is visible well before it arrives.
+- **To consider in the spec — "Show the loop's start after its end":** beyond the loop end, the highway shows the next repeat's notes instead of the song's continuation, so what you see is what you'll play next.
+
+#### B. Black notes back on the highway
+
+Problem: lifting black-key notes off the highway makes them look later than they are on a tilted camera (parallax), and more tilt makes it worse. Shadows don't fix it on dark, bloomed or low-resolution scenes.
+
+- **Draw order:** black notes sit on the highway again. Where they overlap white notes, they always draw above them, by explicit draw order, not by depth alone.
+  - A tiny world lift is kept only as a safety margin.
+  - No z-fighting at any distance.
+- **Lift setting removed:** the "black-key note lift" setting goes, and stored values and looks are migrated.
+- **Separate head heights:** "White note height" and "Black note height", with black taller than white by default.
+  - The front edge always starts on the highway, so timing is read where the note touches it.
+  - Range-test the maximum height at high tilt: heights where the top face dominates are out.
+- **Optional, off by default:** black-note sustains as a low raised ridge, the same shape as a 3D head (flat top, square ends) but lower.
+  - Keep the height range low: range-test the point where releases start to look late, and make that the maximum.
+- **Consider:** darker side faces on 3D black heads, so they read as solid blocks when shadows are lost.
+- **No change to sustain width:** black lanes are already narrower.
+
+#### C. Deeper black keys on the keyboard
+
+Problem: when a white key is pressed, the bottoms of the neighbouring black keys show.
+
+- **Depth:** black keys extend below the surface at least as deep as the white keys. Their bottoms never show: not with any white key pressed, not with the black key itself pressed, at any camera tilt in the allowed range.
+- **Shading:** the newly visible side faces use the black key's normal side shading, with no lighter or mismatched faces. Key light spill and pressed overlays still look right on them.
+- **Visual check:** a chord of white keys pressed next to black keys, at the lowest and highest tilt, at quality Off and High.
+
+#### D. Open on Home at the start of a new session
+
+- **When:** a new session starts, by the same rules the stats already use to decide one. That is not every refresh or refocus, only when those rules say a new session has begun.
+- **What:** the app switches to the Home/Welcome page, including on load, refresh and refocus.
+- **Setting:** Settings → Home/Welcome, "Open Home when a new session starts", on by default, with a reset like every setting.
+- **Never interrupts:**
+  - not while a song is playing;
+  - not while there's an unsaved draft or an open dialog, such as a bookmark draft. It then waits until the next new session.
+
+#### E. Change song / Library open on the current song
+
+- **Selection:** opening the Change song picker or the Library highlights and selects the current song and, if there is one, the current bookmark, and scrolls both into view, whatever sort order is active.
+- **Hidden by a filter:** if an active search or filter hides the current song, don't clear it silently. Show a small line, "Current song is hidden by the filter · Show", that clears the filter and reveals the song.
+- **Focus:** keyboard focus starts on the selected song, so list keys continue from there.
+
 ### 9.5 Playlist mode (design session first)
 
 Play full songs back-to-back as background music, with the piano and highway as a visualizer.
@@ -138,6 +204,8 @@ Play full songs back-to-back as background music, with the piano and highway as 
 - Full songs at 100% (tempo changeable for the session); no loops, pre-roll or count-in.
 - Listening is not practice and is not logged: no plays, practice time or listening stats.
 - Entry points: a Playlists tab next to Library | Bookmarks, and possibly a Welcome-screen tile (7.7).
+
+**Later idea — bookmarks can have a look** _(9.5 or later)_: a bookmark may name a look that's applied temporarily while practising that section (e.g. more look-ahead or a different tilt for a tricky passage), using the same temporary-look overlay as playlists. The overlay function stays pure and reusable for this.
 
 ### Hand caging _(milestone 10)_
 

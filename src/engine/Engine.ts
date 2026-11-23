@@ -1,5 +1,6 @@
 import { PerspectiveCamera, Scene } from 'three'
 
+import { notePaletteColors } from '@/core/color/notePaletteColors'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
@@ -34,6 +35,7 @@ import { applyNoteStyle, createNoteStyleUniforms, notesEmit } from './notes/note
 import { SustainLayer } from './notes/SustainLayer'
 import type { RenderInfo } from './RenderInfo'
 import { RenderPipeline } from './RenderPipeline'
+import { NoteColors } from './NoteColors'
 import { srgb } from './srgb'
 
 const FOV_DEG = 40
@@ -101,7 +103,11 @@ export class Engine {
   private readonly time = createTimeUniforms()
   private readonly noteStyle = createNoteStyleUniforms()
   private readonly atlas = new NoteLabelAtlas()
-  private readonly keyboard = new Keyboard(this.atlas.texture)
+  /** Note colours (the palette), shared by everything drawn in a note's colour. */
+  private readonly noteColors = new NoteColors()
+  /** The song whose baked colours match `noteColors`, and at which palette version. */
+  private recolored: { song: SongParts | null; version: number } = { song: null, version: -1 }
+  private readonly keyboard = new Keyboard(this.atlas.texture, this.noteColors)
   private readonly effects = new NowLineEffects(this.time, DEFAULT_SETTINGS.render.particleBudget)
   private song: SongParts | null = null
   private settings: PlayerSettings = DEFAULT_SETTINGS
@@ -111,6 +117,9 @@ export class Engine {
   private guides = false
   private reducedMotion = false
   private fixedAnimationTime: number | null = null
+  /** Capture mode (test seam): frames come only from captureStep(), on a synthetic clock. */
+  private capturing = false
+  private captureNow = 0
   /** The transport is playing (setPlaying); paused, the frame settles (brief decision 119). */
   private playing = false
   /** Playback resumed since the last frame: notes up to the paused position don't pulse. */
@@ -138,6 +147,7 @@ export class Engine {
   constructor() {
     this.scene.add(this.keyboard.group, this.effects.group)
     this.effects.setKeyTops(this.keyboard.keyBodies)
+    this.effects.recolor(this.noteColors)
     // Key labels fit their key by the names' widths, which change once the font has loaded.
     this.atlas.onDraw = () => this.keyboard.setGlyphWidths(this.atlas.glyphEms)
     this.keyboard.setGlyphWidths(this.atlas.glyphEms)
@@ -204,12 +214,24 @@ export class Engine {
       .beatTicksBetween(-PRE_SONG_BARS * barTicks, song.endTick + barTicks)
       .map((tick) => ({ tick, isBar: barMap.tickToPosition(tick).beat === 1 }))
     const sustains = {
-      white: new SustainLayer(white, this.time, this.noteStyle, ORDER.whiteSustains),
-      black: new SustainLayer(black, this.time, this.noteStyle, ORDER.blackSustains),
+      white: new SustainLayer(
+        white,
+        this.time,
+        this.noteStyle,
+        ORDER.whiteSustains,
+        this.noteColors,
+      ),
+      black: new SustainLayer(
+        black,
+        this.time,
+        this.noteStyle,
+        ORDER.blackSustains,
+        this.noteColors,
+      ),
     }
     const heads = {
-      white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads),
-      black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads),
+      white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads, this.noteColors),
+      black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads, this.noteColors),
     }
     this.song = {
       ppq: song.ppq,
@@ -272,11 +294,40 @@ export class Engine {
     this.invalidate()
   }
 
+  /**
+   * Note colours from the palette setting: what reads them per frame follows by itself; the held
+   * glow and the song's baked colours (notes, labels, the pitch now line) are rewritten once per
+   * change, and once for each new song.
+   */
+  private applyNoteColors(settings: PlayerSettings): void {
+    if (this.noteColors.set(notePaletteColors(settings.notes))) {
+      this.effects.recolor(this.noteColors)
+    }
+    const song = this.song
+    const { version } = this.noteColors
+    if (song === null || (this.recolored.song === song && this.recolored.version === version)) {
+      return
+    }
+    this.recolored = { song, version }
+    for (const layer of [
+      song.sustains.white,
+      song.sustains.black,
+      song.heads.white,
+      song.heads.black,
+    ]) {
+      layer.recolor()
+    }
+    song.names.white.recolor(this.noteColors)
+    song.names.black.recolor(this.noteColors)
+    song.highway.recolor(this.noteColors)
+  }
+
   applySettings(settings: PlayerSettings): void {
     this.settings = settings
     this.scene.background = srgb(settings.colors.background)
     applyNoteStyle(this.noteStyle, settings)
     this.atlas.draw(settings.names)
+    this.applyNoteColors(settings)
     this.effects.group.visible = settings.effects.enabled
     this.effects.setBudget(settings.render.particleBudget)
     const keyboardKey = JSON.stringify(settings.keyboard)
@@ -384,6 +435,56 @@ export class Engine {
     this.invalidate()
   }
 
+  /**
+   * Test seam (`?capture=1`, for the range contact sheets): stops the render loop for good and
+   * makes frames repeatable — spawns use a seeded random source and the animation clock starts
+   * at `loopTime`. Frames are then drawn only by captureStep().
+   */
+  startCapture(seed = 1, loopTime = 3): void {
+    cancelAnimationFrame(this.frame)
+    cancelAnimationFrame(this.pendingFrame)
+    this.pendingFrame = 0
+    this.capturing = true
+    this.frozen = true
+    this.fixedAnimationTime = null
+    this.loopClock = loopTime
+    this.captureNow = 100_000
+    this.lastFrameAt = null
+    let state = seed >>> 0
+    // mulberry32: small, fast and good enough for particle variation.
+    this.effects.setRandom(() => {
+      state = (state + 0x6d2b79f5) >>> 0
+      let t = state
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    })
+    this.effects.clear()
+    this.effects.resetParticleStats()
+    // The first captured frame is a jump: it fires no onsets crossed since the last real frame.
+    this.lastTick = null
+  }
+
+  /**
+   * Capture mode: draws one frame at song position `tick`, `dt` seconds after the previous
+   * one, as if playing (onsets crossed since the last step fire). The first step after
+   * startCapture() is a jump, so it fires nothing.
+   */
+  captureStep(tick: number, dt: number): void {
+    if (!this.capturing) return
+    const now = this.captureNow + dt * 1000
+    this.lastFrameAt = this.captureNow
+    this.captureNow = now
+    this.timeSource = () => tick
+    this.playing = true
+    this.draw(now)
+  }
+
+  /** Particle counts against the budget (capture mode's "where it hits the budget"). */
+  particleStats() {
+    return this.effects.particleStats()
+  }
+
   /** Debug review aid: marker lines at 1× and 1.5× look-ahead. */
   setGuides(visible: boolean): void {
     this.guides = visible
@@ -396,7 +497,7 @@ export class Engine {
    * and then only when invalidate() is called or its size, settings or song change.
    */
   setFrozen(frozen: boolean): void {
-    if (frozen === this.frozen) return
+    if (frozen === this.frozen || this.capturing) return
     this.frozen = frozen
     cancelAnimationFrame(this.frame)
     cancelAnimationFrame(this.pendingFrame)
@@ -410,6 +511,7 @@ export class Engine {
 
   /** While frozen, renders one more frame (e.g. after a seek); running, the loop already does. */
   invalidate(): void {
+    if (this.capturing) return
     if (!this.frozen || this.pipeline === null || this.pendingFrame !== 0) return
     this.pendingFrame = requestAnimationFrame((now) => {
       this.pendingFrame = 0

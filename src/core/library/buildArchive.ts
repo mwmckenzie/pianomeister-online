@@ -1,15 +1,17 @@
 import { strToU8, zipSync, type Zippable } from 'fflate'
 
+import type { LookFile } from '../looks/LookFile'
 import type { MeterOverride } from '../timing/MeterOverride'
 import type { LibraryDocument } from './LibraryDocument'
 import type { PracticeData } from './PracticeData'
 import type { SongMetaEdit } from './SongMetaEdit'
 
 export const LIBRARY_FORMAT = 'pianomeister-library'
-export const LIBRARY_VERSION = '1.2'
+export const LIBRARY_VERSION = '1.3'
 
 /**
- * Zips all uploads plus library.json (with the profiles' practice data from 1.1). MIDI is
+ * Zips all uploads plus library.json (with the profiles' practice data from 1.1 and the saved
+ * looks from 1.3). MIDI is
  * already compact, so files are stored, not deflated.
  */
 export function buildArchive(input: {
@@ -22,6 +24,7 @@ export function buildArchive(input: {
   readonly meta: ReadonlyMap<string, SongMetaEdit>
   readonly overrides: ReadonlyMap<string, MeterOverride>
   readonly practice: PracticeData
+  readonly looks: LookFile
   readonly exportedAt: Date
 }): Uint8Array {
   const files: Zippable = {}
@@ -39,6 +42,7 @@ export function buildArchive(input: {
     meta: Object.fromEntries(input.meta),
     meterOverrides: Object.fromEntries(input.overrides),
     practice: input.practice,
+    looks: input.looks,
   }
   files['library.json'] = strToU8(JSON.stringify(document, null, 2))
   return zipSync(files)

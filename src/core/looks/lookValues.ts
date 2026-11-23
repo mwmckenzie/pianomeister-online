@@ -1,55 +1,94 @@
+import type { DeviceClass } from '../settings/DeviceClass'
 import type { PlayerSettings } from '../settings/PlayerSettings'
 import { restoreValues, type SettingValues } from '../settings/settingGroups'
 import type { SettingKey } from '../settings/SettingKey'
-import { isDefaultValue, readSetting, settingDefinition } from '../settings/settingValues'
+import {
+  defaultValue,
+  isDefaultValue,
+  readSetting,
+  settingDefinition,
+} from '../settings/settingValues'
 import { BUILT_IN_LOOKS } from './BUILT_IN_LOOKS'
 import type { Look } from './Look'
 import { LOOK_KEYS } from './LOOK_KEYS'
 import type { LooksState } from './LooksState'
 
-/** The current appearance settings as a look (brief decision 121). */
-export function captureLook(settings: PlayerSettings, id: string, name: string): Look {
+/** The current playfield setup as a look (brief decision 121); never device cost. */
+export function captureLook(
+  settings: PlayerSettings,
+  id: string,
+  name: string,
+  now = new Date().toISOString(),
+  createdAt = now,
+): Look {
   return {
     id,
     name,
     builtIn: false,
+    createdAt,
+    updatedAt: now,
     values: Object.fromEntries(LOOK_KEYS.map((key) => [key, readSetting(settings, key)])),
   }
 }
 
-/** Settings with all of a look's values; `previous` holds what they replaced, for Undo. */
+/** A look's value for a key: its own, or the device's default when it has none. */
+export function lookValue(look: Look, key: SettingKey, device: DeviceClass = 'desktop'): unknown {
+  return key in look.values ? look.values[key] : defaultValue(key, device)
+}
+
+/**
+ * The settings a look gives on top of `base`: every look key set from the look (missing ones
+ * from the device's defaults), device cost kept from `base`. Pure — the user's settings are
+ * only written by whoever stores the result, so a playlist or a bookmark (milestone 9.5 and
+ * later) can use it as a temporary overlay.
+ */
+export function lookSettings(
+  base: PlayerSettings,
+  look: Look,
+  device: DeviceClass = 'desktop',
+): PlayerSettings {
+  return restoreValues(base, new Map(LOOK_KEYS.map((key) => [key, lookValue(look, key, device)])))
+}
+
+/** Settings with the look applied; `previous` holds what it replaced, for Undo. */
 export function applyLook(
   settings: PlayerSettings,
   look: Look,
+  device: DeviceClass = 'desktop',
 ): { readonly settings: PlayerSettings; readonly previous: SettingValues } {
   const previous = new Map<SettingKey, unknown>(
     LOOK_KEYS.map((key) => [key, readSetting(settings, key)]),
   )
-  const values = new Map<SettingKey, unknown>()
-  for (const key of LOOK_KEYS) {
-    if (key in look.values) values.set(key, look.values[key])
+  return { settings: lookSettings(settings, look, device), previous }
+}
+
+/** True when two values of a key count as the same (numbers within half a slider step). */
+export function sameSettingValue(key: SettingKey, a: unknown, b: unknown): boolean {
+  const def = settingDefinition(key)
+  if (def.kind === 'number') {
+    return typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < def.step / 2
   }
-  return { settings: restoreValues(settings, values), previous }
+  if (def.kind === 'color') return String(a).toUpperCase() === String(b).toUpperCase()
+  return a === b
 }
 
 /**
- * True when the settings no longer match the look ("⟨Look⟩ · modified"). Numbers within half
- * a slider step match, as for "changed from default".
+ * True when the settings no longer match the look ("⟨Look⟩ · modified"), comparing every look
+ * key the way the look applies it (missing keys as the device's defaults).
  */
-export function isLookModified(settings: PlayerSettings, look: Look): boolean {
-  return LOOK_KEYS.some((key) => {
-    const value = readSetting(settings, key)
-    const target = look.values[key]
-    if (target === undefined) return false
-    const def = settingDefinition(key)
-    if (def.kind === 'number') {
-      return typeof value !== 'number' || Math.abs(value - (target as number)) >= def.step / 2
-    }
-    if (def.kind === 'color') {
-      return String(value).toUpperCase() !== String(target).toUpperCase()
-    }
-    return value !== target
-  })
+export function isLookModified(
+  settings: PlayerSettings,
+  look: Look,
+  device: DeviceClass = 'desktop',
+): boolean {
+  return LOOK_KEYS.some(
+    (key) => !sameSettingValue(key, readSetting(settings, key), lookValue(look, key, device)),
+  )
+}
+
+/** True when two looks give the same picture (names, ids and dates aside). */
+export function sameLookValues(a: Look, b: Look): boolean {
+  return LOOK_KEYS.every((key) => sameSettingValue(key, lookValue(a, key), lookValue(b, key)))
 }
 
 /** Every look the picker offers: built-in first, then saved ones in the order saved. */
@@ -63,8 +102,8 @@ export function activeLook(state: LooksState): Look | null {
 }
 
 /** True when every look setting is at its default (nothing to call "modified" yet). */
-export function isDefaultLook(settings: PlayerSettings): boolean {
-  return LOOK_KEYS.every((key) => isDefaultValue(key, readSetting(settings, key)))
+export function isDefaultLook(settings: PlayerSettings, device: DeviceClass = 'desktop'): boolean {
+  return LOOK_KEYS.every((key) => isDefaultValue(key, readSetting(settings, key), device))
 }
 
 /** A look name not used yet: "My look", "My look 2", … */

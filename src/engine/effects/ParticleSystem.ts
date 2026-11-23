@@ -130,6 +130,12 @@ export class ParticleSystem {
   private color!: InstancedBufferAttribute
   private kind!: InstancedBufferAttribute
   private readonly clearTime = { value: -1e9 }
+  /** When each slot's particle ends (uTime seconds), to count particles cut short. */
+  private expiry: Float32Array
+  /** Live particles whose slot a new one took before they ended (the budget truncating). */
+  private evicted = 0
+  /** Random source for each particle's own variation; seeded in capture mode for tests. */
+  random: () => number = Math.random
 
   constructor(
     capacity: number,
@@ -137,6 +143,7 @@ export class ParticleSystem {
     private readonly smoke: boolean,
   ) {
     this.ring = new ParticleRing(capacity)
+    this.expiry = new Float32Array(capacity)
     const kindA = Object.values(PARTICLE_KINDS).map(
       (k) => new Vector4(k.gravity, k.drag, k.sizeEnd, k.stretch),
     )
@@ -175,6 +182,7 @@ export class ParticleSystem {
   setCapacity(capacity: number): void {
     if (capacity === this.ring.capacity) return
     this.ring = new ParticleRing(capacity)
+    this.expiry = new Float32Array(capacity)
     const old = this.mesh.geometry
     this.mesh.geometry = this.buildGeometry(capacity)
     old.dispose()
@@ -191,7 +199,9 @@ export class ParticleSystem {
         this.start.setXYZW(slot, e.x + s.dx, e.y + s.dy, e.z + s.dz, now)
         this.velocity.setXYZW(slot, s.vx, s.vy, s.vz, s.life)
         this.color.setXYZW(slot, e.color.r, e.color.g, e.color.b, s.size)
-        this.kind.setXY(slot, KIND_INDEX[s.kind], Math.random())
+        this.kind.setXY(slot, KIND_INDEX[s.kind], this.random())
+        if ((this.expiry[slot] as number) > now) this.evicted++
+        this.expiry[slot] = now + s.life
       }
       for (const attribute of [this.start, this.velocity, this.color, this.kind]) {
         attribute.addUpdateRange(range.start * attribute.itemSize, range.count * attribute.itemSize)
@@ -203,6 +213,19 @@ export class ParticleSystem {
   /** Hides every live particle (seek, song change) without touching the buffers. */
   clear(): void {
     this.clearTime.value = this.time.uTime.value + 1e-4
+    this.expiry.fill(0)
+  }
+
+  /** Live particles now, the pool's size, and how many were cut short since the last reset. */
+  stats(): { readonly live: number; readonly capacity: number; readonly evicted: number } {
+    const now = this.time.uTime.value
+    let live = 0
+    for (const end of this.expiry) if (end > now) live++
+    return { live, capacity: this.ring.capacity, evicted: this.evicted }
+  }
+
+  resetStats(): void {
+    this.evicted = 0
   }
 
   dispose(): void {

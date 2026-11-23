@@ -27,9 +27,10 @@ const MIX_SHADER = {
     void main() {
       vec3 color = texture2D(tDiffuse, vUv).rgb;
       color += uBloom * texture2D(tBloom, vUv).rgb;
-      // Elliptical falloff towards the corners, over the outer part of the screen only.
+      // Elliptical falloff towards the corners: full strength there, most of it along the sides,
+      // so the slider's top end darkens the frame's edges rather than only its corners.
       vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0) / max(uAspect, 1.0) * 2.0;
-      float v = smoothstep(0.55, 1.45, length(p));
+      float v = smoothstep(0.35, 1.15, length(p));
       color *= 1.0 - uVignette * v;
       gl_FragColor = vec4(color, 1.0);
     }

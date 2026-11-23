@@ -7,6 +7,12 @@ import { buildArchive } from './buildArchive'
 import { planImport } from './planImport'
 import { readArchive } from './readArchive'
 
+const LOOKS = {
+  format: 'pianomeister-look',
+  version: 8,
+  looks: [{ id: 'l1', name: 'Synth', createdAt: '2026-11-22T10:00:00.000Z', settings: {} }],
+} as const
+
 const override = { timeSignature: { numerator: 3, denominator: 4 }, barOneStartTick: 240 }
 
 const archive = () =>
@@ -21,6 +27,7 @@ const archive = () =>
     ]),
     overrides: new Map([['u1', override]]),
     practice: makePracticeData({ bookmarks: 2 }),
+    looks: LOOKS,
     exportedAt: new Date('2026-11-16T10:00:00Z'),
   })
 
@@ -29,7 +36,8 @@ const zipWith = (json: unknown) => zipSync({ 'library.json': strToU8(JSON.string
 describe('library archive', () => {
   it('round-trips uploads, metadata and meter overrides', () => {
     const { document, uploads } = readArchive(archive())
-    expect(document.version).toBe('1.2')
+    expect(document.version).toBe('1.3')
+    expect(document.looks).toEqual(LOOKS)
     expect(document.exportedAt).toBe('2026-11-16T10:00:00.000Z')
     // Same file name twice (case-insensitively): the second gets a suffix.
     expect(document.uploads.map((u) => u.path)).toEqual(['uploads/song.mid', 'uploads/Song-2.mid'])

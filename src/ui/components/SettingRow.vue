@@ -54,6 +54,10 @@ onBeforeUnmount(() => section?.forget(row))
 const hint = computed(() =>
   reason.value !== null && section?.shared.value.includes(reason.value) ? null : reason.value,
 )
+/** What limits an enabled control (e.g. "Limited by Size at loudest"); never while disabled. */
+const limit = computed(() =>
+  enabled.value ? (def.value.limitHint?.(store.settings) ?? null) : null,
+)
 const value = computed(() =>
   props.override === undefined ? store.get(props.settingKey) : props.override.value,
 )
@@ -113,6 +117,7 @@ function reset(): void {
         :min="number.def.min"
         :max="number.max"
         :step="number.def.step"
+        :scale="number.def.scale"
         :label="def.label"
         :value-text="number.text"
         :inverted="inverted"
@@ -122,6 +127,7 @@ function reset(): void {
         @update:model-value="set"
       />
       <p v-if="hint" class="hint" :data-testid="`${testid}-hint`">{{ hint }}</p>
+      <p v-else-if="limit" class="hint" :data-testid="`${testid}-limit`">{{ limit }}</p>
     </template>
 
     <div v-else class="inline">

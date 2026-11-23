@@ -1,6 +1,5 @@
-import { type Color, Group } from 'three'
+import { Group } from 'three'
 
-import { PITCH_CLASS_COLORS } from '@/core/pitchClassColors'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
 import type { GlowTwin } from '../GlowTwin'
@@ -16,8 +15,8 @@ import {
   SUSTAIN_RATE,
   sustainSpawn,
 } from '../model/particleSpawns'
-import { srgb } from '../srgb'
 import type { TimeUniforms } from '../TimeUniforms'
+import { NoteColors } from '../NoteColors'
 import { HeldGlow } from './HeldGlow'
 import { type Emission, ParticleSystem } from './ParticleSystem'
 
@@ -30,8 +29,6 @@ const ONSET_EFFECTS: readonly OnsetEffect[] = [
   'explosion',
   'glitter',
 ]
-
-const PALETTE: readonly Color[] = PITCH_CLASS_COLORS.map((c) => srgb(c.hex))
 
 /** Smoke blends differently, so it has its own, smaller pool. */
 const SMOKE_SHARE = 0.25
@@ -54,9 +51,13 @@ export class NowLineEffects {
   private readonly particles: ParticleSystem
   private readonly smoke: ParticleSystem
   private readonly held = new HeldGlow()
+  /** Note colours of particles and the held glow (the engine's shared palette). */
+  private noteColors = new NoteColors()
   private readonly keyTop = new Float32Array(88)
   /** Fractional particles owed to each held key (sustain spawning at a rate). */
   private readonly owed = new Float32Array(88)
+  /** Random source for spawns; seeded in capture mode so test captures repeat exactly. */
+  private random: () => number = Math.random
 
   constructor(time: TimeUniforms, budget: number) {
     this.particles = new ParticleSystem(budget, time, false)
@@ -99,7 +100,7 @@ export class NowLineEffects {
           key.width,
           knobs(effects, effect),
           scale,
-          Math.random,
+          this.random,
         )) {
           out.push({ ...at, spawn })
         }
@@ -144,7 +145,7 @@ export class NowLineEffects {
       const scale = scaleOf(state.velocity)
       const at = this.emissionPoint(i, key.x + key.width / 2, key.midi)
       while (owed >= 1) {
-        out.push({ ...at, spawn: sustainSpawn(sustain, key.width, k, scale, Math.random) })
+        out.push({ ...at, spawn: sustainSpawn(sustain, key.width, k, scale, this.random) })
         owed -= 1
       }
       this.owed[i] = owed
@@ -158,11 +159,34 @@ export class NowLineEffects {
     return this.particles.twin === null ? [] : [this.particles.twin]
   }
 
+  /** Test seam: one random source for every spawn (capture mode seeds it). */
+  setRandom(random: () => number): void {
+    this.random = random
+    this.particles.random = random
+    this.smoke.random = random
+  }
+
+  /** Both pools' particle counts (capture mode's budget check). */
+  particleStats() {
+    return { particles: this.particles.stats(), smoke: this.smoke.stats() }
+  }
+
+  resetParticleStats(): void {
+    this.particles.resetStats()
+    this.smoke.resetStats()
+  }
+
   clear(): void {
     this.particles.clear()
     this.smoke.clear()
     this.held.clear()
     this.owed.fill(0)
+  }
+
+  /** Uses the shared note colours: new particles take them; the held glow is recoloured. */
+  recolor(colors: NoteColors): void {
+    this.noteColors = colors
+    this.held.recolor(colors)
   }
 
   dispose(): void {
@@ -176,7 +200,7 @@ export class NowLineEffects {
       x,
       y: this.keyTop[index] as number,
       z: -KEYBOARD.whiteLength,
-      color: PALETTE[midi % 12] as Color,
+      color: this.noteColors.at(midi % 12),
     }
   }
 }

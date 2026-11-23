@@ -1,9 +1,11 @@
 <script setup lang="ts" generic="V extends string">
+import { computed } from 'vue'
 import {
   SelectContent,
   SelectItem,
   SelectItemIndicator,
   SelectItemText,
+  SelectLabel,
   SelectPortal,
   SelectRoot,
   SelectTrigger,
@@ -13,14 +15,28 @@ import {
 
 import AppIcon from './AppIcon.vue'
 
-/** A drop-down select (Reka Select) in the glass style. */
+/**
+ * A drop-down select (Reka Select) in the glass style. An option with a `group` starts a
+ * labelled group there when its group differs from the option before.
+ */
 defineOptions({ inheritAttrs: false })
-defineProps<{
+const props = defineProps<{
   readonly modelValue: V
-  readonly options: readonly { readonly value: V; readonly label: string }[]
+  readonly options: readonly {
+    readonly value: V
+    readonly label: string
+    readonly group?: string
+  }[]
   readonly label: string
   readonly disabled?: boolean
 }>()
+/**
+ * The chosen option's label, rendered here rather than left to Reka, which keeps the text it
+ * saw when the value was chosen: a renamed option (a look) would show its old name.
+ */
+const selectedLabel = computed(
+  () => props.options.find((option) => option.value === props.modelValue)?.label ?? '',
+)
 const emit = defineEmits<{ 'update:modelValue': [value: V] }>()
 
 function update(value: unknown): void {
@@ -31,7 +47,7 @@ function update(value: unknown): void {
 <template>
   <SelectRoot :model-value="modelValue" :disabled="disabled" @update:model-value="update">
     <SelectTrigger class="select-trigger" :aria-label="label" v-bind="$attrs">
-      <SelectValue />
+      <SelectValue>{{ selectedLabel }}</SelectValue>
       <AppIcon name="chevronDown" :size="18" />
     </SelectTrigger>
     <SelectPortal>
@@ -42,17 +58,20 @@ function update(value: unknown): void {
         :collision-padding="12"
       >
         <SelectViewport class="select-viewport">
-          <SelectItem
-            v-for="option in options"
-            :key="option.value"
-            :value="option.value"
-            class="select-item"
-          >
-            <SelectItemText>{{ option.label }}</SelectItemText>
-            <SelectItemIndicator class="select-check">
-              <AppIcon name="check" :size="16" />
-            </SelectItemIndicator>
-          </SelectItem>
+          <template v-for="(option, i) in options" :key="option.value">
+            <SelectLabel
+              v-if="option.group !== undefined && option.group !== options[i - 1]?.group"
+              class="select-group section-caps"
+            >
+              {{ option.group }}
+            </SelectLabel>
+            <SelectItem :value="option.value" class="select-item">
+              <SelectItemText>{{ option.label }}</SelectItemText>
+              <SelectItemIndicator class="select-check">
+                <AppIcon name="check" :size="16" />
+              </SelectItemIndicator>
+            </SelectItem>
+          </template>
         </SelectViewport>
       </SelectContent>
     </SelectPortal>
@@ -118,6 +137,11 @@ function update(value: unknown): void {
 
 .select-item[data-highlighted] {
   background: var(--selection);
+}
+
+.select-group {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  color: var(--text-2);
 }
 
 .select-check {

@@ -190,7 +190,7 @@ test('section reset applies at once with Undo; a newer reset replaces the Undo',
   await page.getByRole('button', { name: 'Reset keyboard to grand piano' }).click()
   await expect(page.getByTestId('toast-undo')).toHaveCount(1)
   await page.getByTestId('toast-undo').click()
-  await expect(shownValue(page, 'keyboard.gap')).toHaveText('1.6 mm')
+  await expect(shownValue(page, 'keyboard.gap')).toHaveText('1.9 mm')
   await openSidebarSection(page, 'camera')
   await expect(shownValue(page, 'camera.tiltDeg')).toHaveText('45°')
   expect(errors).toEqual([])
@@ -207,7 +207,7 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   await segment(page, 'render.antialias', 'SMAA')
   await openSidebarSection(page, 'keyboard')
   await segment(page, 'keyboard.edgeProfile', 'Rounded')
-  await nudge(page, 'keyboard.gap', 'ArrowRight', 12)
+  await nudge(page, 'keyboard.gap', 'ArrowRight', 6)
   await openSidebarSection(page, 'notes')
   await segment(page, 'notes.blackLiftMode', 'Manual')
   await nudge(page, 'notes.blackLift', 'Home')
@@ -292,13 +292,12 @@ test('keyboard limits: lowering the black keys clamps their press depth, and it 
   await expect(height).toHaveAttribute('aria-valuemax', '0.6')
   await nudge(page, 'keyboard.blackHeight', 'End')
   await expect(height).toHaveAttribute('aria-valuenow', '0.6')
+  // The limit (0.52) is off the 0.05 grid: End lands on the last step under it.
   await nudge(page, 'keyboard.pressDepthBlack', 'End')
-  await expect(depth).toHaveAttribute('aria-valuenow', '0.52')
+  await expect(depth).toHaveAttribute('aria-valuenow', '0.5')
   // Lower the black keys to 0.25: a pressed key must stay 0.08 above the white tops.
-  // Page steps (0.1) then a few arrows: few key presses, so the CI preview stays well inside
-  // the 30 s budget. Going via Home would clamp the depth to 0 on the way.
-  await nudge(page, 'keyboard.blackHeight', 'PageDown', 3)
-  await nudge(page, 'keyboard.blackHeight', 'ArrowLeft', 5)
+  // Seven 0.05 steps (going via Home would clamp the depth to 0 on the way).
+  await nudge(page, 'keyboard.blackHeight', 'ArrowLeft', 7)
   await expect(height).toHaveAttribute('aria-valuenow', '0.25')
   await expect(depth).toHaveAttribute('aria-valuenow', '0.17')
   await expect(depth).toHaveAttribute('aria-valuemax', '0.17')

@@ -39,8 +39,8 @@ describe('pressedKeyTop', () => {
     const pose = pressedKeyTop(b, 1)
     const backDrop = b.top - pose.backY
     const frontDrop = b.top - pose.frontY
-    // Pivot at twice the visible length: the back drops 2/3 as far as the front.
-    expect(backDrop / frontDrop).toBeCloseTo(2 / 3, 6)
+    // Pivot at about twice the visible length: the back drops about 2/3 as far as the front.
+    expect(backDrop / frontDrop).toBeCloseTo(2 / 3, 2)
     const tiltDeg = (Math.atan((frontDrop - backDrop) / b.length) * 180) / Math.PI
     expect(tiltDeg).toBeLessThan(2)
     // The back stays on the play line: it moves away from the player by a hair, never forward.

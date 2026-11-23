@@ -153,8 +153,8 @@ describe('loadSettings', () => {
       pressDepthBlack: 0.3,
       pivotOffsetWhite: 0,
     })
-    // Twice the black key's visible length (63% of 150 mm) behind it.
-    expect(DEFAULT_SETTINGS.keyboard.pivotOffsetBlack).toBeCloseTo((2 * 0.63 * 150) / 23.5, 12)
+    // About twice the black key's visible length (63% of 150 mm) behind it, on the 0.5 step.
+    expect(DEFAULT_SETTINGS.keyboard.pivotOffsetBlack).toBe(8)
     expect(DEFAULT_SETTINGS.keyboard.blackHeight).toBeCloseTo(12 / 23.5, 10)
     expect(DEFAULT_SETTINGS.notes.blackLift).toBeCloseTo(12 / 23.5, 10)
     expect(DEFAULT_SETTINGS.notes).toMatchObject({
@@ -294,11 +294,15 @@ describe('loadSettings', () => {
     expect(loadDeviceClass(null, 'desktop')).toBe('desktop')
   })
 
-  it('round-trips saved looks', () => {
+  it('round-trips the picked look and looks still waiting to move to the database', () => {
     const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Neon night')
     const state = { active: 'look-1', saved: [look] }
     const raw = JSON.parse(JSON.stringify(storedSettings(DEFAULT_SETTINGS, {}, state)))
-    expect(loadLooks(raw)).toEqual(state)
+    const loaded = loadLooks(raw)
+    expect(loaded.active).toBe('look-1')
+    expect(loaded.saved.map(({ id, name, values }) => ({ id, name, values }))).toEqual([
+      { id: look.id, name: look.name, values: look.values },
+    ])
     expect(loadLooks({ ...raw, version: SETTINGS_VERSION + 1 })).toEqual(EMPTY_LOOKS)
   })
 
