@@ -298,6 +298,17 @@ test('@visual practice clarity: nearer white heads cover farther black heads', a
       cells.push({ label: `${tilt}° · ${label}`, png: pngs[0] as Buffer })
     }
   }
+  // Labels are drawn last, over everything: A♯3's label sits just behind the A3 and B3 heads.
+  for (const tilt of [25, 35]) {
+    const { pngs } = await captureWith(
+      page,
+      { camera: { tiltDeg: tilt }, notes: { palette: 'twoTone' }, names: { mode: 'notes' } },
+      1,
+      [0.9],
+      occlusionCrop(tilt),
+    )
+    cells.push({ label: `${tilt}° · note names on`, png: pngs[0] as Buffer })
+  }
   await writeSheet(
     browser,
     `${OUT}/occlusion${TAG}.png`,
@@ -306,5 +317,5 @@ test('@visual practice clarity: nearer white heads cover farther black heads', a
     4,
     480,
   )
-  expect(cells).toHaveLength(8)
+  expect(cells).toHaveLength(10)
 })
