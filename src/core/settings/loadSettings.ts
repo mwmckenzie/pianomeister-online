@@ -12,7 +12,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 8
+export const SETTINGS_VERSION = 9
 
 /** The first version that stored shortcut overrides (brief decision 88). */
 const SHORTCUTS_SINCE = 5
@@ -108,6 +108,16 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
         sustainFill: renamed(noteStyle.sustainFill),
       },
       pedal: { ...pedal, fill: renamed(pedal.fill) },
+    }
+  },
+  // v9 (milestone 9.2): black-lane notes sit on the highway again, so the black lift and its
+  // mode go; the one head height becomes the white note height (black gets its own, new).
+  8: (settings) => {
+    if (!isRecord(settings.notes)) return settings
+    const { blackLiftMode: _mode, blackLift: _lift, headHeight, ...notes } = settings.notes
+    return {
+      ...settings,
+      notes: { ...notes, ...(headHeight !== undefined ? { whiteHeadHeight: headHeight } : {}) },
     }
   },
 }

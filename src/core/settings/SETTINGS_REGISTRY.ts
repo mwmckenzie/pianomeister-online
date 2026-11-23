@@ -466,27 +466,30 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       visible: (s) => s.notes.palette === 'twoTone',
     },
     'notes.heads3d': bool('3D note heads', true, sidebar('notes')),
-    'notes.headHeight': {
-      ...num('Head height', 0.35, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
+    'notes.whiteHeadHeight': {
+      ...num('White note height', 0.35, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
+      visible: (s) => s.notes.heads3d,
+    },
+    'notes.blackHeadHeight': {
+      ...num('Black note height', 0.5, sidebar('notes'), [0.1, 0.8, 0.05], 'mm'),
       visible: (s) => s.notes.heads3d,
     },
     'notes.headRounded': {
       ...bool('Rounded head edges', true, sidebar('notes')),
       visible: (s) => s.notes.heads3d,
     },
-    'notes.blackLiftMode': {
-      kind: 'choice',
-      label: 'Black-lane notes',
-      default: 'keys',
-      home: sidebar('notes'),
-      options: [
-        { value: 'keys', label: 'At key height' },
-        { value: 'manual', label: 'Manual' },
-      ],
+    'notes.blackSideShading': {
+      ...num('Black side shading', 0.4, sidebar('notes'), [0, 1, 0.05]),
+      ...percent,
+      visible: (s) => s.notes.heads3d,
     },
-    'notes.blackLift': {
-      ...num('Lift', GRAND_BLACK_HEIGHT, sidebar('notes'), [0, 0.8, 0.01], 'mm'),
-      visible: (s) => s.notes.blackLiftMode === 'manual',
+    'notes.blackRidge': {
+      ...bool('Raised black sustains', false, sidebar('notes')),
+      visible: (s) => s.notes.heads3d,
+    },
+    'notes.blackRidgeHeight': {
+      ...num('Ridge height', 0.08, sidebar('notes'), [0.02, 0.2, 0.01], 'mm'),
+      visible: (s) => s.notes.heads3d && s.notes.blackRidge,
     },
     'notes.contactShadow': bool('Shadow under black-lane notes', true, sidebar('notes')),
     'notes.shadowStrength': {

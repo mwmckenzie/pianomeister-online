@@ -77,11 +77,15 @@ export interface PlayerSettings {
     readonly sustainEdgeTransparency: number
     /** Heads as raised blocks instead of flat strips. */
     readonly heads3d: boolean
-    readonly headHeight: number
+    /** 3D head heights; both heads start on the highway (milestone 9.2). */
+    readonly whiteHeadHeight: number
+    readonly blackHeadHeight: number
     readonly headRounded: boolean
-    /** 'keys' = lift black-lane notes to the black key tops; 'manual' = use blackLift. */
-    readonly blackLiftMode: 'keys' | 'manual'
-    readonly blackLift: number
+    /** How much darker the side faces of black-lane 3D heads are than their tops (0–1). */
+    readonly blackSideShading: number
+    /** Black-lane sustains as a low raised ridge (3D heads only). */
+    readonly blackRidge: boolean
+    readonly blackRidgeHeight: number
     readonly contactShadow: boolean
     readonly shadowStrength: number
   }

@@ -10,7 +10,6 @@ import { NowLineEffects } from './effects/NowLineEffects'
 import type { EngineSong } from './EngineSong'
 import { Highway } from './Highway'
 import { Keyboard } from './Keyboard'
-import { blackLaneLift } from './model/blackLaneLift'
 import type { CameraPlacement } from './model/CameraPlacement'
 import { cameraFit } from './model/cameraFit'
 import { KeyStates } from './model/KeyStates'
@@ -46,6 +45,8 @@ const STATS_WINDOW = 120
 const PRE_SONG_BARS = 4
 /** White-lane notes sit just above the highway surface and its lines. */
 const WHITE_LANE_Y = 0.01
+/** Black-lane notes: on the highway too, a hair above the white ones (a safety margin only). */
+const BLACK_LANE_Y = WHITE_LANE_Y + 0.002
 /** "Paused for ages": with a pinned animation clock, paused frames show every pulse settled. */
 const SETTLED_SECONDS = 1e3
 
@@ -60,6 +61,7 @@ const ORDER = {
   whiteHeads: 3.1,
   shadow: 3.5,
   blackSustains: 3.6,
+  blackRidges: 3.65,
   blackHeads: 3.7,
   whiteNames: 3.15,
   blackNames: 3.75,
@@ -77,6 +79,8 @@ interface SongParts {
   readonly pedals: CageLayer
   readonly sustains: { readonly white: SustainLayer; readonly black: SustainLayer }
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
+  /** Raised black-lane sustains (milestone 9.2), shown instead of the flat ones when on. */
+  readonly ridges: HeadLayer
   readonly shadow: ContactShadow
   readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
   /** The notes in the stencil buffer, so cages never draw under them. */
@@ -116,6 +120,11 @@ export class Engine {
   private timeSource: () => number = () => 0
   private guides = false
   private reducedMotion = false
+  /**
+   * Raised black sustains with opaque sides under a translucent top, instead of one alpha on
+   * every face: a review seam (?ridgeSides=solid) until one is picked (milestone 9.2).
+   */
+  private ridgeSolidSides = false
   private fixedAnimationTime: number | null = null
   /** Capture mode (test seam): frames come only from captureStep(), on a synthetic clock. */
   private capturing = false
@@ -233,6 +242,14 @@ export class Engine {
       white: new HeadLayer(white, this.time, this.noteStyle, ORDER.whiteHeads, this.noteColors),
       black: new HeadLayer(black, this.time, this.noteStyle, ORDER.blackHeads, this.noteColors),
     }
+    const ridges = new HeadLayer(
+      black,
+      this.time,
+      this.noteStyle,
+      ORDER.blackRidges,
+      this.noteColors,
+      true,
+    )
     this.song = {
       ppq: song.ppq,
       highway: new Highway(beats, this.time),
@@ -250,7 +267,8 @@ export class Engine {
       ),
       sustains,
       heads,
-      masks: [sustains.white, sustains.black, heads.white, heads.black].map(
+      ridges,
+      masks: [sustains.white, sustains.black, ridges, heads.white, heads.black].map(
         (layer) => new NoteMask(layer.mesh, ORDER.noteMasks),
       ),
       shadow: new ContactShadow(black, this.time, ORDER.shadow),
@@ -283,6 +301,7 @@ export class Engine {
       s.heads.white.mesh,
       s.shadow.mesh,
       s.sustains.black.mesh,
+      s.ridges.mesh,
       s.heads.black.mesh,
       s.names.white.mesh,
       s.names.black.mesh,
@@ -314,6 +333,7 @@ export class Engine {
       song.sustains.black,
       song.heads.white,
       song.heads.black,
+      song.ridges,
     ]) {
       layer.recolor()
     }
@@ -340,7 +360,6 @@ export class Engine {
     const song = this.song
     if (song !== null) {
       const { notes } = settings
-      const lift = blackLaneLift(notes, settings.keyboard)
       song.highway.applySettings(settings)
       const { pedal, appearance } = settings
       song.pedals.mesh.visible = pedal.show
@@ -366,31 +385,41 @@ export class Engine {
       })
       const emit = notesEmit(settings)
       for (const layer of [song.sustains.white, song.sustains.black]) layer.twin.enabled = emit
-      // Floating below the white heads' tops, black-lane notes would intersect them: draw them on
-      // top instead, so black-lane notes always win (brief decision 39).
-      const onTop = lift < WHITE_LANE_Y + (notes.heads3d ? notes.headHeight : 0.01)
+      // Black-lane notes sit on the highway like the white ones (milestone 9.2: a lift made them
+      // read late on a tilted camera). Where they overlap white notes they always win by draw
+      // order: drawn after them, on top, not depth-tested against them; the tiny lift is only a
+      // safety margin. Within the black lane far-to-near order keeps nearer notes in front.
+      const ridgesOn = notes.heads3d && notes.blackRidge
       for (const [layer, y, top] of [
         [song.sustains.white, WHITE_LANE_Y, false],
-        [song.sustains.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
+        [song.sustains.black, BLACK_LANE_Y, true],
       ] as const) {
         layer.setLift(y, top)
         layer.setFlatHeads(!notes.heads3d)
         layer.setSustainTransparency(notes.sustainCenterTransparency, notes.sustainEdgeTransparency)
       }
-      for (const [layer, y, top] of [
-        [song.heads.white, WHITE_LANE_Y, false],
-        [song.heads.black, Math.max(lift, WHITE_LANE_Y), onTop],
+      song.sustains.black.mesh.visible = !ridgesOn
+      const heights = { white: notes.whiteHeadHeight, black: notes.blackHeadHeight }
+      for (const [layer, y, top, height, sideShading] of [
+        [song.heads.white, WHITE_LANE_Y, false, heights.white, 0],
+        [song.heads.black, BLACK_LANE_Y, true, heights.black, notes.blackSideShading],
       ] as const) {
         layer.mesh.visible = notes.heads3d
         layer.setLift(y, top)
-        layer.setShape(notes.headHeight, notes.headRounded)
+        layer.setShape(height, notes.headRounded)
+        layer.setSideShading(sideShading)
       }
-      song.shadow.set(notes.contactShadow, notes.shadowStrength, lift)
+      song.ridges.mesh.visible = ridgesOn
+      song.ridges.setLift(BLACK_LANE_Y, true)
+      song.ridges.setShape(notes.blackRidgeHeight, false)
+      song.ridges.setSideShading(notes.blackSideShading)
+      song.ridges.setRidgeOpacity(1 - notes.sustainCenterTransparency, this.ridgeSolidSides)
+      // The shadow falls from the black heads' height, as from a block standing on the highway.
+      song.shadow.set(notes.contactShadow, notes.shadowStrength, notes.heads3d ? heights.black : 0)
       const namesOnNotes = settings.names.mode === 'notes' || settings.names.mode === 'both'
-      const headTop = notes.heads3d ? notes.headHeight : 0
-      for (const [layer, y, top] of [
-        [song.names.white, WHITE_LANE_Y, false],
-        [song.names.black, Math.max(lift, WHITE_LANE_Y + 0.005), onTop],
+      for (const [layer, y, top, headTop] of [
+        [song.names.white, WHITE_LANE_Y, false, notes.heads3d ? heights.white : 0],
+        [song.names.black, BLACK_LANE_Y + 0.003, true, notes.heads3d ? heights.black : 0],
       ] as const) {
         layer.mesh.visible = namesOnNotes
         layer.setLift(y, top)
@@ -430,6 +459,12 @@ export class Engine {
    * Test seam for the visual shots: pins the animation clock (seconds) so flicker, noise and
    * breathing render the same frame every run; null follows the frame timestamps again.
    */
+  /** Review seam (?ridgeSides=solid): see ridgeSolidSides. */
+  setRidgeSolidSides(solid: boolean): void {
+    this.ridgeSolidSides = solid
+    this.applySettings(this.settings)
+  }
+
   setFixedAnimationTime(seconds: number | null): void {
     this.fixedAnimationTime = seconds
     this.invalidate()
@@ -699,7 +734,8 @@ export class Engine {
       names.fadeLength,
       names.repeats,
       this.settings.notes.heads3d,
-      this.settings.notes.headHeight,
+      this.settings.notes.whiteHeadHeight,
+      this.settings.notes.blackHeadHeight,
     ])
     // Skipping a frame number makes every label new.
     this.labelFrame += jumped || layoutKey !== this.labelLayoutKey ? 2 : 1
@@ -790,6 +826,7 @@ export class Engine {
         song.sustains.black.twin,
         song.heads.white.twin,
         song.heads.black.twin,
+        song.ridges.twin,
         song.names.white.twin,
         song.names.black.twin,
       )
@@ -809,6 +846,7 @@ export class Engine {
       song.sustains.black,
       song.heads.white,
       song.heads.black,
+      song.ridges,
       song.shadow,
       song.pedals,
       song.names.white,

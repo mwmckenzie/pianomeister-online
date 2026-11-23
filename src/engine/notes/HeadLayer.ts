@@ -46,9 +46,15 @@ varying float vClipped;
 varying float vSeed;
 
 void main() {
-  // The head spans its visible ticks: clipped at the now line, so it sinks into the key.
+  // The head spans its visible ticks: clipped at the now line, so it sinks into the key. A ridge
+  // (a raised sustain) spans the rest of the note, from the head's end.
+#ifdef RIDGE
+  float lo = max(aTicks.z, uTick);
+  float hi = max(lo, min(aTicks.y, uTick + 1.5 * uLookAheadTicks));
+#else
   float lo = max(aTicks.x, uTick);
   float hi = max(lo, min(aTicks.z, uTick + 1.5 * uLookAheadTicks));
+#endif
   float zNear = tickToZ(lo);
   float zFar = tickToZ(hi);
   // A head with no visible length (already played, or not yet in view) collapses entirely;
@@ -68,7 +74,11 @@ void main() {
   vStart = aTicks.x;
   vEnd = aTicks.y;
   vVelocity = aVelocity;
+#ifdef RIDGE
+  vClipped = step(aTicks.z, uTick - 1e-3);
+#else
   vClipped = step(aTicks.x, uTick - 1e-3);
+#endif
   vSeed = fract(aLane.x * 0.137 + aTicks.x * 0.00071);
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
@@ -78,6 +88,9 @@ const FRAGMENT = /* glsl */ `
 ${TIME_GLSL}
 ${LIGHT_GLSL}
 ${NOTE_FILL_GLSL}
+uniform float uSideShade;   // 0–1: how much darker the vertical faces are than the top
+uniform float uOpacity;     // ridges: the sustain's opacity (heads: 1)
+uniform float uSolidSides;  // ridges: 1 = opaque sides under a translucent top
 varying vec3 vNormal;
 varying vec3 vWorld;
 varying vec3 vColor;
@@ -93,7 +106,13 @@ varying float vSeed;
 void main() {
   float haze = hazeAlpha(vTick);
   if (haze <= 0.002) discard;
+#ifdef RIDGE
+  float style = uSustainFill;
+  Stripes st = Stripes(uSustainStripeA, uSustainStripeB, uSustainStripeOpacity, uSustainStripeShape);
+#else
   float style = uHeadFill;
+  Stripes st = Stripes(uHeadStripeA, uHeadStripeB, uHeadStripeOpacity, uHeadStripeShape);
+#endif
   float along = (vTick - vStart) * uUnitsPerTick;
   float len = (vEnd - vStart) * uUnitsPerTick;
   float u = vLocal.x / max(vHalf.x, 1e-4);
@@ -104,7 +123,6 @@ void main() {
   float lo = min(d.x, min(d.y, d.z));
   float hi = max(d.x, max(d.y, d.z));
   float second = d.x + d.y + d.z - lo - hi;
-  Stripes st = Stripes(uHeadStripeA, uHeadStripeB, uHeadStripeOpacity, uHeadStripeShape);
   Fill f = noteFill(style, vColor, u, vHalf.x, along, len, vSeed, second, st);
   float rim = noteEdge(second, style);
   float pulse = notePulse(vStart, vVelocity);
@@ -120,7 +138,11 @@ void main() {
   if (rim > 0.0) color = mix(color, rimColor, rim);
   if (sounding > 0.0) color += vColor * sounding;
   if (pulse > 0.0) color += mix(vColor, vec3(1.0), 0.5) * pulse;
-  gl_FragColor = vec4(color, haze * f.alpha);
+  // Darker vertical faces read as a solid block even where shadows and outlines are lost.
+  float side = 1.0 - clamp(n.y, 0.0, 1.0);
+  color *= 1.0 - uSideShade * side;
+  float alpha = f.alpha * mix(uOpacity, 1.0, uSolidSides * step(0.5, side));
+  gl_FragColor = vec4(color, haze * alpha);
 #endif
 }
 `
@@ -143,6 +165,8 @@ export class HeadLayer {
     style: NoteStyleUniforms,
     renderOrder: number,
     private readonly colors: NoteColors,
+    /** A raised sustain (from the head's end to the note's end) instead of the head. */
+    private readonly ridge = false,
   ) {
     // Far to near: when drawn on top without depth testing (see setLift), nearer heads must
     // land last to overlap farther ones correctly.
@@ -158,7 +182,11 @@ export class HeadLayer {
           uLift: { value: 0.01 },
           uHeight: { value: 0.35 },
           uRadius: { value: HEAD_EDGE_RADIUS },
+          uSideShade: { value: 0 },
+          uOpacity: { value: 1 },
+          uSolidSides: { value: 0 },
         },
+        defines: ridge ? { RIDGE: '' } : {},
         transparent: true,
         depthWrite: true,
         side: FrontSide,
@@ -179,12 +207,28 @@ export class HeadLayer {
     this.mesh.material.depthFunc = onTop ? AlwaysDepth : LessEqualDepth
   }
 
+  /** How much darker the vertical faces are than the top, 0–1. */
+  setSideShading(amount: number): void {
+    this.uniform('uSideShade', amount)
+  }
+
+  /**
+   * Ridges: the sustain's opacity on every face, or (`solidSides`) only on the top, over opaque
+   * sides.
+   */
+  setRidgeOpacity(opacity: number, solidSides: boolean): void {
+    this.uniform('uOpacity', opacity)
+    this.uniform('uSolidSides', solidSides ? 1 : 0)
+  }
+
   /** Takes the palette's current colours (after a change of note colours). */
   recolor(): void {
     recolorNotes(this.mesh.geometry, this.notes, this.colors)
   }
 
-  setShape(height: number, rounded: boolean): void {
+  setShape(height: number, roundedEdges: boolean): void {
+    // Ridges keep square ends (milestone 9.2): a lower, unrounded head.
+    const rounded = roundedEdges && !this.ridge
     this.uniform('uHeight', height)
     const wasRounded = this.mesh.geometry.getAttribute('aOffset').count === shapeCount(true)
     if (wasRounded !== rounded) {

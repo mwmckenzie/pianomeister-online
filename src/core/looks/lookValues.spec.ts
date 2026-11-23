@@ -29,7 +29,7 @@ describe('LOOK_KEYS', () => {
       'camera.tiltDeg',
       'keyboard.thickness',
       'highway.lookAheadBeats',
-      'notes.blackLift',
+      'notes.blackHeadHeight',
       'keys.fadeBeats',
       'lines.nowGlow',
       'colors.background',

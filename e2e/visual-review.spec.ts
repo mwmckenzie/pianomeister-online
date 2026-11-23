@@ -106,12 +106,12 @@ const TOGGLES: readonly {
     ],
   },
   {
-    name: 'lift-shadow',
+    name: 'black-shadow',
     bar: 1,
     variants: [
       {
         label: 'off',
-        settings: { notes: { blackLiftMode: 'manual', blackLift: 0, contactShadow: false } },
+        settings: { notes: { contactShadow: false } },
       },
       { label: 'on', settings: {} },
     ],

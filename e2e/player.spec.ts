@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures'
 
+import { SETTINGS_VERSION } from '../src/core/settings/loadSettings'
+
 import {
   EMPTY_STORAGE,
   nudge,
@@ -91,7 +93,7 @@ test('the playfield sidebar opens with P, applies changes live, and stays open',
         (await page.evaluate(() => localStorage.getItem('pianomeister.settings'))) ?? '{}',
       ),
     )
-    .toMatchObject({ version: 8, settings: { camera: { tiltDeg: 48 } } })
+    .toMatchObject({ version: SETTINGS_VERSION, settings: { camera: { tiltDeg: 48 } } })
 
   await page.reload()
   await expect(page.getByTestId('playfield-sidebar')).toBeVisible()
@@ -209,8 +211,7 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   await segment(page, 'keyboard.edgeProfile', 'Rounded')
   await nudge(page, 'keyboard.gap', 'ArrowRight', 6)
   await openSidebarSection(page, 'notes')
-  await segment(page, 'notes.blackLiftMode', 'Manual')
-  await nudge(page, 'notes.blackLift', 'Home')
+  await nudge(page, 'notes.sustainCenterTransparency', 'Home')
   await setting(page, 'notes.heads3d').getByRole('checkbox').uncheck()
 
   await page.reload()
@@ -221,7 +222,7 @@ test('visual-clarity and render settings apply, persist, and show the render rea
   ).toHaveAttribute('data-state', 'on')
   await expect(thumb(page, 'keyboard.gap')).toHaveAttribute('aria-valuenow', '0.12')
   await openSidebarSection(page, 'notes')
-  await expect(thumb(page, 'notes.blackLift')).toHaveAttribute('aria-valuenow', '0')
+  await expect(thumb(page, 'notes.sustainCenterTransparency')).toHaveAttribute('aria-valuenow', '0')
   await expect(setting(page, 'notes.heads3d').getByRole('checkbox')).not.toBeChecked()
   await openSidebarSection(page, 'render')
   await expect(
@@ -273,7 +274,7 @@ test.describe('stored v1 settings', () => {
         ),
       )
       .toMatchObject({
-        version: 8,
+        version: SETTINGS_VERSION,
         settings: { camera: { tiltDeg: 63 }, appearance: { primary: '#8AB4FF' } },
       })
   })
