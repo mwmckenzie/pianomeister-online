@@ -27,6 +27,7 @@ export function noteInstances(notes: readonly HandNote[], ppq: number): NoteInst
       velocity: note.velocity,
       colorIndex: note.midi % 12,
       hand: note.hand,
+      deck: note.deck === 1 ? 1 : 0,
     })
   }
   return out.sort(

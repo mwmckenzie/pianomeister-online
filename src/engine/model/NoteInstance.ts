@@ -15,4 +15,6 @@ export interface NoteInstance {
   /** Pitch class 0–11, indexing the note palette. */
   readonly colorIndex: number
   readonly hand: Hand
+  /** The playlist timeline's deck (0 or 1; 0 outside listening): the crossfade band dims one. */
+  readonly deck: number
 }

@@ -398,6 +398,11 @@ function listenerFor(playback: PlaybackSession): ListeningController {
       engine?.setLoop(null)
       return performance.now() - started
     },
+    setSeam: (seam, band) => engine?.setPlaylistSeam(seam, band),
+    currentSettings: () => settingsStore.settings,
+    previewSettings: (next) => engine?.applySettings(next),
+    reducedMotion: () => reducedMotion.value,
+    now: () => performance.now(),
     update: applyListeningUpdate,
     markPlayed: (id) => void playlistStore.markPlayed(id),
     random: Math.random,
