@@ -8,7 +8,7 @@ import { DETECTOR_VERSION } from './DETECTOR_VERSION'
 import { extractNotes } from './extractNotes'
 import type { HandSettings } from './HandSettings'
 import { initialRoles } from './initialRoles'
-import { resolveSongHands } from './resolveSongHands'
+import { resolveFileHands } from './resolveFileHands'
 import { songConfidence } from './songConfidence'
 
 /** Detects a file's hands and splits what needs splitting with `algorithm`'s defaults. */
@@ -35,6 +35,6 @@ export function detectSongHands(bytes: Uint8Array, algorithm: string): DetectedH
     summary: detection.summary,
     settings,
     confidence: songConfidence(detection, roles),
-    resolved: resolveSongHands(bytes, settings),
+    resolved: resolveFileHands(file, notes, settings),
   }
 }
