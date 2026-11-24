@@ -36,7 +36,7 @@ const zipWith = (json: unknown) => zipSync({ 'library.json': strToU8(JSON.string
 describe('library archive', () => {
   it('round-trips uploads, metadata and meter overrides', () => {
     const { document, uploads } = readArchive(archive())
-    expect(document.version).toBe('1.5')
+    expect(document.version).toBe('1.6')
     expect(document.looks).toEqual(LOOKS)
     expect(document.exportedAt).toBe('2026-11-16T10:00:00.000Z')
     // Same file name twice (case-insensitively): the second gets a suffix.

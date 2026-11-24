@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 
+import type { NoteColourSets } from '@/core/color/NoteColourSets'
 import type { HandExportOptions } from '@/core/hands/applyHandAssignment'
 import { handsPassMessage } from '@/core/hands/handsPassMessage'
 import type { HandReview } from '@/core/hands/HandReview'
@@ -337,14 +338,16 @@ export const useLibraryStore = defineStore('library', () => {
       await refreshStorage()
       return ok
     },
-    exportArchive: (): Promise<Uint8Array> => library.exportArchive(),
+    exportArchive: (sets: NoteColourSets): Promise<Uint8Array> =>
+      library.exportArchive(new Date(), sets),
     /** Reads a backup and finds colliding profiles; writes nothing. */
     prepareImport: (bytes: Uint8Array): Promise<PreparedImport> => library.prepareImport(bytes),
     applyImport: async (
       prepared: PreparedImport,
       choices: ReadonlyMap<string, ProfileChoice>,
+      sets: NoteColourSets,
     ): Promise<ImportReport> => {
-      const report = await write(() => library.applyImport(prepared, choices))
+      const report = await write(() => library.applyImport(prepared, choices, undefined, sets))
       await refreshPractice()
       await refreshStorage()
       void detectUploads(report.uploads)

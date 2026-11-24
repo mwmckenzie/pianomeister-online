@@ -1,3 +1,6 @@
+import type { ColourSetMerge } from '@/core/color/ColourSetMerge'
+import { EMPTY_COLOUR_SETS } from '@/core/color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '@/core/color/NoteColourSets'
 import { assignmentHandOf } from '@/core/hands/assignmentHandOf'
 import type { CachedHands } from '@/core/hands/CachedHands'
 import { channelHandOf } from '@/core/hands/channelHandOf'
@@ -442,7 +445,10 @@ export class Library {
     return { profiles, bookmarks, handAssignments, sessions, playRecords, playlists }
   }
 
-  async exportArchive(now = new Date()): Promise<Uint8Array> {
+  async exportArchive(
+    now = new Date(),
+    noteColourSets: NoteColourSets = EMPTY_COLOUR_SETS,
+  ): Promise<Uint8Array> {
     // Loaded on demand: the zip code is only needed for backups, not for playing.
     const [{ buildArchive }, { toLookFile }] = await Promise.all([
       import('@/core/library/buildArchive'),
@@ -460,7 +466,8 @@ export class Library {
       meta: new Map(meta.map((m) => [m.songId, m.edit])),
       overrides: new Map(overrides.map((o) => [o.songId, o.override])),
       practice,
-      looks: toLookFile(looks),
+      looks: toLookFile(looks, noteColourSets),
+      noteColourSets,
       exportedAt: now,
     })
   }
@@ -487,12 +494,21 @@ export class Library {
     prepared: PreparedImport,
     choices: ReadonlyMap<string, ProfileChoice>,
     newId: () => string = () => crypto.randomUUID(),
+    noteColourSets: NoteColourSets = EMPTY_COLOUR_SETS,
   ): Promise<ImportReport> {
-    const [{ planImport }, { planBackupMerge }] = await Promise.all([
-      import('@/core/library/planImport'),
-      import('@/core/library/planBackupMerge'),
-    ])
+    const [{ planImport }, { planBackupMerge }, { mergeColourSets, applyColourSetMerge }] =
+      await Promise.all([
+        import('@/core/library/planImport'),
+        import('@/core/library/planBackupMerge'),
+        import('@/core/color/mergeColourSets'),
+      ])
     const { archive } = prepared
+    // Colour sets first: the backup's looks follow any that get another id here.
+    const colourSets = mergeColourSets(
+      noteColourSets,
+      archive.document.noteColourSets ?? EMPTY_COLOUR_SETS,
+      newId,
+    )
     const uploads = await this.upload(
       archive.uploads.map((u) => ({
         name: u.fileName,
@@ -531,7 +547,11 @@ export class Library {
     return {
       uploads,
       profiles,
-      looksAdded: await this.mergeLooks(archive.document.looks, newId),
+      looksAdded: await this.mergeLooks(archive.document.looks, newId, {
+        sets: applyColourSetMerge(noteColourSets, colourSets),
+        idMap: colourSets.idMap,
+      }),
+      colourSets,
       metaApplied: plan.metaApplied,
       metaKept: plan.metaKept,
       overridesApplied: plan.overridesApplied,
@@ -545,12 +565,16 @@ export class Library {
    * added beside the local ones under a new id or "Name (2)" when theirs is taken — nothing
    * local is overwritten. Returns how many were added.
    */
-  private async mergeLooks(file: unknown, newId: () => string): Promise<number> {
+  private async mergeLooks(
+    file: unknown,
+    newId: () => string,
+    colours: { readonly sets: NoteColourSets; readonly idMap: ColourSetMerge['idMap'] },
+  ): Promise<number> {
     if (file === undefined) return 0
     const { readLookFile } = await import('@/core/looks/readLookFile')
     return this.db.transaction('rw', this.db.looks, async () => {
       const existing = await this.db.looks.toArray()
-      const result = readLookFile(file, existing, newId, new Date().toISOString(), true)
+      const result = readLookFile(file, existing, newId, new Date().toISOString(), true, colours)
       if (!result.ok) return 0
       await this.db.looks.bulkAdd([...result.looks])
       return result.looks.length

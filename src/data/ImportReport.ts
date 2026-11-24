@@ -1,3 +1,4 @@
+import type { ColourSetMerge } from '@/core/color/ColourSetMerge'
 import type { BackupMergePlan } from '@/core/library/BackupMergePlan'
 import type { ImportPlan } from '@/core/library/ImportPlan'
 
@@ -9,4 +10,6 @@ export interface ImportReport extends Omit<ImportPlan, 'setMeta' | 'setOverrides
   readonly profiles: BackupMergePlan['summary']
   /** Saved looks the backup added (milestone 9.1). */
   readonly looksAdded: number
+  /** Note colour sets the backup adds; the settings store applies them (milestone 10.6). */
+  readonly colourSets: ColourSetMerge
 }

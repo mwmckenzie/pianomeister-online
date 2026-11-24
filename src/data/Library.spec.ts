@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { SongManifest } from '@/core/library/SongManifest'
 import { captureLook } from '@/core/looks/lookValues'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
+import { restoreValues } from '@/core/settings/settingGroups'
 import { buildSmf, ev } from '@/core/testing/buildSmf'
 import { readFixture } from '@/core/testing/readFixture'
 
@@ -293,6 +294,50 @@ describe('Library', () => {
       ['new-id', 'Synth (2)'],
     ])
     expect(looks[0]?.values['lines.nowGlow']).toBe(2)
+  })
+
+  it('backs up colour sets: nothing local is overwritten and looks follow a set that moved', async () => {
+    const twelve = (hex: string) => Array.from({ length: 12 }, () => hex)
+    const sets = {
+      overrides: { warm: { 0: '#000001' } },
+      custom: [{ id: 'custom-a' as const, name: 'Recital', colours: twelve('#111111') }],
+    }
+    const look = captureLook(
+      restoreValues(DEFAULT_SETTINGS, new Map([['notes.palette', 'custom-a']])),
+      'look-a',
+      'Mine',
+      '2026-11-22T10:00:00.000Z',
+    )
+    await db.looks.put(look)
+    const zip = await library.exportArchive(new Date(), sets)
+    const run = async (local: typeof sets) =>
+      library.applyImport(await library.prepareImport(zip), new Map(), () => 'new', local)
+
+    // Same device: nothing to add.
+    const same = await run(sets)
+    expect(same.colourSets).toMatchObject({ added: [], overrides: {} })
+    expect(same.looksAdded).toBe(0)
+
+    // The set was edited here since: the backup's comes back beside it, and so does its look.
+    const edited = await run({
+      overrides: { warm: { 0: '#000002' } },
+      custom: [{ ...sets.custom[0]!, colours: twelve('#222222') }],
+    })
+    expect(edited.colourSets).toMatchObject({
+      added: [{ id: 'custom-new', name: 'Recital 2', colours: twelve('#111111') }],
+      overrides: {},
+    })
+    const looks = await db.looks.toArray()
+    expect(looks.map((l) => l.values['notes.palette'])).toEqual(['custom-a', 'custom-new'])
+
+    // A fresh device takes everything, and the look carries its own copy.
+    await db.looks.clear()
+    const fresh = await run({ overrides: {} as typeof sets.overrides, custom: [] })
+    expect(fresh.colourSets).toMatchObject({ added: sets.custom, overrides: sets.overrides })
+    expect((await db.looks.get('look-a'))?.values['notes.paletteSaved']).toEqual({
+      name: 'Recital',
+      colours: twelve('#111111'),
+    })
   })
 
   it('rejects an archive that is not a library export', async () => {

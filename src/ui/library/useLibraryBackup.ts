@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 
+import { applyColourSetMerge } from '@/core/color/mergeColourSets'
 import { formatImportSummary } from '@/core/library/formatImportSummary'
 import type { ImportReport } from '@/data/ImportReport'
 
@@ -36,7 +37,7 @@ export function useLibraryBackup() {
 
   function exportLibrary(): Promise<void | null> {
     return run(async () => {
-      const bytes = await store.exportArchive()
+      const bytes = await store.exportArchive(settings.noteColourSets)
       const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: 'application/zip' }))
       const link = document.createElement('a')
       link.href = url
@@ -56,11 +57,18 @@ export function useLibraryBackup() {
       if (report === null) return report
       // Saved looks from the backup were written to the database: show them in the picker.
       if (report.looksAdded > 0) await settings.reloadLooks()
+      const { colourSets } = report
+      if (colourSets.added.length > 0 || Object.keys(colourSets.overrides).length > 0) {
+        settings.setColourSets(applyColourSetMerge(settings.noteColourSets, colourSets))
+      }
       const parts = [
         formatImportSummary(report.profiles),
         report.looksAdded === 0
           ? ''
           : `added ${report.looksAdded} ${report.looksAdded === 1 ? 'look' : 'looks'}`,
+        colourSets.added.length === 0
+          ? ''
+          : `added ${colourSets.added.length} colour ${colourSets.added.length === 1 ? 'set' : 'sets'}`,
       ].filter((part) => part !== '')
       if (parts.length > 0) toasts.show(`Imported: ${parts.join('; ')}.`)
       return report
