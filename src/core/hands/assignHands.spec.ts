@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SoundingNote } from '../sustain/SoundingNote'
 import { assignHands } from './assignHands'
+import { channelHandOf } from './channelHandOf'
 import { DEFAULT_HAND_ASSIGNMENT } from './HandAssignment'
 
 const note = (channel: number, startTick = 0): SoundingNote => ({
@@ -16,7 +17,7 @@ const note = (channel: number, startTick = 0): SoundingNote => ({
 
 describe('assignHands', () => {
   it('defaults to channel 0 = right, channel 1 = left, and drops other channels', () => {
-    const tagged = assignHands([note(0), note(1), note(2)], DEFAULT_HAND_ASSIGNMENT)
+    const tagged = assignHands([note(0), note(1), note(2)], channelHandOf(DEFAULT_HAND_ASSIGNMENT))
     expect(tagged.map((n) => [n.channel, n.hand])).toEqual([
       [0, 'right'],
       [1, 'left'],
@@ -24,7 +25,10 @@ describe('assignHands', () => {
   })
 
   it('supports several channels per hand and keeps note order', () => {
-    const tagged = assignHands([note(3, 0), note(0, 5), note(2, 9)], { right: [2, 3], left: [0] })
+    const tagged = assignHands(
+      [note(3, 0), note(0, 5), note(2, 9)],
+      channelHandOf({ right: [2, 3], left: [0] }),
+    )
     expect(tagged.map((n) => [n.channel, n.hand])).toEqual([
       [3, 'right'],
       [0, 'left'],
@@ -33,10 +37,10 @@ describe('assignHands', () => {
   })
 
   it('gives a channel listed under both hands to the right hand', () => {
-    expect(assignHands([note(0)], { right: [0], left: [0] })[0]?.hand).toBe('right')
+    expect(assignHands([note(0)], channelHandOf({ right: [0], left: [0] }))[0]?.hand).toBe('right')
   })
 
   it('drops everything when no channel is assigned', () => {
-    expect(assignHands([note(0), note(1)], { right: [], left: [] })).toEqual([])
+    expect(assignHands([note(0), note(1)], channelHandOf({ right: [], left: [] }))).toEqual([])
   })
 })

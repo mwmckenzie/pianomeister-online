@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
+import { channelHandOf } from '@/core/hands/channelHandOf'
 import { assignHands } from '@/core/hands/assignHands'
 import type { HandNote } from '@/core/hands/HandNote'
 import { importMidi } from '@/core/song/importMidi'
@@ -23,10 +24,10 @@ const note = (midi: number, startTick: number, endTick: number): HandNote => ({
 describe('noteInstances', () => {
   it('builds one instance per assigned note of the Minuet, in its key lane', async () => {
     const song = await importMidi(readFixture('minuet-in-g.mid'), { fileName: 'm' })
-    const notes = assignHands(applySustain(song.notes, song.pedalIntervals), {
-      right: [0],
-      left: [1],
-    })
+    const notes = assignHands(
+      applySustain(song.notes, song.pedalIntervals),
+      channelHandOf({ right: [0], left: [1] }),
+    )
     const instances = noteInstances(notes, song.ppq)
     expect(instances).toHaveLength(408)
     expect(instances.filter((n) => n.hand === 'right')).toHaveLength(258)
@@ -42,10 +43,10 @@ describe('noteInstances', () => {
 
   it('excludes channels assigned to neither hand', async () => {
     const song = await importMidi(readFixture('canon-in-d.mid'), { fileName: 'c' })
-    const rightOnly = assignHands(applySustain(song.notes, song.pedalIntervals), {
-      right: [0],
-      left: [],
-    })
+    const rightOnly = assignHands(
+      applySustain(song.notes, song.pedalIntervals),
+      channelHandOf({ right: [0], left: [] }),
+    )
     const instances = noteInstances(rightOnly, song.ppq)
     expect(instances).toHaveLength(786)
     expect(instances.every((n) => n.hand === 'right')).toBe(true)
