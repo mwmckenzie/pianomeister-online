@@ -382,6 +382,21 @@ function onKeyDown(event: KeyboardEvent): void {
 onMounted(() => window.addEventListener('keydown', onKeyDown, true))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown, true))
 
+/** A reload or closed tab with unsaved changes: the browser asks "Leave site?". */
+function onBeforeUnload(event: BeforeUnloadEvent): void {
+  event.preventDefault()
+}
+watch(
+  dirty,
+  (is) => {
+    if (is) window.addEventListener('beforeunload', onBeforeUnload)
+    else window.removeEventListener('beforeunload', onBeforeUnload)
+  },
+  // At once: Save followed by a reload must not ask.
+  { flush: 'sync' },
+)
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+
 const backdrop = computed(() =>
   sceneSnapshot.value === null ? undefined : { backgroundImage: `url(${sceneSnapshot.value})` },
 )

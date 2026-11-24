@@ -189,6 +189,51 @@ test('@hands leaving with changes asks first', async ({ page }) => {
   await expect(page.getByTestId('hands-badge')).toHaveText('Edited')
 })
 
+test('@hands a reload asks the browser’s question only with unsaved changes', async ({ page }) => {
+  await openReview(page)
+  const asked: string[] = []
+  page.on('dialog', (dialog) => {
+    asked.push(dialog.type())
+    void dialog.dismiss()
+  })
+  /** The browser only asks on a page the user has touched; `location.reload` can be refused. */
+  const reload = () => page.evaluate(() => location.reload()).catch(() => undefined)
+
+  // Dirty: asked, and staying keeps the flip.
+  await note(page).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('review-dirty')).toBeVisible()
+  await reload()
+  await expect.poll(() => asked).toEqual(['beforeunload'])
+  await expect(flips(page)).toContainText('1 note flipped')
+
+  // Clean again by flipping back: no question.
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('review-dirty')).toBeHidden()
+  await page.reload()
+  await expect(flips(page)).toContainText('No flips')
+  expect(asked).toHaveLength(1)
+
+  // Saved: no question, and the flip is there.
+  await note(page).focus()
+  await page.keyboard.press('Enter')
+  await page.getByTestId('review-save').click()
+  await expect(page.getByTestId('review-dirty')).toBeHidden()
+  await page.reload()
+  await expect(flips(page)).toContainText('1 note flipped')
+  expect(asked).toHaveLength(1)
+
+  // Left with Discard: the Library reloads without a question.
+  await note(page).focus()
+  await page.keyboard.press('Enter')
+  await page.getByTestId('review-back').click()
+  await page.getByTestId('review-discard').click()
+  await expect(page.getByTestId('hands-badge')).toHaveText('Edited')
+  await page.reload()
+  await page.getByTestId('song-row').first().waitFor()
+  expect(asked).toHaveLength(1)
+})
+
 test('@hands export split downloads a file with the hands on their channels', async ({ page }) => {
   await upload(page, 'Demo')
   await page.getByTestId('hands-export').click()
