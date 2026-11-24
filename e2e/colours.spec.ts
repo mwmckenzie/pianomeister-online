@@ -205,7 +205,7 @@ test('@colours the Appearance reset clears changes, with Undo, and keeps own set
   await expect(page.getByTestId('changed-count')).toHaveText('0 settings changed from default')
   expect((await noteColors(page))?.[0]).toBe('#FF0000')
   await expect(page.getByTestId('section-noteColours')).toContainText('Default copy')
-  await page.getByRole('button', { name: 'Undo' }).click()
+  await page.getByTestId('toast-undo').click()
   await expect.poll(async () => (await noteColors(page))?.[0]).toBe('#123456')
   expect(errors).toEqual([])
 })
