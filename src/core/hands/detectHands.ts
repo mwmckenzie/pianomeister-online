@@ -1,7 +1,7 @@
 import type { DetectedRole, HandDetection, VoiceGuess } from './HandDetection'
+import { MIN_VOICE_NOTES } from './MIN_VOICE_NOTES'
 import type { VoiceStats } from './VoiceStats'
 
-const MIN_NOTES = 8
 const RIGHT_NAME = /\b(right|r\.?\s?h\.?|treble|upper|melody|rechte?|droite|destra)\b/i
 const LEFT_NAME = /\b(left|l\.?\s?h\.?|bass|lower|linke?|gauche|sinistra)\b/i
 
@@ -22,7 +22,7 @@ export function detectHands(stats: readonly VoiceStats[]): HandDetection {
       guess(s, 'drums', 0.95, ['Channel 9 is the GM drum channel'])
       continue
     }
-    if (s.noteCount < MIN_NOTES) {
+    if (s.noteCount < MIN_VOICE_NOTES) {
       guess(s, 'other', 0.5, [`Only ${s.noteCount} notes`])
       continue
     }

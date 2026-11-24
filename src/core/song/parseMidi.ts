@@ -3,7 +3,7 @@ import { Midi } from '@tonejs/midi'
 import { extractNotes } from '../hands/extractNotes'
 import { readMidiFile } from '../midi/readMidiFile'
 import { TempoMap } from '../timing/TempoMap'
-import type { ChannelInfo } from './ChannelInfo'
+import { summariseChannels } from './summariseChannels'
 import type { Note } from './Note'
 import type { ParsedMidi } from './ParsedMidi'
 import { pedalIntervals } from './pedalIntervals'
@@ -39,7 +39,7 @@ export function parseMidi(bytes: Uint8Array, options: { readonly fileName: strin
     }))
   notes.sort((a, b) => a.startTick - b.startTick || a.midi - b.midi || a.channel - b.channel)
 
-  const channels = channelInfo(notes)
+  const channels = summariseChannels(notes)
 
   // The file stores integer microseconds; tonejs hands back a derived float BPM.
   const tempoEvents = midi.header.tempos.map((t) => ({
@@ -69,29 +69,6 @@ export function parseMidi(bytes: Uint8Array, options: { readonly fileName: strin
     durationTicks,
     durationSeconds: tempoMap.tickToSeconds(durationTicks),
   }
-}
-
-function channelInfo(notes: readonly Note[]): ChannelInfo[] {
-  const stats = new Map<number, { count: number; min: number; max: number; sum: number }>()
-  for (const n of notes) {
-    const s = stats.get(n.channel)
-    if (s === undefined) stats.set(n.channel, { count: 1, min: n.midi, max: n.midi, sum: n.midi })
-    else {
-      s.count++
-      s.min = Math.min(s.min, n.midi)
-      s.max = Math.max(s.max, n.midi)
-      s.sum += n.midi
-    }
-  }
-  return [...stats]
-    .sort((a, b) => a[0] - b[0])
-    .map(([channel, s]) => ({
-      channel,
-      noteCount: s.count,
-      minPitch: s.min,
-      maxPitch: s.max,
-      averagePitch: s.sum / s.count,
-    }))
 }
 
 /**

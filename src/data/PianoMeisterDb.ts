@@ -11,6 +11,7 @@ import type { PlayRecord } from '@/core/stats/PlayRecord'
 import type { Session } from '@/core/stats/Session'
 
 import type { AppStateRow } from './AppStateRow'
+import type { StoredDetection } from './StoredDetection'
 import type { StoredHandAssignment } from './StoredHandAssignment'
 import type { StoredMeterOverride } from './StoredMeterOverride'
 import type { StoredSongMeta } from './StoredSongMeta'
@@ -20,6 +21,9 @@ import { toPlainData } from './toPlainData'
 /** The first profile ("Me"); data stored before profiles existed belongs to it. */
 export const DEFAULT_PROFILE_ID = DEFAULT_PROFILE.id
 
+/** appState key set in databases created at v9 or later (nothing to migrate). */
+export const NEW_DATABASE_KEY = 'newAt'
+
 /** Before v3, the last opened song was global; from v3 it is per profile (lastOpenedKey). */
 const LEGACY_LAST_SONG_ID = 'lastSongId'
 
@@ -27,6 +31,8 @@ const LEGACY_LAST_SONG_ID = 'lastSongId'
 export function lastOpenedKey(profileId: string): string {
   return `lastOpened:${profileId}`
 }
+
+const SCHEMA_VERSION = 9
 
 /** The settings version saved looks were written with before database v7 (milestone 9.1). */
 const LOOKS_STORED_AT = 8
@@ -40,6 +46,7 @@ export class PianoMeisterDb extends Dexie {
   readonly songMeta!: Table<StoredSongMeta, string>
   readonly meterOverrides!: Table<StoredMeterOverride, string>
   readonly handAssignments!: Table<StoredHandAssignment, [string, string]>
+  readonly handDetections!: Table<StoredDetection, string>
   readonly appState!: Table<AppStateRow, string>
   readonly profiles!: Table<Profile, string>
   readonly bookmarks!: Table<Bookmark, string>
@@ -129,9 +136,15 @@ export class PianoMeisterDb extends Dexie {
       })
     // v8 (milestone 9.5): playlists, per profile.
     this.version(8).stores({ playlists: 'id, profileId' })
+    // v9 (milestone 10.5): detected hands, per song. The profiles' channel maps stay as they are:
+    // turning them into voice roles needs the files, so Library does it as songs are read.
+    this.version(SCHEMA_VERSION).stores({ handDetections: 'songId' })
     // A new database starts with the "Me" profile (brief decision 65).
     this.on('populate', (tx) => {
       void tx.table<Profile, string>('profiles').add(DEFAULT_PROFILE)
+      void tx
+        .table<AppStateRow, string>('appState')
+        .add({ key: NEW_DATABASE_KEY, value: String(SCHEMA_VERSION) })
     })
     // Every write on every table stores plain data, so callers can't break a write by passing
     // Vue reactive state (IndexedDB rejects proxies with a DataCloneError).

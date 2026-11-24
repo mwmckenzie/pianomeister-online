@@ -73,9 +73,8 @@ describe('PianoMeisterDb with Vue reactive input', () => {
       edit: { title: 'T', tags: ['a', 'b'] },
     })
     expect((await db.meterOverrides.get('s'))?.override).toEqual(override())
-    expect((await db.handAssignments.get(['default', 's']))?.hands).toEqual({
-      right: [0],
-      left: [1],
+    expect(await db.handAssignments.get(['default', 's'])).toMatchObject({
+      hands: { right: [0], left: [1] },
     })
     expect((await db.appState.get('k'))?.value).toBe('v')
     expect((await db.songMeta.get('t'))?.edit).toEqual({ tags: ['x'] })
@@ -84,15 +83,13 @@ describe('PianoMeisterDb with Vue reactive input', () => {
   it('accepts reactive input through every Library write path', async () => {
     const songId = (await library.entries())[0]?.songId ?? ''
 
-    // "Swap hands": the arrays come from a deep ref, so each one is a proxy.
-    const hands = ref({ right: [0], left: [1] })
-    await library.setHands(songId, { right: hands.value.left, left: hands.value.right })
-    expect((await library.openSong(songId)).hands).toEqual({ right: [1], left: [0] })
-    // Per-channel change and restore default.
-    await library.setHands(songId, reactive({ right: [0], left: [] }))
-    expect((await library.openSong(songId)).hands).toEqual({ right: [0], left: [] })
-    await library.resetHands(songId)
-    expect((await library.openSong(songId)).defaultHands).toBe(true)
+    // Roles come from a deep ref, so each part is a proxy.
+    const hands = ref({ roles: { a: 'left' as const }, algorithm: 'beam', params: {}, flips: {} })
+    const summary = { right: 0, left: 0, lowest: null, highest: null }
+    await library.setHands(songId, hands.value, reactive({ hash: 'h', hands: '', summary }))
+    expect(await db.handAssignments.get(['default', songId])).toMatchObject({
+      settings: { roles: { a: 'left' } },
+    })
 
     await library.setMeta(songId, reactive({ title: 'Mine', composer: 'Me', tags: ['exam'] }))
     expect(await library.entry(songId)).toMatchObject({

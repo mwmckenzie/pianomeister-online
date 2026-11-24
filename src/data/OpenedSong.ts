@@ -1,4 +1,4 @@
-import type { HandAssignment } from '@/core/hands/HandAssignment'
+import type { HandOf } from '@/core/hands/HandOf'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import type { Song } from '@/core/song/Song'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
@@ -7,8 +7,7 @@ import type { MeterOverride } from '@/core/timing/MeterOverride'
 export interface OpenedSong {
   readonly entry: LibraryEntry
   readonly song: Song
-  readonly hands: HandAssignment
-  /** True when hands are the default (no stored assignment). */
-  readonly defaultHands: boolean
+  /** Every note's hand: the profile's own, else detected, else the default channel map's. */
+  readonly handOf: HandOf
   readonly override: MeterOverride | null
 }

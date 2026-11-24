@@ -1,4 +1,4 @@
-import type { HandAssignment } from '../hands/HandAssignment'
+import type { SongHands } from '../hands/SongHands'
 import type { MeterOverride } from '../timing/MeterOverride'
 import type { SongFacts } from './SongFacts'
 import type { SongMetaFields } from './SongMetaFields'
@@ -18,8 +18,8 @@ export interface LibraryEntry extends SongMetaFields {
   readonly bars: number
   /** Time signature as shown, e.g. "3/4" (the override's if set). */
   readonly timeSignature: string
-  /** The stored hand assignment, or the default from the file's channels. */
-  readonly hands: HandAssignment
+  /** The profile's hands, else the detected ones, else the default from the file's channels. */
+  readonly hands: SongHands
   /** Epoch ms for uploads; null for bundled songs. */
   readonly addedAt: number | null
 }

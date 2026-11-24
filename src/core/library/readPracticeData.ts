@@ -1,5 +1,4 @@
 import { readPlaylist } from '../playlists/readPlaylist'
-import type { HandAssignment } from '../hands/HandAssignment'
 import type { Bookmark } from '../practice/Bookmark'
 import type { MetronomeMode } from '../practice/MetronomeMode'
 import { settleBookmark } from '../practice/bookmarkNames'
@@ -9,7 +8,7 @@ import type { PlayRecord } from '../stats/PlayRecord'
 import type { Session } from '../stats/Session'
 import type { PreRollMode } from '../transport/PreRollMode'
 import type { PracticeData } from './PracticeData'
-import type { ProfileHandAssignment } from './ProfileHandAssignment'
+import { readHandRow } from './readHandRow'
 
 type Rec = Record<string, unknown>
 
@@ -37,21 +36,6 @@ function toProfile(v: Rec): Profile | null {
     color: v.color,
     createdAt: isNumber(v.createdAt) ? v.createdAt : 0,
   }
-}
-
-function toChannels(v: unknown): number[] | null {
-  return Array.isArray(v) && v.every((c) => Number.isInteger(c) && c >= 0 && c <= 15)
-    ? (v as number[])
-    : null
-}
-
-function toHands(v: Rec): ProfileHandAssignment | null {
-  if (!isString(v.profileId) || !isString(v.songId) || !isRecord(v.hands)) return null
-  const right = toChannels(v.hands.right)
-  const left = toChannels(v.hands.left)
-  if (right === null || left === null) return null
-  const hands: HandAssignment = { right, left }
-  return { profileId: v.profileId, songId: v.songId, hands }
 }
 
 function toBookmark(v: Rec): Bookmark | null {
@@ -135,7 +119,7 @@ function toRecord(v: Rec): PlayRecord | null {
 }
 
 /**
- * The profiles part of a backup (format 1.1 and 1.2: 1.2 records count `plays`). Malformed rows are dropped, not fatal; a 1.0
+ * The profiles part of a backup (from format 1.1; 1.5 changed the hand assignments). Malformed rows are dropped, not fatal; a 1.0
  * backup (no practice data) reads as empty.
  */
 export function readPracticeData(value: unknown): PracticeData {
@@ -143,7 +127,7 @@ export function readPracticeData(value: unknown): PracticeData {
   return {
     profiles: list(v.profiles, toProfile),
     bookmarks: list(v.bookmarks, toBookmark),
-    handAssignments: list(v.handAssignments, toHands),
+    handAssignments: list(v.handAssignments, readHandRow),
     sessions: list(v.sessions, toSession),
     playRecords: list(v.playRecords, toRecord),
     playlists: list(v.playlists, (raw) => readPlaylist(raw)),

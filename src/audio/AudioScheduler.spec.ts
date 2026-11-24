@@ -259,6 +259,20 @@ describe('AudioScheduler — resets', () => {
 })
 
 describe('AudioScheduler — gains', () => {
+  it('sends each note to its own hand, whatever its channel', () => {
+    const same = [
+      { ...note(72, 0, 480), channel: 3 },
+      { ...note(48, 0, 480, 'left'), channel: 3 },
+    ]
+    const { transport, output, run } = setup(same)
+    transport.play()
+    run(0.1)
+    expect(output.notes.map((n) => [n.midi, n.hand])).toEqual([
+      [72, 'right'],
+      [48, 'left'],
+    ])
+  })
+
   const hands = (right: HandAudio, left: HandAudio, rv = 1, lv = 1) => ({
     right: { volume: rv, audio: right },
     left: { volume: lv, audio: left },
