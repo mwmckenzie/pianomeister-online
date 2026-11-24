@@ -281,3 +281,27 @@ With two hands, every wrong note was given the other hand, so every run would be
 - [ ] Is "both ways / one way" what you meant by "swap / mixed"?
 - [ ] Which file did you mean instead of wspekkiop?
 - [ ] Listen to the runs above, then decide whether anything needs tuning.
+
+## Round 6 — 2026-11-24: findings to the roadmap, PR
+
+**Answers**
+
+- "Both ways / one way" is right. wspekkiop was a mistake in the list. No tuning now.
+
+**Done**
+
+- Roadmap: 10.5 is done; "Hand split tuning" holds the round 5 findings and the ideas to try. Documentation only.
+- Pushed and opened the PR with the draft description from round 4.
+
+**Decision not in the instructions**
+
+- The roadmap had no "Hand split tuning" item, so it is a new standalone item (done when there is time).
+
+**Checks**
+
+- `npm run check`: exit 0, 909 unit tests (126 files). e2e not run: no code changed since round 5.
+
+**Review**
+
+- [ ] The "Hand split tuning" item.
+- [ ] The open review items of rounds 1–5.

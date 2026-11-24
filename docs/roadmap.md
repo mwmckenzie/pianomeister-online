@@ -20,7 +20,7 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 | 9.2  | **Practice clarity**                         | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       | ✅ done |
 | 9.5  | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         | ✅ done |
 | 10   | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                                      | ✅ done |
-| 10.5 | **Hand detection and split**                 | Per-note right/left hand assignment from the MIDI (voice detection with confidence and reasons, note-level split for two-handed voices, overrides); replaces milestone 10's `handOf(note)` and feeds the hand cages. Source brief: `docs/milestones/m10-5-hand-detection-brief.md`                          | planned |
+| 10.5 | **Hand detection and split**                 | Per-note right/left hand assignment from the MIDI (voice detection with confidence and reasons, note-level split for two-handed voices, overrides); replaces milestone 10's `handOf(note)` and feeds the hand cages. Source brief: `docs/milestones/m10-5-hand-detection-brief.md`                          | ✅ done |
 | 10.6 | **Note colour set editor** _(spec first)_    | Settings → Appearance → Note colours: edit the built-in note colour sets in place (reset per colour and per set), save, rename, duplicate and delete custom sets, live preview; looks carry the custom set they use                                                                                         | planned |
 | 11   | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                                                 |         |
 | 12   | **Benchmark mode** _(spec first)_            | A built-in, repeatable performance test for any device (PC, laptop, iPad, desktop build): scripted songs and presets, frame/CPU/GPU timings, device info, results screen with export and local history                                                                                                      |         |
@@ -81,6 +81,20 @@ Known items:
 ### Relink a missing playlist song _(done when there is time)_
 
 A playlist entry whose song is no longer in the library (deleted, or a playlist imported from another device) shows as "Missing song · Not in this library" and is skipped when playing (milestone 9.5). Relinking would let you point it at a song in this library (e.g. the same piece uploaded again with a different file hash), keeping its place and per-song look. Possible matches: the same title and composer.
+
+### Hand split tuning _(done when there is time)_
+
+Where the split methods of milestone 10.5 stand, measured with `npm run bench:hands` (report `docs/reports/feat-m10-5-hands.md`, round 5). Nothing was tuned in 10.5.
+
+- **Correct notes**, 215 files: look-ahead 91.6 %, chord 89.8 %, moving 79.2 %, fixed 82.3 %.
+- **Uncertain notes** (look-ahead): 28.9 % of wrong notes are marked; 33.2 % of marked notes are wrong (4× the base rate). Ideas to try:
+  - a 4-chord window (more caught, more marked);
+  - striping a whole run once a few of its notes are marked;
+  - a setting for how much to stripe.
+- **Longest wrong runs** look like real hand crossings. Look at the music before tuning for them:
+  - liz_et_trans5 bar 68: one way, all methods fail;
+  - Schubert D959 and D960, and Don Juan: both ways.
+- **Benchmark folder:** `C:\Users\Matt\Music\midi` (local only).
 
 ## Backlog — idea details
 
