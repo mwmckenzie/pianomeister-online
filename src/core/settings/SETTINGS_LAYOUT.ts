@@ -46,6 +46,11 @@ export const SETTINGS_LAYOUT = {
         { id: 'listening', title: 'Listening' },
       ],
     },
+    {
+      id: 'library',
+      title: 'Library & data',
+      sections: [{ id: 'handDetection', title: 'Hand detection' }],
+    },
   ],
 } as const satisfies {
   readonly sidebar: readonly {

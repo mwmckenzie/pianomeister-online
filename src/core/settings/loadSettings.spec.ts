@@ -384,6 +384,12 @@ describe('loadSettings', () => {
     expect(old.notes.blackOutlineStrength).toBe(0.8)
   })
 
+  it('migrates v9 to v10: the hand detection settings get their defaults', () => {
+    const loaded = loadSettings({ version: 9, settings: { practice: { tempoStep: 3 } } })
+    expect(loaded.practice.tempoStep).toBe(3)
+    expect(loaded.hands).toEqual({ detectOnUpload: true, hintBelow: 70, defaultAlgorithm: 'beam' })
+  })
+
   it('migrates saved looks and look files from v8', () => {
     const look = captureLook(DEFAULT_SETTINGS, 'look-1', 'Lifted')
     const { 'notes.whiteHeadHeight': _w, ...rest } = look.values

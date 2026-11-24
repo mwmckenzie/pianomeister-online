@@ -13,7 +13,7 @@ export type SidebarSectionId =
   | 'render'
 
 /** Settings window tabs that hold settings. */
-export type SettingsTabId = 'practice' | 'audio' | 'appearance'
+export type SettingsTabId = 'practice' | 'audio' | 'appearance' | 'library'
 
 /** Sections inside the settings window tabs. */
 export type WindowSectionId =
@@ -29,6 +29,7 @@ export type WindowSectionId =
   | 'motion'
   | 'playerControls'
   | 'start'
+  | 'handDetection'
 
 /** Where a setting is shown (brief decision 50); reset groups are derived from it. */
 export type SettingHome =

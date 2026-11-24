@@ -3,6 +3,8 @@ import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AppButton from '../components/AppButton.vue'
+import SettingRow from '../components/SettingRow.vue'
+import SettingsSection from '../components/SettingsSection.vue'
 import { formatStorage } from '../format/formatStorage'
 import { summariseImport } from '../format/summariseUploads'
 import { useLibraryBackup } from '../library/useLibraryBackup'
@@ -30,10 +32,15 @@ onMounted(() => void store.refreshStorage())
 </script>
 
 <template>
+  <SettingsSection section-id="handDetection" title="Hand detection">
+    <SettingRow setting-key="hands.detectOnUpload" />
+    <SettingRow setting-key="hands.hintBelow" />
+    <SettingRow setting-key="hands.defaultAlgorithm" />
+  </SettingsSection>
   <section class="block" aria-label="Library">
     <h3 class="section-caps">Library</h3>
     <p class="text">
-      Bundled songs and your uploads, with titles, tags, hand channels and meter overrides.
+      Bundled songs and your uploads, with titles, tags, hands and meter overrides.
     </p>
     <AppButton data-testid="settings-open-library" @click="router.push({ name: 'library' })">
       Open library

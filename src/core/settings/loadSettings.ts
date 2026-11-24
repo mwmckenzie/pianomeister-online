@@ -12,7 +12,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 9
+export const SETTINGS_VERSION = 10
 
 /** The first version that stored shortcut overrides (brief decision 88). */
 const SHORTCUTS_SINCE = 5
@@ -137,6 +137,8 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
       },
     }
   },
+  // v10 (milestone 10.5) adds the hand detection settings.
+  9: (settings) => settings,
 }
 
 /** The contact shadow's default strength before v9. */
