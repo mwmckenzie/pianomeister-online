@@ -125,7 +125,7 @@ test('@settings a profile can be renamed, recoloured and deleted with a confirm;
   )
   await profileRow(page, 'Ann').getByTestId('profile-delete').click()
   await expect(page.getByTestId('profile-delete-text')).toHaveText(
-    "This deletes Ann's 0 bookmarks and its practice stats, and its hand channel choices. This can't be undone.",
+    "This deletes Ann's 0 bookmarks and its practice stats, and its own hands for songs. This can't be undone.",
   )
   await page.getByTestId('profile-delete-confirm').click()
   await expect(page.getByTestId('profile-row')).toHaveCount(1)

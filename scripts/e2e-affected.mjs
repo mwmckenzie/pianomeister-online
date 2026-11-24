@@ -67,6 +67,11 @@ const AREA_MAP = [
   ['src/ui/playback/ListeningController', ['@playlists']],
   ['src/ui/player/ListeningHud.vue', ['@playlists']],
   ['src/ui/welcome/ListenCard.vue', ['@playlists', '@welcome']],
+  ['src/ui/hands', ['@hands', '@library']],
+  ['src/ui/components/HandsSection.vue', ['@hands', '@library']],
+  ['src/ui/components/SongDetailsPanel.vue', ['@hands', '@library']],
+  ['src/ui/components/SongRow.vue', ['@library']],
+  ['src/data/Library', ['@hands', '@library', '@bookmarks', '@stats']],
   ['src/data/Playlists', ['@playlists']],
   ['public/songs', ['@library']],
 ]
