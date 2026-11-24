@@ -117,3 +117,37 @@ Round 1 approved; decisions 1–9 stand. Blueprint's faint cages stay as they ar
 
 - `npm run check`: pass, 821 unit tests.
 - `npm run test:e2e:affected` (chromium): 151 passed, 1 failed (`@library a file already in the library selects that song; mixed drops report both`). It passed on one `--last-failed` re-run and in round 1; cause not investigated.
+
+## Round 3 — 2026-11-24: timeline seeking in listening mode (`e87e4e0`)
+
+**Done**
+
+- The listening timeline is the player's `PlayerTimeline`: click or drag seeks by bar within the current song. Shown in Show and Minimal, not in Hidden.
+- "Seek back 5 s" (Shift+←) and "Seek forward 5 s" (Shift+→) in the Listening group.
+- A seek inside the prepare window (crossfade + 10 s before the end) waits for the next song to load (the current one plays on meanwhile), then seeks and places it in one step. Inside the crossfade the next song starts 0.1 s after landing.
+- A seek while both songs sound stays in the song shown; the ending song is removed and both decks reset to full.
+
+**Decisions**
+
+1. A seek lands at most 0.5 s before a song's end, so the next song still overlaps it.
+2. The timeline seeks to bar starts, as in the player; only the 5 s keys are in seconds.
+3. ← and → stay song keys while the timeline has focus. Up, Down, Home and End move by bar there.
+
+**Existing problems fixed on the way**
+
+- A crossfade is scheduled up to 12 s ahead on the audio clock, so pausing before a seam let it run without the music and could leave the song silent on resume. It's now dropped on pause and scheduled again.
+- A next song with no overlap could start on a deck left at zero.
+- Previous (restart) during a crossfade replayed the ending song's tail.
+
+**Checks**
+
+- `npm run check`: pass, 832 unit tests (118 files). New: `ListeningController.spec.ts` (8, fake transport and output) and `placeNextSong.spec.ts` (3).
+- `npm run test:e2e:affected` (chromium, 11 tags): 173 passed, 0 failed. After it, only mock types in the unit spec changed.
+- New e2e `@playlists listening seeks…`: 4/4 with `--repeat-each=4`.
+- Seen in the app: a drag, a click at the very end, Shift+→ inside the band, the cheat sheet. **Not heard:** e2e plays silent samples, so fades are checked by deck gains and scheduling only.
+
+**Review by ear**
+
+- [ ] Seek to just before a seam at crossfade 0, 2 and 8 s.
+- [ ] Seek during a crossfade: one song, full volume.
+- [ ] Pause a few seconds before a seam, wait, play on.
