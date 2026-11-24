@@ -515,21 +515,19 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     // Notes (decisions 19, 39–41) and the key colour fade-in
     // Note colours (milestone 9.1 §C round 2): the palette the whole scene's note colour follows.
     'notes.palette': {
-      kind: 'choice',
+      kind: 'colourSet',
       label: 'Note colours',
       default: 'default',
       home: sidebar('notes'),
       group: NOTE_COLOURS,
-      control: 'select',
-      options: [
-        { value: 'default', label: 'Default' },
-        { value: 'warm', label: 'Warm' },
-        { value: 'cool', label: 'Cool' },
-        { value: 'neon', label: 'Neon' },
-        { value: 'pastel', label: 'Pastel' },
-        { value: 'mono', label: 'Mono' },
-        { value: 'twoTone', label: 'Two-tone' },
-      ],
+    },
+    'notes.paletteSaved': {
+      kind: 'savedColours',
+      label: 'Saved note colours',
+      default: null,
+      home: sidebar('notes'),
+      group: NOTE_COLOURS,
+      visible: () => false,
     },
     'notes.paletteMono': {
       ...color('Colour', '#8AB4FF', sidebar('notes')),

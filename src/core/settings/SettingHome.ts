@@ -25,6 +25,7 @@ export type WindowSectionId =
   | 'playback'
   | 'listening'
   | 'menuColors'
+  | 'noteColours'
   | 'glass'
   | 'motion'
   | 'playerControls'

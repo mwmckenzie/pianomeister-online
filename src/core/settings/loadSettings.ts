@@ -1,3 +1,6 @@
+import { EMPTY_COLOUR_SETS } from '../color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '../color/NoteColourSets'
+import { readColourSets } from '../color/readColourSets'
 import { readShortcutOverrides } from '../commands/readShortcutOverrides'
 import type { ShortcutOverrides } from '../commands/ShortcutOverrides'
 import { EMPTY_LOOKS } from '../looks/EMPTY_LOOKS'
@@ -12,7 +15,7 @@ import { SETTING_KEYS } from './SETTING_KEYS'
 import { defaultValue, settingDefinition } from './settingValues'
 
 /** Bump on every schema change and add a migration from the previous version. */
-export const SETTINGS_VERSION = 10
+export const SETTINGS_VERSION = 11
 
 /** The first version that stored shortcut overrides (brief decision 88). */
 const SHORTCUTS_SINCE = 5
@@ -139,6 +142,8 @@ const MIGRATIONS: Record<number, (settings: Raw) => Raw> = {
   },
   // v10 (milestone 10.5) adds the hand detection settings.
   9: (settings) => settings,
+  // v11 (milestone 10.6) stores the note colour sets beside the settings; looks carry a copy.
+  10: (settings) => settings,
 }
 
 /** The contact shadow's default strength before v9. */
@@ -173,7 +178,7 @@ export function migrateLookValues(values: Raw, from: number): Raw {
 }
 
 /**
- * The persisted shape: `{ version, settings, shortcuts, looks, deviceClass }`. `looks.active` is
+ * The persisted shape: `{ version, settings, shortcuts, looks, deviceClass, noteColourSets }`. `looks.active` is
  * the picked look; saved looks live in the database (milestone 9.1), so `looks.saved` only
  * holds looks still waiting to move there.
  */
@@ -182,14 +187,16 @@ export function storedSettings(
   shortcuts: ShortcutOverrides = {},
   looks: LooksState = EMPTY_LOOKS,
   deviceClass: DeviceClass = 'desktop',
+  noteColourSets: NoteColourSets = EMPTY_COLOUR_SETS,
 ): {
   readonly version: number
   readonly settings: PlayerSettings
   readonly shortcuts: ShortcutOverrides
   readonly looks: LooksState
   readonly deviceClass: DeviceClass
+  readonly noteColourSets: NoteColourSets
 } {
-  return { version: SETTINGS_VERSION, settings, shortcuts, looks, deviceClass }
+  return { version: SETTINGS_VERSION, settings, shortcuts, looks, deviceClass, noteColourSets }
 }
 
 /**
@@ -208,6 +215,11 @@ export function loadShortcuts(raw: unknown): ShortcutOverrides {
 export function loadLooks(raw: unknown): LooksState {
   if (!isKnownVersion(raw, 6)) return EMPTY_LOOKS
   return readLooks(raw.looks, (values) => migrateLookValues(values, raw.version as number))
+}
+
+/** The note colour sets (milestone 10.6): none before v11 or from a newer version. */
+export function loadColourSets(raw: unknown): NoteColourSets {
+  return isKnownVersion(raw, 11) ? readColourSets(raw.noteColourSets) : EMPTY_COLOUR_SETS
 }
 
 /**

@@ -1,3 +1,5 @@
+import { isNoteColourSetId } from '../color/isNoteColourSetId'
+import { readSavedColours } from '../color/readColourSets'
 import type { AnySettingDefinition } from './SettingDefinition'
 
 const COLOR = /^#[0-9a-f]{6}$/i
@@ -19,6 +21,10 @@ export function coerceSetting(
       return typeof value === 'boolean' ? value : fallback
     case 'choice':
       return def.options.some((o) => o.value === value) ? value : fallback
+    case 'colourSet':
+      return isNoteColourSetId(value) ? value : fallback
+    case 'savedColours':
+      return readSavedColours(value)
     case 'color':
       return typeof value === 'string' && COLOR.test(value) ? value.toUpperCase() : fallback
   }

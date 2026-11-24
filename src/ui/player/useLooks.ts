@@ -77,7 +77,7 @@ export function useLooks() {
 
   /** Downloads looks as one `.pmlook.json` file (device cost is never written). */
   function exportLooks(looks: readonly Look[], fileName: string): void {
-    const text = JSON.stringify(toLookFile(looks), null, 2)
+    const text = JSON.stringify(toLookFile(looks, settings.noteColourSets), null, 2)
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url

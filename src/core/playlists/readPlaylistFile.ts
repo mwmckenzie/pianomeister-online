@@ -1,3 +1,5 @@
+import { EMPTY_COLOUR_SETS } from '../color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '../color/NoteColourSets'
 import { BUILT_IN_LOOKS } from '../looks/BUILT_IN_LOOKS'
 import type { Look } from '../looks/Look'
 import { readLookFile } from '../looks/readLookFile'
@@ -15,6 +17,7 @@ export interface PlaylistImportTarget {
   /** Song ids in this library (the content hash, the identity backups use). */
   readonly songIds: ReadonlySet<string>
   readonly savedLooks: readonly Look[]
+  readonly colourSets?: NoteColourSets
   /** "Import its looks too" (default on). */
   readonly importLooks: boolean
   readonly newId: () => string
@@ -43,7 +46,11 @@ export function readPlaylistFile(raw: unknown, target: PlaylistImportTarget): Pl
   // The file's looks: imported (ids may change) or only counted.
   const carried = isRecord(raw.looks) ? raw.looks : null
   const lookRead =
-    carried === null ? null : readLookFile(carried, target.savedLooks, target.newId, now, true)
+    carried === null
+      ? null
+      : readLookFile(carried, target.savedLooks, target.newId, now, true, {
+          sets: target.colourSets ?? EMPTY_COLOUR_SETS,
+        })
   const lookCount = lookRead?.ok === true ? lookRead.looks.length + lookRead.skipped : 0
   const lookIds = new Map<string, string>()
   const imported: Look[] = []

@@ -10,6 +10,7 @@ import type { Look } from './Look'
  */
 const CLASSIC: Readonly<Record<SettingKey, unknown>> = {
   'notes.palette': 'default',
+  'notes.paletteSaved': null,
   'notes.paletteMono': '#8AB4FF',
   'notes.paletteWhite': '#7EE0C3',
   'notes.paletteBlack': '#C3A6FF',
@@ -236,6 +237,7 @@ const CLASSIC: Readonly<Record<SettingKey, unknown>> = {
  */
 const BASE: Readonly<Record<SettingKey, unknown>> = {
   'notes.palette': 'default',
+  'notes.paletteSaved': null,
   'notes.paletteMono': '#8AB4FF',
   'notes.paletteWhite': '#7EE0C3',
   'notes.paletteBlack': '#C3A6FF',

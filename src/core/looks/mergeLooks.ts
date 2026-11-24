@@ -1,3 +1,5 @@
+import { EMPTY_COLOUR_SETS } from '../color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '../color/NoteColourSets'
 import { BUILT_IN_LOOKS } from './BUILT_IN_LOOKS'
 import type { Look } from './Look'
 import { sameLookValues } from './lookValues'
@@ -15,6 +17,7 @@ export function mergeLooks(
   existing: readonly Look[],
   newId: () => string,
   skipIdentical = false,
+  sets: NoteColourSets = EMPTY_COLOUR_SETS,
 ): {
   readonly added: readonly Look[]
   readonly skipped: number
@@ -29,7 +32,7 @@ export function mergeLooks(
   let skipped = 0
   for (const look of incoming) {
     const mine = byId.get(look.id)
-    if (skipIdentical && mine !== undefined && sameLookValues(mine, look)) {
+    if (skipIdentical && mine !== undefined && sameLookValues(mine, look, sets)) {
       skipped++
       idMap.set(look.id, mine.id)
       continue

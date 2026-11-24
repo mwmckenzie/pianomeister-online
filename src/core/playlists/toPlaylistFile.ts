@@ -1,3 +1,5 @@
+import { EMPTY_COLOUR_SETS } from '../color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '../color/NoteColourSets'
 import type { Look } from '../looks/Look'
 import { toLookFile } from '../looks/toLookFile'
 import type { Playlist } from './Playlist'
@@ -13,6 +15,7 @@ export const PLAYLIST_FILE_VERSION = 1
 export function toPlaylistFile(
   playlists: readonly Playlist[],
   savedLooks: readonly Look[],
+  sets: NoteColourSets = EMPTY_COLOUR_SETS,
 ): PlaylistFile {
   const used = new Set<string>()
   for (const p of playlists) {
@@ -32,6 +35,6 @@ export function toPlaylistFile(
       repeat: p.repeat,
       createdAt: p.createdAt,
     })),
-    ...(looks.length > 0 ? { looks: toLookFile(looks) } : {}),
+    ...(looks.length > 0 ? { looks: toLookFile(looks, sets) } : {}),
   }
 }

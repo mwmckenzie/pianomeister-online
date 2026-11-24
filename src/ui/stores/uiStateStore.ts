@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
+import type { NoteColourSetId } from '@/core/settings/NoteColourSetId'
+
 const STORAGE_KEY = 'pianomeister.ui'
 
 interface UiState {
@@ -89,6 +91,8 @@ export const useUiStateStore = defineStore('uiState', () => {
   const shortcutsOpen = ref(false)
   /** A settings tab to open when the player next can (e.g. "Change shortcuts…" elsewhere). */
   const settingsTabRequest = ref<string | null>(null)
+  /** The colour set to edit when Settings opens on Appearance ("Edit colours…"). */
+  const colourSetRequest = ref<NoteColourSetId | null>(null)
   /**
    * Unsaved work open now (a bookmark draft, …), by name: Home on a new session waits for the
    * next one instead of interrupting it (milestone 9.2 D).
@@ -110,6 +114,7 @@ export const useUiStateStore = defineStore('uiState', () => {
     editorHands,
     shortcutsOpen,
     settingsTabRequest,
+    colourSetRequest,
     unsavedWork,
     setUnsaved,
     closeOverlays,

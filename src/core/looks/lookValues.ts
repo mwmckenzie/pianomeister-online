@@ -1,3 +1,6 @@
+import type { SavedColours } from '../color/SavedColours'
+import type { NoteColourSets } from '../color/NoteColourSets'
+import { EMPTY_COLOUR_SETS } from '../color/EMPTY_COLOUR_SETS'
 import type { DeviceClass } from '../settings/DeviceClass'
 import type { PlayerSettings } from '../settings/PlayerSettings'
 import { restoreValues, type SettingValues } from '../settings/settingGroups'
@@ -69,12 +72,14 @@ export function sameSettingValue(key: SettingKey, a: unknown, b: unknown): boole
     return typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < def.step / 2
   }
   if (def.kind === 'color') return String(a).toUpperCase() === String(b).toUpperCase()
+  if (def.kind === 'savedColours') return JSON.stringify(a) === JSON.stringify(b)
   return a === b
 }
 
 /**
  * True when the settings no longer match the look ("⟨Look⟩ · modified"), comparing every look
- * key the way the look applies it (missing keys as the device's defaults).
+ * key the way the look applies it (missing keys as the device's defaults). A look's copy of a
+ * colour set is left out: editing the set would mark every look that uses it.
  */
 export function isLookModified(
   settings: PlayerSettings,
@@ -82,13 +87,34 @@ export function isLookModified(
   device: DeviceClass = 'desktop',
 ): boolean {
   return LOOK_KEYS.some(
-    (key) => !sameSettingValue(key, readSetting(settings, key), lookValue(look, key, device)),
+    (key) =>
+      key !== 'notes.paletteSaved' &&
+      !sameSettingValue(key, readSetting(settings, key), lookValue(look, key, device)),
   )
 }
 
-/** True when two looks give the same picture (names, ids and dates aside). */
-export function sameLookValues(a: Look, b: Look): boolean {
-  return LOOK_KEYS.every((key) => sameSettingValue(key, lookValue(a, key), lookValue(b, key)))
+/**
+ * True when two looks give the same picture (names, ids and dates aside). Their copies of a
+ * colour set only count while that set is missing here.
+ */
+export function sameLookValues(
+  a: Look,
+  b: Look,
+  sets: NoteColourSets = EMPTY_COLOUR_SETS,
+): boolean {
+  const id = lookValue(a, 'notes.palette')
+  const copied = !sets.custom.some((set) => set.id === id)
+  return LOOK_KEYS.every((key) =>
+    key === 'notes.paletteSaved'
+      ? !copied || savedHexes(a) === savedHexes(b)
+      : sameSettingValue(key, lookValue(a, key), lookValue(b, key)),
+  )
+}
+
+/** The copied colours alone: renaming a set doesn't change the picture. */
+function savedHexes(look: Look): string {
+  const saved = lookValue(look, 'notes.paletteSaved') as SavedColours | null
+  return saved?.colours.join() ?? ''
 }
 
 /** Every look the picker offers: built-in first, then saved ones in the order saved. */

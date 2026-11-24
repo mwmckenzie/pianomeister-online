@@ -5,6 +5,7 @@ import type { Look } from '@/core/looks/Look'
 import { lookFileName } from '@/core/looks/lookFileName'
 import { BUILT_IN_LOOKS } from '@/core/looks/BUILT_IN_LOOKS'
 import { captureLook, isDefaultLook, nextLookName } from '@/core/looks/lookValues'
+import { withSavedColours } from '@/core/looks/withSavedColours'
 import { toLookFile } from '@/core/looks/toLookFile'
 
 import AppButton from '../components/AppButton.vue'
@@ -40,7 +41,7 @@ function updatePlaylistLook(): void {
   const look = playlistLook.value
   if (look === null) return
   const before = settings.looks
-  const updated = captureLook(settings.settings, look.id, look.name, now(), look.createdAt)
+  const updated = capture(look.id, look.name, now(), look.createdAt)
   settings.setLooks({
     ...before,
     saved: before.saved.map((l) => (l.id === look.id ? updated : l)),
@@ -79,11 +80,16 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 const now = () => new Date().toISOString()
 
+/** What's on screen as a look, with its colour set's colours as they are now. */
+function capture(...args: [id: string, name: string, now?: string, createdAt?: string]): Look {
+  return withSavedColours(captureLook(settings.settings, ...args), settings.noteColourSets)
+}
+
 /** Saves the current settings over the picked (saved) look. */
 function save(): void {
   const look = saved.value
   if (look === null) return
-  const updated = captureLook(settings.settings, look.id, look.name, now(), look.createdAt)
+  const updated = capture(look.id, look.name, now(), look.createdAt)
   settings.setLooks({
     ...settings.looks,
     saved: settings.looks.saved.map((l) => (l.id === look.id ? updated : l)),
@@ -124,7 +130,7 @@ function submitName(): void {
     })
     toasts.showUndo(`Renamed to "${trimmed}"`, () => settings.setLooks(before))
   } else {
-    const look = captureLook(settings.settings, crypto.randomUUID(), trimmed)
+    const look = capture(crypto.randomUUID(), trimmed)
     settings.setLooks({ active: look.id, saved: [...settings.looks.saved, look] })
     toasts.show(`Saved look "${trimmed}"`)
   }
@@ -139,13 +145,15 @@ function currentLook(): Look {
   const picked = active.value
   if (picked !== null && !modified.value) return picked
   const label = picked === null ? 'My look' : `${picked.name} (modified)`
-  return captureLook(settings.settings, crypto.randomUUID(), label)
+  return capture(crypto.randomUUID(), label)
 }
 
 async function copy(): Promise<void> {
   const look = currentLook()
   try {
-    await navigator.clipboard.writeText(JSON.stringify(toLookFile([look]), null, 2))
+    await navigator.clipboard.writeText(
+      JSON.stringify(toLookFile([look], settings.noteColourSets), null, 2),
+    )
     toasts.show(`Copied look "${look.name}"`)
   } catch {
     toasts.show("Couldn't copy to the clipboard", 'error')
