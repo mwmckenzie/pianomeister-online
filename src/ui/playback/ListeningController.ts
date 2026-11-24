@@ -4,6 +4,7 @@ import { easeSettings } from '@/core/looks/easeSettings'
 import { lookSettings } from '@/core/looks/lookValues'
 import { buildTimeline } from '@/core/playlists/buildTimeline'
 import { nextInOrder } from '@/core/playlists/nextInOrder'
+import { placeNextSong } from '@/core/playlists/placeNextSong'
 import type { Playlist } from '@/core/playlists/Playlist'
 import type { PlaylistTimeline } from '@/core/playlists/PlaylistTimeline'
 import type { PlayOrder } from '@/core/playlists/PlayOrder'
@@ -11,7 +12,6 @@ import { previousInOrder } from '@/core/playlists/previousInOrder'
 import { resolvePlaylist } from '@/core/playlists/resolvePlaylist'
 import { setShuffle } from '@/core/playlists/setShuffle'
 import { songEndSec } from '@/core/playlists/songEndSec'
-import { songStartTimes } from '@/core/playlists/songStartTimes'
 import { startOrder } from '@/core/playlists/startOrder'
 import type { DeviceClass } from '@/core/settings/DeviceClass'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
@@ -19,7 +19,7 @@ import type { Song } from '@/core/song/Song'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import type { OpenedSong } from '@/data/OpenedSong'
 
-import type { ListeningSong } from '../stores/listeningStore'
+import type { ListeningBars, ListeningSong } from '../stores/listeningStore'
 import type { LoadedSong } from './LoadedSong'
 import { PlaybackSession } from './PlaybackSession'
 
@@ -27,6 +27,12 @@ import { PlaybackSession } from './PlaybackSession'
 const PREPARE_AHEAD_SEC = 10
 /** A seam that would land in the past (the next song was late) moves this far ahead instead. */
 const LATE_SEAM_SEC = 0.5
+/** The same after a seek, where everything is re-planned anyway: a short lead is enough. */
+const SEEK_SEAM_SEC = 0.1
+/** A seek never lands closer to the song's end than this, so the next one still overlaps it. */
+const SEEK_END_SEC = 0.5
+/** Bar ticks on the listening timeline are thinned out above this many (as in the player). */
+const MAX_BAR_TICKS = 64
 
 /** A song of the playlist, parsed and set up for playback. */
 interface Prepared {
@@ -42,6 +48,12 @@ interface Part {
   readonly order: PlayOrder
   readonly startSec: number
   readonly deck: 0 | 1
+}
+
+/** The song after the current one, ready to be placed. */
+interface NextSong {
+  readonly prepared: Prepared
+  readonly order: PlayOrder
 }
 
 /** What the controller reads and drives; the player view supplies it. */
@@ -102,8 +114,12 @@ export interface ListeningUpdate {
     readonly bpm: number
     readonly elapsedSec: number
     readonly durationSec: number
+    /** 0–1 of the song, in ticks (the timeline's playhead). */
+    readonly progress: number
     readonly playing: boolean
   } | null
+  /** The current song's bars, for the timeline. */
+  readonly bars?: ListeningBars
 }
 
 /**
@@ -121,7 +137,14 @@ export class ListeningController {
   private playable: number[] = []
   private parts: Part[] = []
   private current = 0
-  private preparing = false
+  private loading: {
+    readonly generation: number
+    readonly song: Promise<NextSong | null>
+  } | null = null
+  /** Counts seeks: one that waited for the next song gives way to a later one. */
+  private seeks = 0
+  /** Where a seek still waiting for the next song will land (seconds into the song). */
+  private seekTarget: number | null = null
   private tempoPercent = 100
   private fadeKey = ''
   private generation = 0
@@ -291,11 +314,68 @@ export class ListeningController {
     const into = transport.position - part.startSec
     const back = previousInOrder(part.order, into)
     if (back.restart) {
-      transport.seekToSeconds(part.startSec)
-      this.resetDecks()
+      await this.seekTo(0)
       return
     }
     await this.playFresh(back.order, transport.state === 'playing')
+  }
+
+  /** Seeks to a bar of the current song (the timeline). */
+  async seekToBar(bar: number): Promise<void> {
+    const part = this.parts[this.current]
+    if (part === undefined) return
+    const { barMap, tempoMap } = part.prepared.loaded
+    await this.seekTo(tempoMap.tickToSeconds(barMap.barStartTick(bar)))
+  }
+
+  /** Seeks `seconds` forward (or back) within the current song. */
+  async seekBy(seconds: number): Promise<void> {
+    const part = this.parts[this.current]
+    if (part === undefined) return
+    const from = this.seekTarget ?? this.host.session.transport.position - part.startSec
+    await this.seekTo(from + seconds)
+  }
+
+  /** The current song's bar at a 0–1 timeline position. */
+  barAt(fraction: number): number {
+    const part = this.parts[this.current]
+    if (part === undefined) return 1
+    const { barMap } = part.prepared.loaded
+    return Math.min(this.lastBar(part), barMap.tickToPosition(fraction * this.endTick(part)).bar)
+  }
+
+  /**
+   * Seeks within the current song (the one the timeline shows). In the last part of a song the
+   * next one is loaded first, then placed in the same step as the seek, so the seam is never
+   * missed and the end never reached without it. While two songs sound, the ending one is cut.
+   */
+  private async seekTo(seconds: number): Promise<void> {
+    const part = this.parts[this.current]
+    if (this.playlist === null || part === undefined) return
+    const target = Math.min(Math.max(0, part.prepared.endSec - SEEK_END_SEC), Math.max(0, seconds))
+    const seek = ++this.seeks
+    const generation = this.generation
+    let next: NextSong | null = this.parts[this.current + 1] ?? null
+    if (next === null && this.inPrepareWindow(part, part.startSec + target)) {
+      this.seekTarget = target
+      next = await this.loadNext(part)
+      if (seek !== this.seeks) return
+      this.seekTarget = null
+      // Meanwhile another song may have started, or listening ended.
+      if (generation !== this.generation) return
+      if (this.parts[this.current]?.prepared !== part.prepared) return
+    }
+    this.seekTarget = null
+    const now: Part = { ...part, startSec: 0 }
+    const after = next === null ? [] : [this.placed(now, next, target, SEEK_SEAM_SEC)]
+    if (this.parts.length > 1 || after.length > 0) {
+      this.rebuild([now, ...after], target, true, true)
+      this.current = 0
+    }
+    this.host.session.transport.seekToSeconds(target)
+    this.resetDecks()
+    this.host.update({ finished: false })
+    this.publishPosition()
   }
 
   /** "Play again" after a finished playlist (repeat off). */
@@ -343,6 +423,7 @@ export class ListeningController {
     const index = order.order[order.position]
     if (index === undefined) return
     const generation = ++this.generation
+    this.seekTarget = null
     const prepared = await this.prepare(index)
     if (generation !== this.generation || prepared === null) return
     this.current = 0
@@ -381,12 +462,15 @@ export class ListeningController {
     }
   }
 
-  /** Builds and plays `parts` as the timeline, at `positionSec`; `swap` keeps playing. */
-  private rebuild(parts: Part[], positionSec: number, swap: boolean): void {
+  /**
+   * Builds and plays `parts` as the timeline, at `positionSec`; `swap` keeps playing. A `seek`
+   * jumps, so the engine keeps no effects in flight.
+   */
+  private rebuild(parts: Part[], positionSec: number, swap: boolean, seek = false): void {
     // The old timeline's ticks at the new first song's start: 0 for an append (the same first
     // song), its start for a rebase (the next song moved to 0).
     const kept = this.parts.findIndex((p) => p.prepared === parts[0]?.prepared)
-    const shiftTicks = swap ? (this.lastTimeline?.segments[kept]?.startTick ?? 0) : null
+    const shiftTicks = swap && !seek ? (this.lastTimeline?.segments[kept]?.startTick ?? 0) : null
     const timeline = buildTimeline(
       parts.map((p) => ({
         source: {
@@ -418,51 +502,78 @@ export class ListeningController {
     this.fadeKey = ''
   }
 
+  /** Whether `at` is close enough to the current song's end for the next one to be made ready. */
+  private inPrepareWindow(part: Part, at: number): boolean {
+    return part.startSec + part.prepared.endSec - at <= this.host.crossfadeSec() + PREPARE_AHEAD_SEC
+  }
+
+  /** The song after `part`, opened once: a seek and the usual look-ahead share one load. */
+  private loadNext(part: Part): Promise<NextSong | null> {
+    if (this.loading !== null && this.loading.generation === this.generation) {
+      return this.loading.song
+    }
+    const order = nextInOrder(part.order, this.playlist?.repeat ?? 'off', () => this.host.random())
+    const index = order === null ? undefined : order.order[order.position]
+    if (order === null || index === undefined) return Promise.resolve(null)
+    const song = this.prepare(index).then((prepared) =>
+      prepared === null ? null : { prepared, order },
+    )
+    const loading = { generation: this.generation, song }
+    this.loading = loading
+    void song.then(() => {
+      if (this.loading === loading) this.loading = null
+    })
+    return song
+  }
+
+  /** `next` after `part`, its seam `lead` ahead of `at` at the earliest. */
+  private placed(part: Part, next: NextSong, at: number, lead: number): Part {
+    const { startSec, late } = placeNextSong(
+      { startSec: part.startSec, durationSec: part.prepared.endSec },
+      next.prepared.endSec,
+      this.host.crossfadeSec(),
+      at,
+      lead,
+    )
+    if (late && lead === LATE_SEAM_SEC) this.lateSeams++
+    return { prepared: next.prepared, order: next.order, startSec, deck: part.deck === 0 ? 1 : 0 }
+  }
+
   /** Appends the next song once the current one nears its end (and it's ready). */
   private maybePrepareNext(t: number): void {
     const part = this.parts[this.current]
-    if (this.playlist === null || part === undefined || this.preparing) return
-    if (this.current !== this.parts.length - 1) return
-    const crossfade = this.host.crossfadeSec()
-    if (part.startSec + part.prepared.endSec - t > crossfade + PREPARE_AHEAD_SEC) return
-    const order = nextInOrder(part.order, this.playlist.repeat, () => this.host.random())
-    if (order === null) return
-    const index = order.order[order.position]
-    if (index === undefined) return
-    this.preparing = true
+    if (this.playlist === null || part === undefined || this.loading !== null) return
+    if (this.current !== this.parts.length - 1 || !this.inPrepareWindow(part, t)) return
     const generation = this.generation
-    void this.prepare(index).then((prepared) => {
-      this.preparing = false
-      if (generation !== this.generation || prepared === null) return
+    void this.loadNext(part).then((next) => {
       const now = this.parts[this.current]
-      if (now === undefined) return
-      const [, offset] = songStartTimes(
-        [now.prepared.endSec, prepared.endSec],
-        this.host.crossfadeSec(),
-      )
+      if (generation !== this.generation || next === null || now === undefined) return
+      if (this.current !== this.parts.length - 1) return
       const at = this.host.session.transport.position
-      let startSec = now.startSec + (offset ?? now.prepared.endSec)
-      if (startSec < at + LATE_SEAM_SEC) {
-        // Ready too late for its place: the seam waits rather than glitch.
-        startSec = at + LATE_SEAM_SEC
-        this.lateSeams++
-      }
-      const deck: 0 | 1 = now.deck === 0 ? 1 : 0
-      this.rebuild([now, { prepared, order, startSec, deck }], at, true)
+      // Ready too late for its place: the seam waits rather than glitch.
+      this.rebuild([now, this.placed(now, next, at, LATE_SEAM_SEC)], at, true)
       this.current = 0
-      // Without a fade the next song's deck must be fully open.
-      if (this.host.crossfadeSec() <= 0) this.host.session.output.setDeckGain(deck, 1)
+      this.openNextDeck()
       this.publishPosition()
     })
   }
 
+  /** Without an overlap there's no fade: the next song's deck must be fully open. */
+  private openNextDeck(): void {
+    const [now, next] = this.parts
+    if (now === undefined || next === undefined) return
+    if (next.startSec >= now.startSec + now.prepared.endSec) {
+      this.host.session.output.setDeckGain(next.deck, 1)
+    }
+  }
+
   /** Keeps the audio crossfade in step with the timeline (scheduled when playing; resumed mid-way). */
   private syncFade(t: number): void {
-    const ending = this.parts[this.current]
-    const next = this.parts[this.current + 1]
+    const [ending, next] = this.parts
     const { session } = this.host
     if (ending === undefined || next === undefined || session.transport.state !== 'playing') {
-      this.fadeKey = ''
+      // A scheduled fade runs on the audio clock: paused, it would go on without the music.
+      if (this.fadeKey !== '') this.resetDecks()
       return
     }
     const overlapEnd = ending.startSec + ending.prepared.endSec
@@ -470,12 +581,14 @@ export class ListeningController {
     if (overlap <= 0 || t >= overlapEnd) return
     const key = `${this.generation}:${next.startSec}:${this.tempoPercent}`
     if (key === this.fadeKey) return
-    this.fadeKey = key
     const rate = this.tempoPercent / 100
     const audioNow = session.context.currentTime
     const songNow = session.transport.songTimeAt(audioNow)
     const from = Math.max(next.startSec, songNow)
     const progress = (from - next.startSec) / overlap
+    // Drops a fade scheduled for an earlier place (a seek, a tempo change).
+    if (progress === 0) this.resetDecks()
+    this.fadeKey = key
     session.output.crossfade(
       ending.deck,
       audioNow + (from - songNow) / rate,
@@ -536,6 +649,7 @@ export class ListeningController {
       position: part.order.position + 1,
       total: part.order.order.length,
       current: part.prepared.info,
+      bars: this.barsOf(part),
       upNext:
         after !== undefined
           ? after.prepared.info
@@ -586,7 +700,6 @@ export class ListeningController {
     const next = this.parts[1] as Part
     if (at >= next.startSec) return
     this.generation++
-    this.preparing = false
     this.rebuild([part], at, true)
     this.resetDecks()
   }
@@ -611,6 +724,7 @@ export class ListeningController {
     beats: number
     bpm: number
     elapsedSec: number
+    progress: number
   } {
     const t = this.host.session.transport.position - part.startSec
     const { tempoMap, barMap } = part.prepared.loaded
@@ -622,7 +736,29 @@ export class ListeningController {
       beats: barMap.beatsPerBar(Math.max(at.bar, barMap.firstBar)),
       bpm: (tempoMap.bpmAt(tick) * this.tempoPercent) / 100,
       elapsedSec: Math.max(0, Math.min(t, part.prepared.endSec)),
+      progress: Math.min(1, tick / this.endTick(part)),
     }
+  }
+
+  private endTick(part: Part): number {
+    return Math.max(1, part.prepared.loaded.tempoMap.secondsToTick(part.prepared.endSec))
+  }
+
+  private lastBar(part: Part): number {
+    const { barMap } = part.prepared.loaded
+    return Math.max(barMap.firstBar, barMap.tickToPosition(this.endTick(part) - 1).bar)
+  }
+
+  private barsOf(part: Part): ListeningBars {
+    const { barMap } = part.prepared.loaded
+    const last = this.lastBar(part)
+    let step = 1
+    while (last / step > MAX_BAR_TICKS) step *= 2
+    const ticks: number[] = []
+    for (let bar = 1 + step; bar <= last; bar += step) {
+      ticks.push(barMap.barStartTick(bar) / this.endTick(part))
+    }
+    return { first: barMap.firstBar, last, ticks }
   }
 }
 

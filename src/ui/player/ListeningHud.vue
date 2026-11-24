@@ -10,6 +10,7 @@ import { useListeningStore } from '../stores/listeningStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import BarBeatCounter from './BarBeatCounter.vue'
 import HudMenuButton from './HudMenuButton.vue'
+import PlayerTimeline from './PlayerTimeline.vue'
 
 /**
  * Listening mode's HUD (milestone 9.5 C, board QGListen), replacing the player's while a playlist
@@ -23,8 +24,11 @@ defineProps<{
   readonly idle: boolean
   readonly reducedMotion: boolean
   readonly sidebarOpen: boolean
+  /** The current song's bar at a 0–1 timeline position. */
+  readonly barAt: (fraction: number) => number
 }>()
 const emit = defineEmits<{
+  seekBar: [bar: number]
   leave: []
   next: []
   previous: []
@@ -60,10 +64,6 @@ const time = computed(() => {
   const c = clock.value
   return c === null ? '' : `${formatTime(c.elapsedSec)} / ${formatTime(c.durationSec)}`
 })
-const progress = computed(() => {
-  const c = clock.value
-  return c === null || c.durationSec <= 0 ? 0 : Math.min(1, c.elapsedSec / c.durationSec)
-})
 const REPEAT_LABEL: Record<PlaylistRepeat, string> = {
   playlist: 'repeat playlist',
   one: 'repeat one song',
@@ -92,10 +92,19 @@ onBeforeUnmount(() => clearTimeout(announceTimer))
 
 <template>
   <div class="listening" :class="[mode, { idle }]" data-testid="listening-hud" :data-mode="mode">
-    <div v-if="mode !== 'hidden'" class="progress" aria-hidden="true">
-      <div class="bar" :style="{ width: `${progress * 100}%` }" />
-      <div class="knob" :style="{ left: `${progress * 100}%` }" />
-    </div>
+    <PlayerTimeline
+      v-if="mode !== 'hidden'"
+      class="timeline"
+      :position="clock?.progress ?? 0"
+      :loop="null"
+      :ticks="listening.bars.ticks"
+      :bar="clock?.bar ?? listening.bars.first"
+      :first-bar="listening.bars.first"
+      :last-bar="listening.bars.last"
+      :bar-at="barAt"
+      :horizontal-keys="false"
+      @seek-bar="emit('seekBar', $event)"
+    />
 
     <div v-if="mode !== 'hidden'" class="side left hud-text">
       <p v-if="mode === 'show'" class="where" data-testid="listening-where">
@@ -285,31 +294,12 @@ onBeforeUnmount(() => clearTimeout(announceTimer))
   pointer-events: auto;
 }
 
-.progress {
+/* Where the player's timeline runs. */
+.timeline {
   position: absolute;
-  top: 12px;
-  left: 28px;
+  top: 0;
   right: 28px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgb(255 255 255 / 0.12);
-  pointer-events: none;
-}
-
-.progress .bar {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--primary);
-}
-
-.progress .knob {
-  position: absolute;
-  top: -5px;
-  width: 13px;
-  height: 13px;
-  margin-left: -6.5px;
-  border-radius: 50%;
-  background: #fff;
+  left: 28px;
 }
 
 .side {

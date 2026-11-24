@@ -464,10 +464,16 @@ function cycleListeningHud(): void {
   settingsStore.set('appearance.listeningHud', HUD_MODES[(now + 1) % HUD_MODES.length] ?? 'show')
 }
 
+/** Shift+← / → while listening. */
+const LISTENING_SEEK_SEC = 5
+const listeningBarAt = (fraction: number) => listener?.barAt(fraction) ?? 1
+
 /** Listening keys (milestone 9.5): its own commands, then the player's few that still apply. */
 const LISTENING_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
   nextSong: () => void listener?.next(),
   previousSong: () => void listener?.previous(),
+  seekBack: () => void listener?.seekBy(-LISTENING_SEEK_SEC),
+  seekForward: () => void listener?.seekBy(LISTENING_SEEK_SEC),
   toggleMute: toggleListeningMute,
   cycleListeningHud,
   leaveListening: () => void leaveListening(),
@@ -1101,6 +1107,8 @@ onBeforeUnmount(() => {
         :idle="controlsHidden"
         :reduced-motion="reducedMotion"
         :sidebar-open="ui.sidebarOpen"
+        :bar-at="listeningBarAt"
+        @seek-bar="listener?.seekToBar($event)"
         @leave="leaveListening"
         @next="listener?.next()"
         @previous="listener?.previous()"

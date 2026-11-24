@@ -185,6 +185,69 @@ test('@playlists export then import brings the playlist back', async ({ page }) 
   await expect(page.getByTestId('playlist-item')).toHaveCount(1)
 })
 
+/** "m:ss" / "m:ss" of the listening HUD, in seconds: elapsed and length. */
+async function listeningTime(page: Page): Promise<[number, number]> {
+  const text = (await page.getByTestId('listening-time').textContent()) ?? ''
+  const [at = 0, length = 0] = [...text.matchAll(/(\d+):(\d\d)/g)].map(
+    (m) => Number(m[1]) * 60 + Number(m[2]),
+  )
+  return [at, length]
+}
+
+test('@playlists listening seeks: the timeline and Shift+arrows, and the next song still starts', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('./#/?stats=1')
+  await expect(page.getByTestId('hud-title')).toBeVisible()
+  await seedPractice(page, {
+    playlists: [playlist('pl', 'Two', [SONG_IDS.minuet, SONG_IDS.canon])],
+  })
+  // Play / pause waits for the samples.
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded')
+  await openPlaylists(page)
+  await page.getByTestId('playlist-play').click()
+  await expect(page.getByTestId('transport-state')).toHaveText('playing')
+
+  // Shift+→ and Shift+←: 5 s on and back, paused so the song doesn't move meanwhile.
+  await page.keyboard.press('Space')
+  await expect(page.getByTestId('transport-state')).toHaveText('paused')
+  const [from] = await listeningTime(page)
+  await page.keyboard.press('Shift+ArrowRight')
+  await expect.poll(async () => (await listeningTime(page))[0]).toBe(from + 5)
+  await page.keyboard.press('Shift+ArrowLeft')
+  await expect.poll(async () => (await listeningTime(page))[0]).toBe(from)
+
+  // Minimal keeps the timeline, Hidden doesn't.
+  const timeline = page.getByTestId('timeline')
+  await page.keyboard.press('d')
+  await expect(page.getByTestId('listening-hud')).toHaveAttribute('data-mode', 'minimal')
+  await expect(timeline).toBeVisible()
+  await page.keyboard.press('d')
+  await expect(page.getByTestId('listening-hud')).toHaveAttribute('data-mode', 'hidden')
+  await expect(timeline).toHaveCount(0)
+  await page.keyboard.press('d')
+
+  // A click about 3 s before the end (crossfade 2 s; it lands on the bar's start).
+  const box = await timeline.boundingBox()
+  const [, length] = await listeningTime(page)
+  const width = box?.width ?? 0
+  await timeline.click({ position: { x: (width * (length - 3)) / length, y: 14 } })
+  await expect.poll(async () => (await listeningTime(page))[0]).toBeGreaterThanOrEqual(length - 6)
+  await expect(page.getByTestId('listening-title')).toHaveText('Minuet in G')
+  await page.keyboard.press('Space')
+  await expect(page.getByTestId('listening-announce')).toContainText('Canon in D')
+  await expect(page.getByTestId('listening-title')).toHaveText('Canon in D')
+  await expect(page.getByTestId('transport-state')).toHaveText('playing')
+
+  // Focus is on the timeline after the click: → is still "next song", not a bar step.
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByTestId('listening-title')).toHaveText('Minuet in G')
+  expect(await readStore(page, 'playRecords')).toEqual([])
+  expect(await readStore(page, 'sessions')).toEqual([])
+  expect(errors).toEqual([])
+})
+
 /** A playlist file whose playlist uses a saved look the file carries. */
 function fileWithLook(playlistId: string, name: string, lookId: string, lookName: string): string {
   return JSON.stringify({

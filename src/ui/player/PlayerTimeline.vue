@@ -7,24 +7,29 @@ import { computed, ref, useTemplateRef } from 'vue'
  * clicking seeks to the start of the bar under the pointer, on release; the keyboard steps by
  * bar. Seeking is always by bar (CLAUDE.md: no raw seconds in UI code).
  */
-const props = defineProps<{
-  /** Playhead position, 0–1 of the song. */
-  readonly position: number
-  /** Loop region (0–1 of the song) and its first and last bars, shown below it. */
-  readonly loop: {
-    readonly from: number
-    readonly to: number
-    readonly startBar: number
-    readonly endBar: number
-  } | null
-  /** Bar starts to mark, 0–1 of the song (thinned out for long songs). */
-  readonly ticks: readonly number[]
-  readonly bar: number
-  readonly firstBar: number
-  readonly lastBar: number
-  /** The bar at a 0–1 position (from the bar map). */
-  readonly barAt: (fraction: number) => number
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** Playhead position, 0–1 of the song. */
+    readonly position: number
+    /** Loop region (0–1 of the song) and its first and last bars, shown below it. */
+    readonly loop: {
+      readonly from: number
+      readonly to: number
+      readonly startBar: number
+      readonly endBar: number
+    } | null
+    /** Bar starts to mark, 0–1 of the song (thinned out for long songs). */
+    readonly ticks: readonly number[]
+    readonly bar: number
+    readonly firstBar: number
+    readonly lastBar: number
+    /** The bar at a 0–1 position (from the bar map). */
+    readonly barAt: (fraction: number) => number
+    /** Off while listening: ← and → are song keys there, with the focus on the timeline or not. */
+    readonly horizontalKeys?: boolean
+  }>(),
+  { horizontalKeys: true },
+)
 const emit = defineEmits<{ seekBar: [bar: number] }>()
 
 const track = useTemplateRef<HTMLElement>('track')
@@ -56,6 +61,7 @@ function onPointerUp(event: PointerEvent): void {
 
 function onKeyDown(event: KeyboardEvent): void {
   const step: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }
+  if (!props.horizontalKeys && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
   let target: number | null = null
   if (event.key in step) target = props.bar + (step[event.key] ?? 0)
   else if (event.key === 'Home') target = props.firstBar
