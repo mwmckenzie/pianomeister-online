@@ -2,7 +2,7 @@
 
 Spec: `docs/milestones/m10-6.md`. Mockup: `docs/design/m10-6/source/QGColourSets.dc.html`. Branch `feat/m10-6-colour-sets` from `main` (#29 merged).
 
-**Status:** waiting for approval. No app code changed. Questions in §9.
+**Status:** approved 2026-11-25, with the answers in §10 (they override §1–§9 where they differ).
 
 ## 1. The palette model today
 
@@ -130,3 +130,15 @@ Each has a default that I'll build if you just say "go".
 5. **Warning on the shipped Warm and Pastel:** show it, as the spec says? Default: yes. The alternative is to show it only for modified or custom sets.
 6. **Reset confirm:** default: keep decision 51 (no dialog; Undo brings the overrides back). The alternative is your confirm text, as an exception to decision 51.
 7. **An edited built-in on another device:** a look using an edited Neon shows the other device's own Neon there, because the set exists (the spec's rule). Only custom sets travel with a look. The preview text "A look that uses this set stores its colours…" promises more than that, so for built-ins I'd show "Looks that use this set show your changes on this device. To take them along, save as a new set." OK?
+
+## 10. Answers (2026-11-25)
+
+1. Yes: overrides on top of the look's own Mono and Two-tone colours; no migration.
+2. Yes: a page inside the Appearance tab, the window growing to at most 1280 × 720, with the narrow-screen fallbacks.
+3. Yes: custom sets and overrides in backup 1.6, with the merge rules of §4.
+4. Yes: "Save as a set" reuses the missing id, so all its looks reconnect.
+5. **Changed:** the warning shows only for modified built-ins and custom sets. The brief notes that Warm (E and F) and Pastel (B and C) are close as shipped.
+6. Decision 51 stays: no dialog, Undo restores the overrides.
+7. Yes: the new text for built-ins, the spec's text for custom sets.
+
+Pixel check: the `?stats=1` hook for the engine's 12 colours plus the piano roll screenshot comparison.
