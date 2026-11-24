@@ -155,3 +155,70 @@ Found:
 - [ ] Keyboard only: Tab to the lane, arrows, Enter, Save, Esc.
 - [ ] Open an exported file in another program, both layouts.
 - [ ] Reset to detected on an edited song.
+
+## Round 4 — 2026-11-24: reload prompt, benchmark, docs (step 9)
+
+**Built**
+
+- Review page: the browser's "Leave site?" prompt while there are unsaved changes. It is removed as soon as the page is clean or left. Test: dirty asks and staying keeps the flip; flipped back, saved, or left with Discard doesn't ask.
+- `npm run bench:hands -- <folder>`: per file and in total, % correct, longest wrong run (notes and seconds), runtime; `--algos`, `--params`. It also counts notes never released, for the drone check.
+- Docs: brief (decisions 1, 6, 30, 31, 35, 75, 128, the data model), CLAUDE.md (command, tags, two working rules), the `e2e-affected` map, roadmap (pinch zoom under milestone 11). Decision 127 was updated in round 1; 32 and 37 refer to 75 and needed no change.
+
+**Decisions not in the instructions**
+
+1. The e2e map now sends `libraryStore` changes to `@playlists` too: that is how the playlist bug got in.
+2. The roadmap row for 10.5 still says "planned"; it can change when the PR is merged.
+
+**Checks**
+
+- `npm run check`: exit 0, 908 unit tests (126 files). `npm run build`: pass. `songs:manifest:check`: up to date.
+- `npm run test:e2e:affected` (chromium and polish, 12 tags, run once over the whole branch): **183 passed, 0 failed**, including 13 `@hands` tests and the playlist test that failed in round 3.
+- `bench:hands` was run on `test-fixtures/midi` only: 5 of 7 files usable, look-ahead 99.6 %. That is synthetic and mostly one file (`long-demo`); it says little about real music. Weakest: `pedal-demo`, where look-ahead gets 88.9 % and Chord-aware 44.4 %.
+
+**Known issues**
+
+- Not tried: real uploads, a real folder of MIDI files, a tablet, a screen reader.
+- The three layout fixes of round 3 were not looked at again.
+- iPad Safari may not show the "Leave site?" prompt; only Chromium was tested.
+- Commit `8a6429d` doesn't type-check by itself (round 1).
+
+**Review (before the push)**
+
+- [ ] Real one-channel songs: badge, reasons, colours, cages, mute and solo.
+- [ ] Songs whose hands you had changed: unchanged, "Edited". The background toast, once.
+- [ ] Review page: flips, stripes, compare, Advanced, keyboard, reload with unsaved changes.
+- [ ] An exported file in another program, both layouts.
+- [ ] `bench:hands` on your own folder; listen to any file that reports notes never released.
+
+### Draft PR description
+
+**Title:** Milestone 10.5: Hand detection and split
+
+> Works out which hand plays each note, also when both hands share one channel, and lets the player correct it.
+>
+> **What's new**
+>
+> - **Detection** per voice (track and channel) with a confidence and reasons; four split methods, Phrase look-ahead by default. Uploads are detected as they arrive, existing songs once in the background. Runs in a worker.
+> - **One source for hands:** sound, highway, cages, picker and playlists all read `handOf(note)`. Nothing reads channels for hands any more (the debug page excepted).
+> - **Library:** a role per voice, split summary, "Why", and a "Check hands" hint.
+> - **Review hands page:** flip notes by click or keyboard, methods and parameters, compare, uncertain notes.
+> - **Export split:** a copy of the MIDI file with each hand on its own channel.
+> - `npm run bench:hands` scores the split methods on a local folder.
+>
+> **Data**
+>
+> - Dexie v9, settings v10, backup 1.5, `FACTS_VERSION` 2.
+> - Detections are stored per song; the player's own hands per profile. Channel maps the player had changed are kept exactly and never touched by detection.
+> - Notes now come from raw MIDI events with stable ids. Notes never released sound to the end of their track.
+>
+> **Deviations from the source brief:** named lone voices keep their hand; `other` and `drums` voices keep the role the channel map gives them; uncertain notes use the beam 8 chords later (brief decision 128).
+>
+> **Also fixed:** a half-typed playlist name was lost when the library refreshed.
+>
+> **Performance:** parsing a bundled song is under 1 ms slower (accepted; roadmap "Parse MIDI once").
+>
+> **Tests:** 908 unit tests; `test:e2e:affected` 183 passed, with 13 new `@hands` tests.
+>
+> **Not tested:** tablet, screen reader, Safari.
+>
+> 🤖 Generated with [Claude Code](https://claude.com/claude-code)
