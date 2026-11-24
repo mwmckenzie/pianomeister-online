@@ -38,9 +38,26 @@ try {
   fail(`--params isn't valid JSON: ${e.message}`)
 }
 
-const percent = (part, whole) => `${((part / whole) * 100).toFixed(1)} %`
+const percent = (part, whole) => (whole === 0 ? 'n/a' : `${((part / whole) * 100).toFixed(1)} %`)
+const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`
+// With two hands every wrong note was given the other hand's, so what tells a swap from a
+// passage one hand took over is whether both hands' notes are in the run.
+const place = (r) =>
+  `${r.notes} notes / ${r.seconds.toFixed(1)} s, bar ${r.startBar} (${clock(r.startSeconds)}), ` +
+  `${r.rightGivenLeft > 0 && r.leftGivenRight > 0 ? 'both ways' : 'one way'} ` +
+  `(R to L ${r.rightGivenLeft}, L to R ${r.leftGivenRight})`
+/** Only methods that mark notes get this line. */
+const stripes = (s, notes) =>
+  s.uncertain === 0
+    ? null
+    : `          uncertain: ${percent(s.uncertainWrong, notes - s.correct)} of wrong notes marked, ` +
+      `${percent(s.uncertainWrong, s.uncertain)} of marked notes wrong ` +
+      `(${s.uncertain} marked, ${notes - s.correct} wrong, ${s.uncertainWrong} both)`
 const totals = new Map(
-  algorithms.map((a) => [a.id, { correct: 0, notes: 0, run: 0, sec: 0, ms: 0 }]),
+  algorithms.map((a) => [
+    a.id,
+    { correct: 0, notes: 0, run: 0, sec: 0, uncertain: 0, uncertainWrong: 0, ms: 0 },
+  ]),
 )
 let files = 0
 for (const name of readdirSync(folder).sort()) {
@@ -64,14 +81,21 @@ for (const name of readdirSync(folder).sort()) {
     const t = totals.get(s.algorithm)
     t.correct += s.correct
     t.notes += result.notes
-    t.run = Math.max(t.run, s.wrongRun)
-    t.sec = Math.max(t.sec, s.wrongSeconds)
+    t.run = Math.max(t.run, s.longestRun?.notes ?? 0)
+    t.sec = Math.max(t.sec, s.longestTime?.seconds ?? 0)
+    t.uncertain += s.uncertain
+    t.uncertainWrong += s.uncertainWrong
     t.ms += s.ms
     console.log(
       `  ${s.algorithm.padEnd(7)} ${percent(s.correct, result.notes).padStart(7)}` +
-        `  longest wrong run ${s.wrongRun} notes / ${s.wrongSeconds.toFixed(1)} s` +
+        `  longest wrong run ${s.longestRun === null ? 'none' : place(s.longestRun)}` +
         `  ${s.ms.toFixed(0)} ms`,
     )
+    if (s.longestTime !== null && s.longestTime.seconds > s.longestRun.seconds) {
+      console.log(`          longest in time: ${place(s.longestTime)}`)
+    }
+    const marked = stripes(s, result.notes)
+    if (marked !== null) console.log(marked)
   }
 }
 if (files === 0) fail('No usable MIDI files in that folder.')
@@ -81,4 +105,6 @@ for (const [id, t] of totals) {
     `  ${id.padEnd(7)} ${percent(t.correct, t.notes).padStart(7)}` +
       `  longest wrong run ${t.run} notes / ${t.sec.toFixed(1)} s  ${t.ms.toFixed(0)} ms`,
   )
+  const marked = stripes(t, t.notes)
+  if (marked !== null) console.log(marked)
 }

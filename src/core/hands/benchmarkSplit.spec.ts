@@ -6,6 +6,7 @@ import { writeMidiFile } from '../midi/writeMidiFile'
 import { demoMidi, demoSeparate } from '../testing/handDemos'
 import { benchmarkSplit } from './benchmarkSplit'
 import { fixedSplit } from './fixedSplit'
+import type { SplitAlgorithm } from './SplitAlgorithm'
 import { SPLIT_ALGORITHMS } from './SPLIT_ALGORITHMS'
 
 const now = () => 0
@@ -29,12 +30,62 @@ describe('benchmarkSplit', () => {
       [demoMidi.name('left'), ...demoMidi.notes([{ midi: 40, start: 4800, length: 100 }], 0)],
     ])
     const bytes = writeMidiFile(file)
+    const run = {
+      notes: 3,
+      seconds: 1,
+      startBar: 1,
+      startSeconds: 0.5,
+      rightGivenLeft: 3,
+      leftGivenRight: 0,
+    }
     expect(benchmarkSplit(bytes, [fixedSplit], {}, now)?.scores).toEqual([
-      { algorithm: 'fixed', correct: 3, wrongRun: 3, wrongSeconds: 1, ms: 0 },
+      {
+        algorithm: 'fixed',
+        correct: 3,
+        longestRun: run,
+        longestTime: run,
+        uncertain: 0,
+        uncertainWrong: 0,
+        ms: 0,
+      },
     ])
     expect(
       benchmarkSplit(bytes, [fixedSplit], { fixed: { split: 45 } }, now)?.scores[0]?.correct,
     ).toBe(7)
+  })
+
+  it('locates a run by the file’s meter, tells a swap, and scores the uncertain notes', () => {
+    const meter: MidiEvent = {
+      kind: 'meta',
+      tick: 0,
+      metaType: 0x58,
+      data: new Uint8Array([3, 2, 24, 8]),
+    }
+    // In 3/4: the hands change places in bar 2, then go back.
+    const file = demoMidi.file([
+      [demoMidi.name('right'), meter, ...demoMidi.notes(line([72, 72, 72, 50, 50, 50, 72]), 0)],
+      [demoMidi.name('left'), ...demoMidi.notes(line([40, 40, 40, 70, 70, 70, 40]), 0)],
+    ])
+    // Marks both notes of the second beat (right) and of the fourth (wrong).
+    const marking: SplitAlgorithm = {
+      ...fixedSplit,
+      run: (notes, params, context) => ({
+        ...fixedSplit.run(notes, params, context),
+        uncertain: new Set(
+          notes.filter((n) => n.startTick === 480 || n.startTick === 1440).map((n) => n.id),
+        ),
+      }),
+    }
+    const score = benchmarkSplit(writeMidiFile(file), [marking], {}, now)?.scores[0]
+    expect(score?.longestRun).toEqual({
+      notes: 6,
+      seconds: 1,
+      startBar: 2,
+      startSeconds: 1.5,
+      rightGivenLeft: 3,
+      leftGivenRight: 3,
+    })
+    expect(score).toMatchObject({ correct: 8, uncertain: 4, uncertainWrong: 2 })
   })
 
   it('counts notes never released, and refuses files without both hands', () => {

@@ -17,6 +17,7 @@ export interface MidiFile {
 export const META_TRACK_NAME = 0x03
 export const META_END_OF_TRACK = 0x2f
 export const META_TEMPO = 0x51
+export const META_TIME_SIGNATURE = 0x58
 
 export function ticksPerBeat(file: MidiFile): number {
   return (file.division & 0x8000) !== 0 ? 480 : file.division

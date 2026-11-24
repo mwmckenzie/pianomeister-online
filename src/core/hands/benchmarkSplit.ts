@@ -1,16 +1,24 @@
+import { META_TIME_SIGNATURE, ticksPerBeat, type MidiFile } from '../midi/MidiFile'
 import { readMidiFile } from '../midi/readMidiFile'
+import type { TimeSignatureEvent } from '../song/TimeSignatureEvent'
+import { BarMap } from '../timing/BarMap'
 import { computeVoiceStats } from './computeVoiceStats'
 import { extractNotes } from './extractNotes'
 import { fileSplitContext } from './fileSplitContext'
 import type { HandLetter } from './HandLetter'
+import type { RawNote } from './RawNote'
 import type { SplitAlgorithm } from './SplitAlgorithm'
+import type { WrongRun } from './WrongRun'
 
 export interface BenchmarkScore {
   readonly algorithm: string
   readonly correct: number
-  /** The longest run of consecutive wrong notes, and the longest in seconds. */
-  readonly wrongRun: number
-  readonly wrongSeconds: number
+  /** The longest run of wrong notes by count, and the longest by time (often the same). */
+  readonly longestRun: WrongRun | null
+  readonly longestTime: WrongRun | null
+  /** Notes marked uncertain, and those of them that are wrong. */
+  readonly uncertain: number
+  readonly uncertainWrong: number
   readonly ms: number
 }
 
@@ -42,28 +50,71 @@ export function benchmarkSplit(
   const notes = all.filter((n) => hands.has(n.track))
   if (new Set(hands.values()).size < 2) return null
   const context = fileSplitContext(file)
+  const bars = BarMap.fromSong(
+    {
+      ppq: ticksPerBeat(file),
+      durationTicks: notes.reduce((end, n) => Math.max(end, n.endTick), 0),
+      timeSignatureEvents: timeSignatures(file),
+    },
+    null,
+  )
   const scores = algorithms.map((a): BenchmarkScore => {
     const started = now()
     const result = a.run(notes, overrides[a.id] ?? {}, context)
     const ms = now() - started
-    let correct = 0
-    let run = 0
-    let runStart = 0
-    let wrongRun = 0
-    let wrongSeconds = 0
+    let uncertain = 0
+    let uncertainWrong = 0
+    const runs: RawNote[][] = []
+    let run: RawNote[] | null = null
     for (const n of notes) {
-      if (result.hands.get(n.id) === hands.get(n.track)) {
-        correct++
-        run = 0
-        continue
+      const wrong = result.hands.get(n.id) !== hands.get(n.track)
+      if (result.uncertain.has(n.id)) {
+        uncertain++
+        if (wrong) uncertainWrong++
       }
-      const at = context.seconds(n.startTick)
-      if (run === 0) runStart = at
-      run++
-      wrongRun = Math.max(wrongRun, run)
-      wrongSeconds = Math.max(wrongSeconds, at - runStart)
+      if (!wrong) run = null
+      else if (run === null) runs.push((run = [n]))
+      else run.push(n)
     }
-    return { algorithm: a.id, correct, wrongRun, wrongSeconds, ms }
+    const seconds = (r: readonly RawNote[]) =>
+      context.seconds(r[r.length - 1]?.startTick ?? 0) - context.seconds(r[0]?.startTick ?? 0)
+    /** Of equals the first. */
+    const longest = (size: (r: readonly RawNote[]) => number): WrongRun | null => {
+      const r = runs.reduce<readonly RawNote[]>(
+        (best, next) => (best.length === 0 || size(next) > size(best) ? next : best),
+        [],
+      )
+      const first = r[0]
+      if (first === undefined) return null
+      const rightGivenLeft = r.filter((n) => hands.get(n.track) === 'R').length
+      return {
+        notes: r.length,
+        seconds: seconds(r),
+        startBar: bars.tickToPosition(first.startTick).bar,
+        startSeconds: context.seconds(first.startTick),
+        rightGivenLeft,
+        leftGivenRight: r.length - rightGivenLeft,
+      }
+    }
+    return {
+      algorithm: a.id,
+      correct: notes.length - runs.reduce((sum, r) => sum + r.length, 0),
+      longestRun: longest((r) => r.length),
+      longestTime: longest(seconds),
+      uncertain,
+      uncertainWrong,
+      ms,
+    }
   })
   return { notes: notes.length, unreleased: all.filter((n) => n.offIndex < 0).length, scores }
+}
+
+function timeSignatures(file: MidiFile): TimeSignatureEvent[] {
+  return file.tracks.flatMap((track) =>
+    track.events.flatMap((e) => {
+      if (e.kind !== 'meta' || e.metaType !== META_TIME_SIGNATURE) return []
+      const [numerator = 0, power = 2] = e.data
+      return numerator > 0 ? [{ tick: e.tick, numerator, denominator: 2 ** power }] : []
+    }),
+  )
 }
