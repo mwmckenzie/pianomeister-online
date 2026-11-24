@@ -24,7 +24,7 @@ Built in the approved order (plan §8), committed locally per step. **Nothing pu
 2. **The flaky Welcome highlight test was a real (brief) app glitch.** Under load, Welcome picked its highlights before the library had loaded, so the favourite song read "A removed song" until the library arrived. The test caught the title changing, not a rotation.
    - Fix: no highlights until the library has loaded.
    - The test also pins a mid-month clock. Its "this month" highlight would otherwise fail on the 1st and 2nd of every month.
-   - It passed 12/12 with `--repeat-each=12` (4 workers).
+   - The cause is inferred from the failure output; the flake never reproduced in isolation (12/12 passed before the fix too). After the fix: 12/12 with `--repeat-each=12 --workers=5` (round 2).
 
 ### Decisions not in the instructions
 
@@ -107,4 +107,13 @@ Built in the approved order (plan §8), committed locally per step. **Nothing pu
 
 Round 1 approved; decisions 1–9 stand. Blueprint's faint cages stay as they are for the looks pass. Roadmap: 10 is marked ✅ done, landing with the merge.
 
-Checks before the push are listed in the PR description.
+**Corrections to round 1:**
+
+- The "12/12" repeat run of the Welcome highlight test was made before the fix, not after. It has now been run on the fixed code (12/12), but since it passed before too, it doesn't prove the fix.
+- The pixel test in plan §6 (a note's colour unchanged over a cage) was **not built**. "Behind the notes" is covered by draw order only, plus looking at the sheets.
+- Cages fading through a playlist crossfade were not viewed on screen; only their placement and deck are unit-tested.
+
+**Checks:**
+
+- `npm run check`: pass, 821 unit tests.
+- `npm run test:e2e:affected` (chromium): 151 passed, 1 failed (`@library a file already in the library selects that song; mixed drops report both`). It passed on one `--last-failed` re-run and in round 1; cause not investigated.
