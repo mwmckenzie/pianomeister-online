@@ -11,7 +11,7 @@ Built in the approved order (plan §8), committed locally per step. **Nothing pu
 | Housekeeping            | `b6db92b`, `fa1bd65` | Time-of-day seeds anchored to the calendar day; the flaky Welcome highlight test (a real app glitch, see below) fixed.                                                                                                                                                                                  |
 | Core                    | `522f055`            | `HandOf` and `channelHandOf`; `assignHands` takes a `HandOf`; `computeHandCages` and `handCageRuns`, with a unit test for every case in the spec.                                                                                                                                                       |
 | Engine, settings, looks | `cf1cc6c`            | Two cage layers (right, left) on the 9.x renderer; per-cage carried flag, deck and region span; render-time visibility; cages through load, the playlist timeline and both `setSong` calls; the Hand cages settings group; Study and Blueprint switch them on; the `?stats=1` seam `pianomeisterCages`. |
-| E2e                     | `125b44f`     | `e2e/cages.spec.ts` (`@cages`, one also `@smoke`); `@cages` in the area map.                                                                                                                                                                                                                            |
+| E2e                     | `125b44f`            | `e2e/cages.spec.ts` (`@cages`, one also `@smoke`); `@cages` in the area map.                                                                                                                                                                                                                            |
 | Sheets                  | `6287949`            | `scripts/make-cages-demo.mjs` → `test-fixtures/midi/cages-demo.mid`; `e2e/cagesSheets.spec.ts` writes JPEG sheets and `draw-calls.json` to `docs/design/m10/`.                                                                                                                                          |
 | Docs                    | this round's commit  | Brief decision 127; this report.                                                                                                                                                                                                                                                                        |
 
@@ -102,3 +102,9 @@ Built in the approved order (plan §8), committed locally per step. **Nothing pu
 - [ ] Looks: Classic has no cages; Study and Blueprint have them.
 - [ ] A playlist: cages follow each song and fade through the crossfade.
 - [ ] Sheets in `docs/design/m10/`.
+
+## Round 2 — 2026-11-24: approved, PR
+
+Round 1 approved; decisions 1–9 stand. Blueprint's faint cages stay as they are for the looks pass. Roadmap: 10 is marked ✅ done, landing with the merge.
+
+Checks before the push are listed in the PR description.
