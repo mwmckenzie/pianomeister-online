@@ -73,6 +73,10 @@ Known items:
 - The very low "subtle" bloom (0.1) in Study and Night Focus.
 - Octave glow is brighter at the same value since the 9.1 line-glow fix.
 
+### E2e follow-ups _(done when there is time)_
+
+- `@library` 'a file already in the library selects that song; mixed drops report both' — failed once in m10's affected run, passed on re-run; investigate if it recurs.
+
 ### Relink a missing playlist song _(done when there is time)_
 
 A playlist entry whose song is no longer in the library (deleted, or a playlist imported from another device) shows as "Missing song · Not in this library" and is skipped when playing (milestone 9.5). Relinking would let you point it at a song in this library (e.g. the same piece uploaded again with a different file hash), keeping its place and per-song look. Possible matches: the same title and composer.
