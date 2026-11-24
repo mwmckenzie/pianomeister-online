@@ -7,8 +7,6 @@ import { MIN_CAGE_SPREAD } from './MIN_CAGE_SPREAD'
 import { PIANO_HIGH } from './PIANO_HIGH'
 import { PIANO_LOW } from './PIANO_LOW'
 
-const HANDS: readonly Hand[] = ['right', 'left']
-
 /**
  * The hand cages of a song (milestone 10, ported from the Unity app with its gaps fixed): per
  * hand and bar, the lowest to highest key of the hand's notes **sounding** in the bar (written

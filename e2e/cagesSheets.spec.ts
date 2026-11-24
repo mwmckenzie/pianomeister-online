@@ -149,7 +149,10 @@ test('@visual cages sheet: a loop with Next repeat, and draw calls', async ({ pa
 
   const calls: Record<string, Record<string, number>> = {}
   for (const q of ['off', 'medium'] as const) {
-    for (const show of [false, true]) {
+    for (const [label, show] of [
+      ['cages off', false],
+      ['cages on', true],
+    ] as const) {
       await captureWith(
         page,
         merge(merge(CLASSIC_CAGES, quality(q)), { handCages: { show } }),
@@ -164,7 +167,7 @@ test('@visual cages sheet: a loop with Next repeat, and draw calls', async ({ pa
             window as unknown as { pianomeisterRenderInfo: () => { drawCalls: number } | null }
           ).pianomeisterRenderInfo()?.drawCalls ?? -1,
       )
-      ;(calls[q] ??= {})[show ? 'cages on' : 'cages off'] = n
+      ;(calls[q] ??= {})[label] = n
     }
   }
   writeFileSync(`${OUT}/draw-calls.json`, `${JSON.stringify(calls, null, 2)}\n`)
