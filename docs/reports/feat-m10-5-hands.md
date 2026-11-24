@@ -110,3 +110,48 @@ Found:
 **Open question**
 
 - [ ] Accept the load time, or make the proposal's change first?
+
+## Round 3 — 2026-11-24: Review page and export (steps 7 and 8)
+
+**Built**
+
+- Load time accepted; roadmap item "Parse MIDI once". Stale comments fixed, detection reads the file once, `s3.mjs` deleted.
+- **Review hands** (`#/hands/⟨song⟩`): voices, method, Advanced, result, two lanes on one time axis, flips, compare, uncertain stripes, Save, Reset to detected, the Discard question.
+- **Export split:** dialog (Library details and the new Export menu), warnings, "⟨Title⟩ (hands).mid". Runs in the worker.
+
+**Decisions not in the instructions**
+
+1. Save is available without changes: accepting the detection makes the hands the player's and clears the hint.
+2. Reset to detected detects first a song that never was. That stores the detection, not the player's hands.
+3. Changing the method drops the old method's parameters; flips stay.
+4. Compare uses the other method's default parameters, against the hands with flips. The first view is 8 bars.
+5. Leaving waits for a running save. A reload or closed tab doesn't ask about unsaved changes.
+6. Home doesn't open by itself over this page.
+7. Export uses the saved hands.
+8. A test hook for the computed cages (`?stats=1` only).
+
+**Fixed while testing**
+
+- Esc in the Discard question closed it and asked again.
+- Esc right after Save asked about changes being saved.
+
+**Checks**
+
+- `npm run check`: exit 0, 905 unit tests (125 files). `npm run build`: pass.
+- `npm run test:e2e:affected` (chromium and polish): **180 passed, 1 failed**; the 12 `@hands` tests pass. Run once, after step 8, for both steps.
+  - Failed: `playlists.spec.ts` "make a playlist…" (`@smoke`). **A real bug from step 5**, not a flake: the playlist name field put the stored name back on every re-render, and the background pass re-renders the page after each song, so a half-typed name was lost. Confirmed with the pass held back: 0 of 12 failed, against 6 of 12 without. The run after step 6 had passed by chance.
+  - Fixed: the field keeps a draft. New test "a name being typed survives a library refresh", which failed on the old build. Both tests pass 8 of 8; `playlists`, `hands` and `reviewHands` specs: 20 passed. The whole affected set was not run again (testing policy).
+  - The other `:value`-bound text fields don't depend on the library list; the song details keep their own drafts.
+- Seen on screen: Review page at 1280×720 and 1024×768, Hands section and export dialog at 1280×720. Afterwards three small layout fixes (name wrap, method text, zoom buttons together), not looked at again.
+
+**Known issues**
+
+- The Review page has no touch pinch zoom (drag pans, buttons zoom); not tried on a tablet or with a screen reader.
+- Not tried on real uploads. Step 9 (benchmark, remaining docs) is open.
+
+**Review**
+
+- [ ] Review a real one-channel song: flips, uncertain stripes, compare, Advanced.
+- [ ] Keyboard only: Tab to the lane, arrows, Enter, Save, Esc.
+- [ ] Open an exported file in another program, both layouts.
+- [ ] Reset to detected on an edited song.
