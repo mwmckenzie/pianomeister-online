@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { confidencePercent } from '@/core/hands/confidencePercent'
 import { needsHandsCheck } from '@/core/hands/needsHandsCheck'
@@ -10,7 +11,9 @@ import { voiceLabel } from '@/core/hands/voiceLabel'
 import { voiceNote } from '@/core/hands/voiceNote'
 import type { HandDetails } from '@/data/HandDetails'
 
+import ExportSplitDialog from '../hands/ExportSplitDialog.vue'
 import { handColors } from '../hands/handColors'
+import { VOICE_ROLES } from '../hands/VOICE_ROLES'
 import { useLibraryStore } from '../stores/libraryStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import AppButton from './AppButton.vue'
@@ -20,19 +23,14 @@ import SelectField from './SelectField.vue'
 /** The Library details' "Hands" (milestone 10.5): a role per voice, the split and its reasons. */
 const props = defineProps<{ readonly songId: string; readonly hands: SongHands }>()
 
+const router = useRouter()
 const store = useLibraryStore()
 const settings = useSettingsStore()
-
-const ROLES = [
-  { value: 'right', label: 'Right' },
-  { value: 'left', label: 'Left' },
-  { value: 'split', label: 'Split' },
-  { value: 'hidden', label: 'Hidden' },
-] as const satisfies readonly { readonly value: VoiceRole; readonly label: string }[]
 
 const details = shallowRef<HandDetails | null>(null)
 const busy = ref(false)
 const whyOpen = ref(false)
+const exporting = ref(false)
 /** Bumped after a failed save to re-render the pickers from the stored roles. */
 const revision = ref(0)
 
@@ -122,7 +120,7 @@ const notes = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`
         <SelectField
           class="compact"
           :model-value="roleOf(v.id)"
-          :options="ROLES"
+          :options="VOICE_ROLES"
           :disabled="busy"
           :label="`${voiceLabel(v)} hand`"
           :data-testid="`hand-voice-${v.id}`"
@@ -169,10 +167,23 @@ const notes = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`
       >
         Detect hands
       </AppButton>
+      <div class="actions">
+        <AppButton
+          size="sm"
+          data-testid="hands-review"
+          @click="router.push({ name: 'hands', params: { songId } })"
+        >
+          Review hands…
+        </AppButton>
+        <AppButton size="sm" data-testid="hands-export" @click="exporting = true">
+          Export split…
+        </AppButton>
+      </div>
       <p class="foot">
         Stored with the song; the MIDI file is unchanged. Your own changes are never replaced by
         detection.
       </p>
+      <ExportSplitDialog v-model:open="exporting" :song-id="songId" />
     </template>
   </section>
 </template>
@@ -222,6 +233,15 @@ const notes = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`
 .badge.check {
   background: rgb(var(--warning-rgb) / 14%);
   color: var(--warning);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions > * {
+  flex: 1;
 }
 
 .voice-text {

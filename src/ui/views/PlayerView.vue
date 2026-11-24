@@ -1009,6 +1009,7 @@ onMounted(() => {
     Object.assign(window, {
       // Listening (milestone 9.5): start a playlist, and read the timeline swaps for the report.
       pianomeisterCages: () => engine?.handCageInfo() ?? null,
+      pianomeisterCageBars: () => loaded.value?.handCages ?? null,
       pianomeisterListening: {
         play: (playlistId: string, start = 0) => listening.requestPlay(playlistId, start),
         swapMs: () => [...(listener?.swapMs ?? [])],

@@ -9,6 +9,8 @@ export interface HandDetails {
   readonly voices: readonly VoiceInfo[]
   /** The settings in effect. */
   readonly settings: HandSettings
+  /** The settings detection gave; null until the song is detected. */
+  readonly detected: HandSettings | null
   /** Detection's guesses, by voice order; empty until the song is detected. */
   readonly guesses: readonly VoiceGuess[]
 }

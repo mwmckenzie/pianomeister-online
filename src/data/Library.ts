@@ -240,7 +240,13 @@ export class Library {
             params: {},
             flips: {},
           })
-    return { hands: entry.hands, voices, settings, guesses: detected?.guesses ?? [] }
+    return {
+      hands: entry.hands,
+      voices,
+      settings,
+      detected: detected?.settings ?? null,
+      guesses: detected?.guesses ?? [],
+    }
   }
 
   /** Saves the profile's own hands: from now on detection doesn't decide this song's. */

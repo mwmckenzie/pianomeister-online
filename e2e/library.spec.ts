@@ -274,6 +274,7 @@ test('@library exports, deletes and re-imports an upload with its metadata', asy
 
   const downloading = page.waitForEvent('download')
   await page.getByTestId('export').click()
+  await page.getByTestId('export-backup').click()
   const download = await downloading
   expect(download.suggestedFilename()).toMatch(/^pianomeister-library-.*\.zip$/)
   const zip = unzipSync(new Uint8Array(readFileSync(await download.path())))

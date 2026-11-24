@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 
+import type { HandExportOptions } from '@/core/hands/applyHandAssignment'
 import { handsPassMessage } from '@/core/hands/handsPassMessage'
+import type { HandReview } from '@/core/hands/HandReview'
 import type { HandSettings } from '@/core/hands/HandSettings'
 import { needsHandsCheck } from '@/core/hands/needsHandsCheck'
 import { filterEntries } from '@/core/library/filterEntries'
@@ -312,6 +314,16 @@ export const useLibraryStore = defineStore('library', () => {
         const resolved = await handsWorker.resolve(await library.songBytes(songId), next)
         await library.setHands(songId, next, resolved)
       }),
+    /** Splits with these settings for the Review page; stores nothing. */
+    reviewHands: async (songId: string, next: HandSettings): Promise<HandReview> =>
+      handsWorker.review(await library.songBytes(songId), next),
+    /** A copy of the song's file with its current hands split. The stored song stays as it is. */
+    exportHands: async (songId: string, options: HandExportOptions): Promise<Uint8Array> => {
+      await profiles.load()
+      library.setProfile(profiles.activeId)
+      const { settings: current } = await library.handDetails(songId)
+      return handsWorker.export(await library.songBytes(songId), current, options)
+    },
     detectHands: (songId: string) => persist('detect the hands', () => detect(songId)),
     setOverride: (songId: string, override: MeterOverride) =>
       persist('save the meter override', () => library.setOverride(songId, override)),

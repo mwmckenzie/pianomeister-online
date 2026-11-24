@@ -1,12 +1,14 @@
+import type { HandExportOptions } from '@/core/hands/applyHandAssignment'
 import type { CachedHands } from '@/core/hands/CachedHands'
 import type { DetectedHands } from '@/core/hands/DetectedHands'
+import type { HandReview } from '@/core/hands/HandReview'
 import type { HandSettings } from '@/core/hands/HandSettings'
 
-import type { HandsReply, HandsRequest } from './HandsWorkerMessage'
+import type { HandsReply, HandsRequest, HandsResult } from './HandsWorkerMessage'
 
 interface Waiting {
   readonly request: HandsRequest
-  readonly resolve: (result: DetectedHands | CachedHands) => void
+  readonly resolve: (result: HandsResult) => void
   readonly reject: (error: Error) => void
 }
 
@@ -25,7 +27,19 @@ export class HandsWorkerClient {
     return this.ask({ kind: 'resolve', bytes, settings }) as Promise<CachedHands>
   }
 
-  private ask(request: HandsRequest): Promise<DetectedHands | CachedHands> {
+  review(bytes: Uint8Array, settings: HandSettings): Promise<HandReview> {
+    return this.ask({ kind: 'review', bytes, settings }) as Promise<HandReview>
+  }
+
+  export(
+    bytes: Uint8Array,
+    settings: HandSettings,
+    options: HandExportOptions,
+  ): Promise<Uint8Array> {
+    return this.ask({ kind: 'export', bytes, settings, options }) as Promise<Uint8Array>
+  }
+
+  private ask(request: HandsRequest): Promise<HandsResult> {
     return new Promise((resolve, reject) => {
       const job: Waiting = { request, resolve, reject }
       const worker = this.start()
