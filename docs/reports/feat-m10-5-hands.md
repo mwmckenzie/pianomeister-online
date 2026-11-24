@@ -203,7 +203,7 @@ Found:
 > - **Library:** a role per voice, split summary, "Why", and a "Check hands" hint.
 > - **Review hands page:** flip notes by click or keyboard, methods and parameters, compare, uncertain notes.
 > - **Export split:** a copy of the MIDI file with each hand on its own channel.
-> - `npm run bench:hands` scores the split methods on a local folder.
+> - `npm run bench:hands` scores the split methods on a local folder (215 real files: look-ahead 91.6 %, Chord-aware 89.8 %), with where the longest wrong run starts and how well the uncertain marks work.
 >
 > **Data**
 >
@@ -217,8 +217,67 @@ Found:
 >
 > **Performance:** parsing a bundled song is under 1 ms slower (accepted; roadmap "Parse MIDI once").
 >
-> **Tests:** 908 unit tests; `test:e2e:affected` 183 passed, with 13 new `@hands` tests.
+> **Tests:** 909 unit tests; `test:e2e:affected` 183 passed, with 13 new `@hands` tests.
 >
 > **Not tested:** tablet, screen reader, Safari.
 >
 > 🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## Round 5 — 2026-11-24: benchmark on real music
+
+**Built**
+
+- `bench:hands`: where each file's longest wrong run starts (bar and time, by the file's own meter) and which way its notes went. When another run is longer in time, that one too.
+- `bench:hands`: how well the uncertain notes work, per file and in total. Only Phrase look-ahead marks notes.
+- Nothing was tuned: no split method changed, and the totals are the same as before the change.
+
+**Decision not in the instructions: "swap or mixed"**
+
+With two hands, every wrong note was given the other hand, so every run would be a "swap". The tool prints **both ways** (notes of both hands are in the run: the hands changed places) or **one way** (one hand took the other's notes), with the counts.
+
+**Totals** (local folder; 215 usable files, 2,965 skipped without named right and left tracks, 7 unreadable; no file reports notes never released)
+
+| Method            | Correct | Longest wrong run (notes / seconds, may be different runs) | Runtime |
+| ----------------- | ------- | ---------------------------------------------------------- | ------- |
+| Phrase look-ahead | 91.6 %  | 139 / 8.0                                                  | 29.1 s  |
+| Chord-aware       | 89.8 %  | 172 / 14.4                                                 | 0.6 s   |
+| Moving split      | 79.2 %  | 144 / 10.2                                                 | 0.9 s   |
+| Fixed split       | 82.3 %  | 144 / 8.0                                                  | 0.0 s   |
+
+**Uncertain notes (look-ahead)**
+
+- 28.9 % of wrong notes are marked; 33.2 % of marked notes are wrong (40,561 marked, 46,628 wrong, 13,479 both).
+- A marked note is about four times as likely to be wrong as any note (8.4 % are wrong), but seven in ten wrong notes get no stripe.
+- The total is weighted to long files. Per file the medians are 34 % and 34 %, over 208 files with marked notes.
+
+**The five files you named** (look-ahead)
+
+| File                     | Correct | Longest wrong run | Starts at       | Direction                       | Wrong notes marked | Marked notes wrong |
+| ------------------------ | ------- | ----------------- | --------------- | ------------------------------- | ------------------ | ------------------ |
+| liz_et_trans5            | 84.5 %  | 139 notes / 5.7 s | bar 68 (1:39)   | one way: L to R 139             | 26.8 %             | 54.3 %             |
+| liz_donjuan              | 88.9 %  | 85 notes / 5.5 s  | bar 371 (12:42) | both ways: R to L 33, L to R 52 | 17.0 %             | 36.9 %             |
+| sonata_D959_1 (bucknall) | 85.9 %  | 68 notes / 3.6 s  | bar 310 (10:26) | both ways: R to L 23, L to R 45 | 22.8 %             | 42.7 %             |
+| sonata_D960_1 (bucknall) | 88.9 %  | 57 notes / 4.5 s  | bar 320 (12:24) | both ways: R to L 50, L to R 7  | 18.2 %             | 27.6 %             |
+| wspekkiop                | 100.0 % | none              |                 |                                 | n/a                | 0 % (49 marked)    |
+
+- **wspekkiop has no wrong run:** the look-ahead gets every note right, before and after this change. The fifth-longest is `sonata_D959_4 (bucknall)`: 43 notes / 5.8 s, bar 213 (6:30), both ways (R to L 7, L to R 36); 93.3 % correct.
+- The 8.0 s in the total is another run in sonata_D959_1: 26 notes, bar 440 (14:44), both ways (R to L 2, L to R 24).
+- In liz_et_trans5 all methods go wrong at bar 68; moving and fixed get 144 notes wrong there.
+- 28 of the look-ahead's 215 longest runs have 10 notes or more; 14 of those are both ways.
+- The "yogore" versions of the two sonatas have no named hands and were skipped.
+
+**Checks**
+
+- `npm run check`: exit 0, 909 unit tests (126 files).
+- e2e not run: no app behaviour changed (only the benchmark uses the changed code).
+
+**Known issues**
+
+- I didn't look at the music in these runs. A both-ways run can be a real hand crossing that the file records correctly, or a file whose tracks don't follow the hands; the counts don't tell.
+- Bars are the file's own, counted with repeats written out; without time signatures they are 4/4.
+
+**Review**
+
+- [ ] Is "both ways / one way" what you meant by "swap / mixed"?
+- [ ] Which file did you mean instead of wspekkiop?
+- [ ] Listen to the runs above, then decide whether anything needs tuning.
