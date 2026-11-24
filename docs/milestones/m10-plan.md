@@ -2,7 +2,7 @@
 
 Spec: `docs/milestones/m10.md`. Source brief for later: `docs/milestones/m10-5-hand-detection-brief.md` (read only to keep room for it). Branch `feat/m10-hand-cages`.
 
-**Status:** plan with questions (§9). Stopped for approval; nothing is built yet.
+**Status:** approved (answers in §10).
 
 ## 1. Where the spec meets the code
 
@@ -137,4 +137,12 @@ New section `handCages` in `PlayerSettings`:
 
 ## 10. Answers
 
-(To be filled after review.)
+Approved 2026-11-24.
+
+1. **Border:** as the pedal cage: a Border toggle (default on) plus a border colour per hand, "Hand colour" (default) or Custom.
+2. **Built-in looks:** cages on in **Study** and **Blueprint** only (fill and border from each look's palette). Night Focus stays off (the least distracting look); all others off. Tuning in the looks pass.
+3. **Sustain:** confirmed: written end, ignore the pedal.
+4. **Crossing hands:** both translucent; the borders mark each cage.
+5. **Sheets:** committed as JPEGs in `docs/design/m10/` (as in 9.x), about 1–2 MB in total.
+6. **Library change while listening:** applies from the next song.
+7. **Section name:** `handCages`.
