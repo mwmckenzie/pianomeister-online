@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 
 import { DEFAULT_AUDIO_SETTINGS } from '@/audio/AudioSettings'
 import type { MetronomeMode } from '@/audio/MetronomeMode'
+import { channelHandOf } from '@/core/hands/channelHandOf'
 import type { HandNote } from '@/core/hands/HandNote'
 import { noteName } from '@/core/noteName'
 import type { HandAudio } from '@/core/practice/HandAudio'
@@ -122,7 +123,11 @@ function rebuild(): void {
     : null
   loaded = session.load(s, {
     override,
-    hands: { right: parseChannels(rightChannels.value), left: parseChannels(leftChannels.value) },
+    // By channel on purpose: this page ignores the library's hands.
+    handOf: channelHandOf({
+      right: parseChannels(rightChannels.value),
+      left: parseChannels(leftChannels.value),
+    }),
   })
   barCount.value = loaded.barMap.barCount
   hasBarZero.value = loaded.barMap.hasBarZero

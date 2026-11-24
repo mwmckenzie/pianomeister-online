@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, shallowRef, useTemplateRef, watch } from 'vue'
 
-import type { Hand } from '@/core/hands/Hand'
-import { defaultHands } from '@/core/hands/defaultHands'
-import type { HandAssignment } from '@/core/hands/HandAssignment'
 import { allComposers } from '@/core/library/composerSuggestions'
 import { formatTempoRange } from '@/core/library/formatTempoRange'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import type { SongMetaFields } from '@/core/library/SongMetaFields'
-import { noteName } from '@/core/noteName'
 import { BarMap } from '@/core/timing/BarMap'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
 import { summariseMeter } from '@/core/timing/summariseMeter'
@@ -19,10 +15,10 @@ import { useLibraryStore } from '../stores/libraryStore'
 import AddToPlaylistMenu from '../playlists/AddToPlaylistMenu.vue'
 import AppButton from './AppButton.vue'
 import ComboboxField from './ComboboxField.vue'
+import HandsSection from './HandsSection.vue'
 import IconButton from './IconButton.vue'
 import MeterOverrideEditor from './MeterOverrideEditor.vue'
 import MeterReadout from './MeterReadout.vue'
-import SelectField from './SelectField.vue'
 import TagEditor from './TagEditor.vue'
 
 const props = defineProps<{ readonly songId: string }>()
@@ -33,11 +29,6 @@ const entry = computed(() => store.entries.find((e) => e.songId === props.songId
 
 const opened = shallowRef<OpenedSong | null>(null)
 const loadError = ref('')
-// Shallow: the assignment is replaced whole, never mutated, and stays plain data.
-const hands = shallowRef<HandAssignment>({ right: [], left: [] })
-const handsAreDefault = ref(true)
-/** Bumped after a failed save to re-render the channel selects from the stored assignment. */
-const handsRevision = ref(0)
 const title = ref('')
 const composer = ref('')
 const confirmingDelete = ref(false)
@@ -62,8 +53,6 @@ async function load(songId: string): Promise<void> {
     const song = await store.openSong(songId)
     if (songId !== props.songId) return
     opened.value = song
-    hands.value = song.hands
-    handsAreDefault.value = song.defaultHands
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
     console.error("[library] Couldn't open the song:", e)
@@ -154,11 +143,6 @@ function blurOnEnter(event: KeyboardEvent): void {
 }
 
 const composers = computed(() => allComposers(store.entries))
-const HAND_OPTIONS = [
-  { value: 'right', label: 'Right' },
-  { value: 'left', label: 'Left' },
-  { value: 'hidden', label: 'Hidden' },
-] as const
 /** The meter as played (override applied): main meter, and its changes when from the file. */
 const meter = computed(() => {
   const e = entry.value
@@ -175,49 +159,6 @@ const meterSource = computed(() => {
 const fileBars = computed(() =>
   opened.value === null ? 0 : BarMap.fromSong(opened.value.song, null).barCount,
 )
-
-function handOf(channel: number): Hand | 'hidden' {
-  // Matches assignHands: a channel in both lists plays in the right hand.
-  if (hands.value.right.includes(channel)) return 'right'
-  if (hands.value.left.includes(channel)) return 'left'
-  return 'hidden'
-}
-
-/**
- * Shows a hands change only once it is stored, so the panel never shows (and a quick reload
- * never loses) an unsaved assignment. On failure the store shows the error and the selects
- * are re-rendered from the unchanged, stored assignment.
- */
-async function saveHands(next: HandAssignment): Promise<void> {
-  const plain = { right: [...next.right], left: [...next.left] }
-  if (await store.setHands(props.songId, plain)) {
-    hands.value = plain
-    handsAreDefault.value = false
-  } else {
-    handsRevision.value++
-  }
-}
-
-function setHand(channel: number, hand: Hand | 'hidden'): void {
-  const without = (list: readonly number[]) => list.filter((c) => c !== channel)
-  const add = (list: readonly number[]) => [...without(list), channel].sort((a, b) => a - b)
-  void saveHands({
-    right: hand === 'right' ? add(hands.value.right) : without(hands.value.right),
-    left: hand === 'left' ? add(hands.value.left) : without(hands.value.left),
-  })
-}
-
-function swapHands(): void {
-  void saveHands({ right: hands.value.left, left: hands.value.right })
-}
-
-async function restoreDefaultHands(): Promise<void> {
-  if (opened.value === null) return
-  if (await store.resetHands(props.songId)) {
-    hands.value = defaultHands(opened.value.song.channels)
-    handsAreDefault.value = true
-  }
-}
 
 function saveOverride(override: MeterOverride): void {
   void store.setOverride(props.songId, override)
@@ -303,33 +244,7 @@ function play(): void {
       </template>
 
       <template v-if="opened && entry">
-        <h3 class="section-caps">Hands</h3>
-        <div
-          v-for="c in opened.song.channels"
-          :key="`${c.channel}-${handsRevision}`"
-          class="hand-row"
-        >
-          <span
-            class="hand-channel"
-            :title="`${c.noteCount} notes, ${noteName(c.minPitch)}–${noteName(c.maxPitch)}`"
-          >
-            Channel {{ c.channel }} · {{ c.noteCount }} notes
-          </span>
-          <SelectField
-            class="compact"
-            :model-value="handOf(c.channel)"
-            :options="HAND_OPTIONS"
-            :label="`Channel ${c.channel} hand`"
-            :data-testid="`hand-ch${c.channel}`"
-            @update:model-value="setHand(c.channel, $event)"
-          />
-        </div>
-        <div class="row">
-          <AppButton size="sm" @click="swapHands">Swap hands</AppButton>
-          <AppButton size="sm" :disabled="handsAreDefault" @click="restoreDefaultHands">
-            Restore default
-          </AppButton>
-        </div>
+        <HandsSection :song-id="songId" :hands="entry.hands" />
 
         <h3 class="section-caps">Meter</h3>
         <p v-if="meter" class="meter" data-testid="meter-line">
@@ -479,19 +394,6 @@ function play(): void {
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
-}
-
-.hand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-1) 0;
-}
-
-.hand-channel {
-  color: var(--text-soft);
-  font-size: var(--text-md);
 }
 
 .meter {

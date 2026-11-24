@@ -29,7 +29,7 @@ function opened(songId: string, seconds: number) {
       durationTicks: endTick,
       durationSeconds: seconds,
     },
-    hands: { right: [0], left: [] },
+    handOf: () => 'right' as const,
     defaultHands: true,
     override: null,
   }

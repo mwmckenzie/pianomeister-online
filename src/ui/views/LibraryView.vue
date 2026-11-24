@@ -3,6 +3,9 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { confidencePercent } from '@/core/hands/confidencePercent'
+import { needsHandsCheck } from '@/core/hands/needsHandsCheck'
+import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import { filterEntries } from '@/core/library/filterEntries'
 import { formatAddedAt } from '@/core/library/formatAddedAt'
 import { formatUploadToast } from '@/core/library/formatUploadToast'
@@ -82,6 +85,14 @@ const COLUMNS: readonly {
   { field: 'last', label: 'Last', num: true },
   { field: 'dateAdded', label: 'Added', num: true },
 ]
+
+/** "Check hands · 58 %" on a row whose detected hands are below the threshold. */
+function handsHint(e: LibraryEntry): string {
+  const { confidence } = e.hands
+  return confidence !== null && needsHandsCheck(e.hands, settings.settings.hands.hintBelow)
+    ? `Check hands · ${confidencePercent(confidence)} %`
+    : ''
+}
 
 /** A song row's subtitle: its bookmark count ("2 bookmarks"), nothing without any. */
 function bookmarkCount(songId: string): string {
@@ -589,6 +600,7 @@ onBeforeUnmount(() => {
                 role="option"
                 :title="e.title"
                 :subtitle="bookmarkCount(e.songId)"
+                :hint="handsHint(e)"
                 :selected="e.songId === selectedId"
                 :aria-selected="e.songId === selectedId"
                 :tag="newSongIds.has(e.songId) ? 'New' : ''"

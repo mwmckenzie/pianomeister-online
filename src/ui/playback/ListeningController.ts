@@ -451,7 +451,7 @@ export class ListeningController {
     try {
       const opened = await this.host.openSong(songId)
       const loaded = PlaybackSession.prepare(opened.song, {
-        hands: opened.hands,
+        handOf: opened.handOf,
         override: opened.override,
       })
       return {

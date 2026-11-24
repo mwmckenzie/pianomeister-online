@@ -11,3 +11,8 @@ export function sharedSession(): PlaybackSession {
   session ??= new PlaybackSession()
   return session
 }
+
+/** Whether a song is playing; never creates the session. */
+export function songIsPlaying(): boolean {
+  return session?.transport.state === 'playing'
+}
