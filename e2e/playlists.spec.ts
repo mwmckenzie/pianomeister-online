@@ -46,6 +46,32 @@ async function pick(page: Page, trigger: ReturnType<Page['getByTestId']>, option
 
 const rowTitles = (page: Page) => page.getByTestId('playlist-row-title')
 
+test('@playlists a name being typed survives a library refresh', async ({ page }) => {
+  // Hand detection's background pass refreshes the library: hold it until the name is typed.
+  await page.addInitScript(() => {
+    const held: IdleRequestCallback[] = []
+    window.requestIdleCallback = (run) => held.push(run)
+    Object.assign(window, {
+      runIdle: () => {
+        for (const run of held.splice(0)) run({ didTimeout: false, timeRemaining: () => 50 })
+      },
+    })
+  })
+  await openPlaylists(page)
+  await page.getByTestId('playlist-new').click()
+  await expect(page.getByTestId('playlist-name')).toBeFocused()
+  await page.getByTestId('playlist-name').fill('Evening')
+  await expect
+    .poll(async () => {
+      await page.evaluate(() => (window as unknown as { runIdle: () => void }).runIdle())
+      return (await readStore(page, 'handDetections')).length
+    })
+    .toBe(3)
+  await expect(page.getByTestId('playlist-name')).toHaveValue('Evening')
+  await page.getByTestId('playlist-name').press('Enter')
+  await expect(page.getByTestId('playlist-item')).toContainText('Evening')
+})
+
 test('@playlists @smoke make a playlist, order it, give a song its own look, and play it', async ({
   page,
 }) => {

@@ -160,12 +160,20 @@ async function change(update: Partial<Playlist>): Promise<void> {
   if (p !== null) await store.save({ ...p, ...update })
 }
 
-function rename(event: Event): void {
+/** The name being typed: a re-render (a library refresh, say) must not put the stored one back. */
+const nameDraft = ref('')
+watch(
+  () => [current.value?.id, current.value?.name] as const,
+  ([, name]) => (nameDraft.value = name ?? ''),
+  { immediate: true },
+)
+
+function rename(): void {
   const p = current.value
-  const value = (event.target as HTMLInputElement).value.trim().slice(0, MAX_PLAYLIST_NAME)
+  const value = nameDraft.value.trim().slice(0, MAX_PLAYLIST_NAME)
   if (p === null) return
   if (value === '' || value === p.name) {
-    ;(event.target as HTMLInputElement).value = p.name
+    nameDraft.value = p.name
     return
   }
   void change({ name: value })
@@ -570,8 +578,8 @@ onMounted(async () => {
                 <input
                   ref="nameInput"
                   :key="current.id"
+                  v-model="nameDraft"
                   type="text"
-                  :value="current.name"
                   :maxlength="MAX_PLAYLIST_NAME"
                   data-testid="playlist-name"
                   @change="rename"
