@@ -47,4 +47,6 @@ export interface TimeUniforms {
   uBandStart: IUniform<number>
   uBandEnd: IUniform<number>
   uBandDeck: IUniform<number>
+  /** Its gain curve: 0 sequential, 1 S-curve, 2 equal power. */
+  uBandCurve: IUniform<number>
 }

@@ -1,3 +1,4 @@
+import type { CrossfadeCurve } from '../playlists/CrossfadeCurve'
 import type { HandAudio } from '../practice/HandAudio'
 import type { PreRollMode } from '../transport/PreRollMode'
 import type { LineColor } from './LineColor'
@@ -378,6 +379,8 @@ export interface PlayerSettings {
     readonly output: 'piano'
     /** Playlists: seconds the next song overlaps the ending one (0 = a short gap instead). */
     readonly crossfade: number
+    /** How the two songs' gains move through it. */
+    readonly crossfadeCurve: CrossfadeCurve
   }
   readonly practice: {
     /** Whole percent per tempo step (slider and keys), 1–10. */

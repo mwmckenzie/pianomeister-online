@@ -128,6 +128,46 @@ describe('buildTimeline', () => {
     expect(left?.deck).toBe(1)
   })
 
+  it('starts nothing new in the ending song after the middle of the overlap', () => {
+    // 120 bpm, 480 PPQ: 960 ticks a second. Song 1 ends at 10 s (its release); song 2 enters at
+    // 6 s, so the middle of the overlap is 8 s.
+    const held = note(6720, 9120, 50) // 7–9.5 s, over the middle
+    const middle = note(7680, 7700, 60) // at 8 s exactly
+    const late = note(7690, 9120, 70)
+    const cage = (start: number, end: number) => ({
+      barIndex: 1,
+      startTick: start,
+      endTick: end,
+      low: 50,
+      high: 55,
+      carried: false,
+    })
+    const first: TimelineSource = {
+      ...source(480, 120, [held, middle, late]),
+      handCages: { right: [cage(5760, 7680), cage(7690, 9120)], left: [] },
+    }
+    const second = source(480, 120, [note(0, 9600, 40), note(5000, 9600, 41)])
+    const t = buildTimeline([
+      { source: first, startSec: 0, deck: 0 },
+      { source: second, startSec: 6, deck: 1 },
+    ])
+    expect(t.notes.map((n) => n.midi)).toEqual([40, 50, 60, 41])
+    const sec = (tick: number) => t.song.tempoMap.tickToSeconds(tick)
+    expect(sec(t.notes.find((n) => n.midi === 50)?.endTick ?? 0)).toBeCloseTo(9.5, 9)
+    expect(t.handCages.right).toHaveLength(1)
+    // The song's span is unchanged: the fade still ends at its last release.
+    expect(t.segments[0]?.endSec).toBeCloseTo(10, 9)
+  })
+
+  it('keeps every note when the songs don’t overlap', () => {
+    const song = source(480, 120, [note(0, 480), note(960, 1920)])
+    const t = buildTimeline([
+      { source: song, startSec: 0, deck: 0 },
+      { source: song, startSec: 3.5, deck: 1 },
+    ])
+    expect(t.notes).toHaveLength(4)
+  })
+
   it('describes each song’s span, and ends at the last release', () => {
     expect(t.segments.map((s) => s.deck)).toEqual([0, 1])
     expect(t.segments[0]?.endSec).toBeCloseTo(aEnd, 9)

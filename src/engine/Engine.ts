@@ -12,6 +12,7 @@ import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 import { loopRepeatCount, MAX_LOOP_REPEATS, repeatActive } from '@/core/transport/loopRepeat'
 import type { LoopWindow } from '@/core/transport/LoopWindow'
 
+import type { CrossfadeBand } from '@/core/playlists/CrossfadeBand'
 import { CageLayer } from './cages/CageLayer'
 import { handCageRegions } from './model/handCageRegions'
 import { createTimeUniforms } from './createTimeUniforms'
@@ -398,7 +399,7 @@ export class Engine {
    */
   setPlaylistSeam(
     seam: { readonly tick: number; readonly label: string } | null,
-    band: { readonly startTick: number; readonly endTick: number; readonly deck: number } | null,
+    band: CrossfadeBand | null,
   ): void {
     this.seam.set(seam, band)
     this.invalidate()

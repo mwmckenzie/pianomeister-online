@@ -3,6 +3,8 @@ import type { Look } from '@/core/looks/Look'
 import { easeSettings } from '@/core/looks/easeSettings'
 import { lookSettings } from '@/core/looks/lookValues'
 import { buildTimeline } from '@/core/playlists/buildTimeline'
+import type { CrossfadeBand } from '@/core/playlists/CrossfadeBand'
+import type { CrossfadeCurve } from '@/core/playlists/CrossfadeCurve'
 import { nextInOrder } from '@/core/playlists/nextInOrder'
 import { placeNextSong } from '@/core/playlists/placeNextSong'
 import type { Playlist } from '@/core/playlists/Playlist'
@@ -69,6 +71,7 @@ export interface ListeningHost {
   endOverlay(): void
   setTrackingSuspended(on: boolean): void
   crossfadeSec(): number
+  crossfadeCurve(): CrossfadeCurve
   /**
    * The engine takes the new timeline; returns how long that took (ms). `shiftTicks` (a swap
    * mid-song; null for a fresh start) keeps the effects in flight across it.
@@ -77,7 +80,7 @@ export interface ListeningHost {
   /** The seam where the next song starts (its label) and the crossfade band; null: none. */
   setSeam(
     seam: { readonly tick: number; readonly label: string } | null,
-    band: { readonly startTick: number; readonly endTick: number; readonly deck: number } | null,
+    band: CrossfadeBand | null,
   ): void
   /** The settings shown now (the overlay's), where an ease across a seam starts. */
   currentSettings(): PlayerSettings
@@ -268,6 +271,10 @@ export class ListeningController {
     const at = transport.position
     this.maybePrepareNext(at)
     this.syncFade(at)
+    // The setting changed while a band shows.
+    if (this.bandCurve !== this.host.crossfadeCurve() && this.lastTimeline !== null) {
+      this.publishSeam(this.lastTimeline, this.parts)
+    }
     this.stepEasing()
     if (transport.state === 'stopped' && this.parts.length === 1 && at <= 0 && this.wasPlaying) {
       this.finish()
@@ -285,6 +292,8 @@ export class ListeningController {
   }
 
   private wasPlaying = false
+  /** The curve the band on the highway shows. */
+  private bandCurve: CrossfadeCurve = 'sequential'
   /** A look easing across a seam (milestone 9.5 D6), wall-clock ms. */
   private easing: {
     readonly from: PlayerSettings
@@ -579,7 +588,8 @@ export class ListeningController {
     const overlapEnd = ending.startSec + ending.prepared.endSec
     const overlap = overlapEnd - next.startSec
     if (overlap <= 0 || t >= overlapEnd) return
-    const key = `${this.generation}:${next.startSec}:${this.tempoPercent}`
+    const curve = this.host.crossfadeCurve()
+    const key = `${this.generation}:${next.startSec}:${this.tempoPercent}:${curve}`
     if (key === this.fadeKey) return
     const rate = this.tempoPercent / 100
     const audioNow = session.context.currentTime
@@ -593,6 +603,7 @@ export class ListeningController {
       ending.deck,
       audioNow + (from - songNow) / rate,
       (overlapEnd - from) / rate,
+      curve,
       progress,
     )
   }
@@ -605,6 +616,7 @@ export class ListeningController {
 
   /** The seam and band of a two-song timeline (none for one song). */
   private publishSeam(timeline: PlaylistTimeline, parts: readonly Part[]): void {
+    this.bandCurve = this.host.crossfadeCurve()
     const [first, second] = timeline.segments
     const next = parts[1]
     if (first === undefined || second === undefined || next === undefined) {
@@ -615,7 +627,12 @@ export class ListeningController {
     this.host.setSeam(
       { tick: second.startTick, label: composer === '' ? title : `${title} · ${composer}` },
       first.endTick > second.startTick
-        ? { startTick: second.startTick, endTick: first.endTick, deck: parts[0]?.deck ?? 0 }
+        ? {
+            startTick: second.startTick,
+            endTick: first.endTick,
+            deck: parts[0]?.deck ?? 0,
+            curve: this.bandCurve,
+          }
         : null,
     )
   }

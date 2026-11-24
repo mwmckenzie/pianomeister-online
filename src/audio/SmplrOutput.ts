@@ -1,6 +1,8 @@
 import { Instrument, pianoToPreset, SampleLoader, type Smplr, type SmplrPreset } from 'smplr'
 
 import type { Hand } from '@/core/hands/Hand'
+import type { CrossfadeCurve } from '@/core/playlists/CrossfadeCurve'
+import { crossfadeGains } from '@/core/playlists/crossfadeGains'
 
 import type { AudioOutput } from './AudioOutput'
 import type { OutputGains } from './OutputGains'
@@ -33,7 +35,7 @@ const SelfHostedPiano = Instrument<{ readonly baseUrl: string }>((_ctx, options,
 const ROUTES: readonly Route[] = ['right-normal', 'left-normal', 'right-preRoll', 'left-preRoll']
 const DECK_ROUTES: readonly DeckRoute[] = ROUTES.flatMap((r) => [`${r}:0`, `${r}:1`] as const)
 const routeOf = (deckRoute: DeckRoute) => deckRoute.slice(0, -2) as Route
-/** Curve points for an equal-power fade (setValueCurveAtTime). */
+/** Curve points for a fade (setValueCurveAtTime). */
 const FADE_POINTS = 64
 
 /**
@@ -202,10 +204,16 @@ export class SmplrOutput implements AudioOutput {
   }
 
   /**
-   * An equal-power crossfade (milestone 9.5 D2): from `time` over `duration` seconds, deck `from`
-   * falls as cos and deck `to` rises as sin. Both decks end where the next song plays alone.
+   * A crossfade (milestone 9.5 D2): from `time` over `duration` seconds, deck `from` falls and the
+   * other rises along `curve`. Both decks end where the next song plays alone.
    */
-  crossfade(from: 0 | 1, time: number, duration: number, fromProgress = 0): void {
+  crossfade(
+    from: 0 | 1,
+    time: number,
+    duration: number,
+    curve: CrossfadeCurve,
+    fromProgress = 0,
+  ): void {
     const to = from === 0 ? 1 : 0
     const out = new Float32Array(FADE_POINTS)
     const fadeIn = new Float32Array(FADE_POINTS)
@@ -213,19 +221,20 @@ export class SmplrOutput implements AudioOutput {
     const p0 = Math.min(1, Math.max(0, fromProgress))
     for (let i = 0; i < FADE_POINTS; i++) {
       const t = p0 + (1 - p0) * (i / (FADE_POINTS - 1))
-      out[i] = Math.cos((t * Math.PI) / 2)
-      fadeIn[i] = Math.sin((t * Math.PI) / 2)
+      const gains = crossfadeGains(t, curve)
+      out[i] = gains.out
+      fadeIn[i] = gains.in
     }
     const start = Math.max(time, this.context.currentTime)
     const length = Math.max(0.01, duration)
     for (const route of ROUTES) {
-      for (const [deck, curve] of [
+      for (const [deck, values] of [
         [from, out],
         [to, fadeIn],
       ] as const) {
         const gain = this.deckGains[`${route}:${deck}`].gain
         gain.cancelScheduledValues(start)
-        gain.setValueCurveAtTime(curve, start, length)
+        gain.setValueCurveAtTime(values, start, length)
       }
     }
   }

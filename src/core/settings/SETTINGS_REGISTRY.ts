@@ -1232,6 +1232,20 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       'seconds',
       1,
     ),
+    'audio.crossfadeCurve': {
+      kind: 'choice',
+      label: 'Crossfade curve',
+      default: 'sequential',
+      home: tab('audio', 'playback'),
+      control: 'select',
+      options: [
+        { value: 'sequential', label: 'Sequential' },
+        { value: 'sCurve', label: 'S-curve' },
+        { value: 'equalPower', label: 'Equal power' },
+      ],
+      enabled: (s) => s.audio.crossfade > 0,
+      disabledHint: 'Needs a crossfade',
+    },
     'audio.rightVolume': {
       ...num('Right hand', 1, tab('audio', 'volume'), [0, 1, 0.01]),
       ...percent,

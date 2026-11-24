@@ -86,6 +86,7 @@ function setUp(crossfade = 2) {
     endOverlay: () => {},
     setTrackingSuspended: suspended,
     crossfadeSec: () => crossfade,
+    crossfadeCurve: () => 'sequential',
     showTimeline: () => 0,
     setSeam: () => {},
     currentSettings: () => DEFAULT_SETTINGS,

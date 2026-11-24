@@ -384,6 +384,7 @@ function listenerFor(playback: PlaybackSession): ListeningController {
     endOverlay: () => settingsStore.endOverlay(),
     setTrackingSuspended: (on) => (statsStore.trackingSuspended = on),
     crossfadeSec: () => settingsStore.settings.audio.crossfade,
+    crossfadeCurve: () => settingsStore.settings.audio.crossfadeCurve,
     showTimeline: (timeline, shiftTicks) => {
       const started = performance.now()
       engine?.setSong(

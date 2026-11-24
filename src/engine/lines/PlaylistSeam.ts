@@ -8,6 +8,9 @@ import {
   SpriteMaterial,
 } from 'three'
 
+import type { CrossfadeBand } from '@/core/playlists/CrossfadeBand'
+import type { CrossfadeCurve } from '@/core/playlists/CrossfadeCurve'
+
 import { KEYBOARD } from '../model/KEYBOARD'
 import { srgb } from '../srgb'
 import { TIME_GLSL } from '../timeGlsl'
@@ -19,6 +22,12 @@ const SEAM_WIDTH = 0.1
 const SEAM_GLOW = 1.2
 /** The band's tint opacity (board: the secondary colour at 0.06). */
 const BAND_OPACITY = 0.06
+/** The curves as timeGlsl's bandGain knows them. */
+const CURVE_ID: Readonly<Record<CrossfadeCurve, number>> = {
+  sequential: 0,
+  sCurve: 1,
+  equalPower: 2,
+}
 /** The label sprite's height on screen in CSS pixels (its 13 px text plus a little room). */
 const LABEL_PX = 20
 
@@ -39,7 +48,7 @@ ${TIME_GLSL}
 uniform vec3 uColor;
 varying float vTick;
 void main() {
-  float alpha = ${BAND_OPACITY.toFixed(2)} * hazeAlpha(vTick) * step(uTick, vTick);
+  float alpha = ${BAND_OPACITY.toFixed(2)} * hazeAlpha(vTick) * step(uTick, vTick) * bandGain(vTick);
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(uColor, alpha);
 }
@@ -112,13 +121,14 @@ export class PlaylistSeam {
    */
   set(
     seam: { readonly tick: number; readonly label: string } | null,
-    band: { readonly startTick: number; readonly endTick: number; readonly deck: number } | null,
+    band: CrossfadeBand | null,
   ): void {
     this.seamTick = seam?.tick ?? null
     this.lines.place(seam === null ? [] : [{ tick: seam.tick, end: false }])
     this.time.uBandStart.value = band?.startTick ?? 0
     this.time.uBandEnd.value = band?.endTick ?? 0
     this.time.uBandDeck.value = band?.deck ?? -1
+    this.time.uBandCurve.value = CURVE_ID[band?.curve ?? 'sequential']
     if (seam !== null && seam.label !== this.text) {
       this.text = seam.label
       this.draw()
