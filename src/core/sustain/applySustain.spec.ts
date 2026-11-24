@@ -105,8 +105,8 @@ describe('applySustain', () => {
   it('never shortens a note below its written length', () => {
     // Overlapping same-pitch notes: the second starts before the first ends.
     const notes: Note[] = [
-      { midi: 60, channel: 0, startTick: 0, endTick: 480, velocity: 90 },
-      { midi: 60, channel: 0, startTick: 240, endTick: 720, velocity: 90 },
+      { id: 'n', track: 0, midi: 60, channel: 0, startTick: 0, endTick: 480, velocity: 90 },
+      { id: 'n', track: 0, midi: 60, channel: 0, startTick: 240, endTick: 720, velocity: 90 },
     ]
     const sounding = applySustain(notes, [{ channel: 0, startTick: 0, endTick: 2000 }])
     expect(sounding.map((n) => n.soundEndTick)).toEqual([480, 2000])

@@ -1,5 +1,7 @@
 import { Midi } from '@tonejs/midi'
 
+import { extractNotes } from '../hands/extractNotes'
+import { readMidiFile } from '../midi/readMidiFile'
 import { TempoMap } from '../timing/TempoMap'
 import type { ChannelInfo } from './ChannelInfo'
 import type { Note } from './Note'
@@ -13,30 +15,28 @@ const SUSTAIN_PEDAL = 64
 
 /**
  * Parses a Standard MIDI File, synchronously (no id: hashing is async). Usable inside an
- * IndexedDB upgrade transaction. Notes are grouped by channel, not track:
- * @tonejs/midi splits tracks by (program, channel), so each parsed track's `channel` holds
- * for all its notes. Known upstream quirk: a program change between a note's on and off
- * can drop that note.
+ * IndexedDB upgrade transaction. Notes come from the raw events (extractNotes), because their ids
+ * need the track and event index that @tonejs/midi loses; tempo and meter come from tonejs. A
+ * note never released sounds to the end of its track.
  */
 export function parseMidi(bytes: Uint8Array, options: { readonly fileName: string }): ParsedMidi {
   const { format, trackCount } = readMidiHeader(bytes)
   const midi = new Midi(bytes)
   const ppq = midi.header.ppq
 
-  const notes: Note[] = []
-  for (const track of midi.tracks) {
-    for (const n of track.notes) {
-      // Zero-length notes are inaudible and would flash a key for no time.
-      if (n.durationTicks <= 0) continue
-      notes.push({
-        midi: n.midi,
-        channel: track.channel,
-        startTick: n.ticks,
-        endTick: n.ticks + n.durationTicks,
-        velocity: Math.round(n.velocity * 127),
-      })
-    }
-  }
+  const extracted = extractNotes(readMidiFile(bytes))
+  const notes: Note[] = extracted
+    // Zero-length notes are inaudible and would flash a key for no time.
+    .filter((n) => n.endTick > n.startTick)
+    .map(({ id, track, midi: pitch, channel, startTick, endTick, velocity }) => ({
+      id,
+      track,
+      midi: pitch,
+      channel,
+      startTick,
+      endTick,
+      velocity,
+    }))
   notes.sort((a, b) => a.startTick - b.startTick || a.midi - b.midi || a.channel - b.channel)
 
   const channels = channelInfo(notes)
@@ -61,6 +61,7 @@ export function parseMidi(bytes: Uint8Array, options: { readonly fileName: strin
     trackCount,
     ppq,
     notes,
+    noteIds: extracted.map((n) => n.id),
     channels,
     tempoEvents,
     timeSignatureEvents,

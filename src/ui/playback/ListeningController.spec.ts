@@ -19,6 +19,7 @@ function opened(songId: string, seconds: number) {
       title: songId,
       format: 1,
       trackCount: 1,
+      noteIds: [],
       ppq: 480,
       notes: [{ midi: 60, channel: 0, startTick: 0, endTick, velocity: 80 }],
       channels: [],

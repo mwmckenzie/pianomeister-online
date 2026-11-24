@@ -10,7 +10,7 @@
         "baroque"
       ],
       "facts": {
-        "factsVersion": 1,
+        "factsVersion": 2,
         "durationSeconds": 91.427,
         "durationTicks": 92159,
         "ppq": 480,
@@ -58,7 +58,7 @@
         "baroque"
       ],
       "facts": {
-        "factsVersion": 1,
+        "factsVersion": 2,
         "durationSeconds": 246.596,
         "durationTicks": 195839,
         "ppq": 480,
@@ -106,7 +106,7 @@
         "baroque"
       ],
       "facts": {
-        "factsVersion": 1,
+        "factsVersion": 2,
         "durationSeconds": 97.167,
         "durationTicks": 87839,
         "ppq": 480,

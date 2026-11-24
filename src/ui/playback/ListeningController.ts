@@ -786,6 +786,7 @@ function timelineSong(timeline: PlaylistTimeline, name: string): Song {
     title: name,
     format: 1,
     trackCount: 1,
+    noteIds: [],
     ppq: timeline.ppq,
     notes: [],
     channels: [],

@@ -13,6 +13,8 @@ const PPQ = 480
 const BAR = 4 * PPQ
 
 const note = (midi: number, startTick: number, endTick: number, channel = 0): Note => ({
+  id: 'n',
+  track: 0,
   midi,
   channel,
   startTick,

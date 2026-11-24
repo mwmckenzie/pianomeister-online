@@ -29,6 +29,8 @@ const note = (
   hand: 'right' | 'left' = 'right',
   soundEndTick = endTick,
 ): HandNote => ({
+  id: 'n',
+  track: 0,
   midi,
   channel: hand === 'right' ? 0 : 1,
   startTick,
