@@ -32,7 +32,11 @@ export function effectiveBindings(overrides: ShortcutOverrides): EffectiveBindin
  * every page, so those conflict with everything.
  */
 export function scopesConflict(a: CommandScope, b: CommandScope): boolean {
-  if (a === b || a === 'dialogs' || b === 'dialogs' || a === 'app' || b === 'app') return true
+  if (a === b) return true
+  // Listening replaces the player; an open dialog takes keys (Esc) before listening does.
+  const pair = new Set([a, b])
+  if (pair.has('listening') && (pair.has('player') || pair.has('dialogs'))) return false
+  if (a === 'dialogs' || b === 'dialogs' || a === 'app' || b === 'app') return true
   return (a === 'lists' && b === 'tabs') || (a === 'tabs' && b === 'lists')
 }
 

@@ -35,6 +35,11 @@ export const router = createRouter({
       name: 'bookmarks',
       component: () => import('../views/BookmarkManagerView.vue'),
     },
+    {
+      path: '/playlists',
+      name: 'playlists',
+      component: () => import('../views/PlaylistsView.vue'),
+    },
     { path: '/stats', name: 'stats', component: () => import('../views/StatsView.vue') },
     // Developer tool, deliberately not linked from the player. Lazy so it stays out of the main bundle.
     { path: '/debug', name: 'debug', component: () => import('../views/DebugView.vue') },

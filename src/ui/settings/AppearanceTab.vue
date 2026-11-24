@@ -66,6 +66,9 @@ function applyPreset(preset: (typeof THEME_PRESETS)[number]): void {
     <SettingRow setting-key="appearance.homeOnNewSession" />
     <SettingRow setting-key="appearance.sessionGap" />
   </SettingsSection>
+  <SettingsSection section-id="listening" title="Listening">
+    <SettingRow setting-key="appearance.listeningHud" />
+  </SettingsSection>
 </template>
 
 <style scoped>

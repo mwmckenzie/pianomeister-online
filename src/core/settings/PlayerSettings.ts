@@ -131,6 +131,10 @@ export interface PlayerSettings {
     readonly bordersCustom: string
     readonly bordersWidth: number
     readonly bordersGlow: number
+    /** The playlist seam: a line where the next song starts (milestone 9.5), with its title. */
+    readonly seam: boolean
+    readonly seamColor: LineColor
+    readonly seamCustom: string
     /** A line on every B/C boundary. */
     readonly octaves: boolean
     /** Also on every E/F boundary. */
@@ -328,6 +332,8 @@ export interface PlayerSettings {
     readonly metronomeVolume: number
     /** Only the built-in piano until MIDI out (milestone 11). */
     readonly output: 'piano'
+    /** Playlists: seconds the next song overlaps the ending one (0 = a short gap instead). */
+    readonly crossfade: number
   }
   readonly practice: {
     /** Whole percent per tempo step (slider and keys), 1–10. */
@@ -352,6 +358,8 @@ export interface PlayerSettings {
     readonly startOn: 'welcome' | 'player'
     /** Switch to Home when a new practice session begins (milestone 9.2). */
     readonly homeOnNewSession: boolean
+    /** Listening (playlist mode, milestone 9.5): the full HUD, title only, or none. */
+    readonly listeningHud: 'show' | 'minimal' | 'hidden'
     /** Minutes without playback after which the next playback is a new session (decision 5). */
     readonly sessionGap: '10' | '20' | '30' | '60'
   }

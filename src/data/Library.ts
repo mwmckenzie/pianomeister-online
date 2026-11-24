@@ -255,14 +255,16 @@ export class Library {
   /** Every profile with all its rows, as a backup holds them. */
   async practiceData(): Promise<PracticeData> {
     const { db } = this
-    const [profiles, bookmarks, handAssignments, sessions, playRecords] = await Promise.all([
-      db.profiles.toArray(),
-      db.bookmarks.toArray(),
-      db.handAssignments.toArray(),
-      db.sessions.toArray(),
-      db.playRecords.toArray(),
-    ])
-    return { profiles, bookmarks, handAssignments, sessions, playRecords }
+    const [profiles, bookmarks, handAssignments, sessions, playRecords, playlists] =
+      await Promise.all([
+        db.profiles.toArray(),
+        db.bookmarks.toArray(),
+        db.handAssignments.toArray(),
+        db.sessions.toArray(),
+        db.playRecords.toArray(),
+        db.playlists.toArray(),
+      ])
+    return { profiles, bookmarks, handAssignments, sessions, playRecords, playlists }
   }
 
   async exportArchive(now = new Date()): Promise<Uint8Array> {
@@ -385,7 +387,15 @@ export class Library {
     const { db } = this
     await db.transaction(
       'rw',
-      [db.profiles, db.bookmarks, db.sessions, db.playRecords, db.handAssignments, db.appState],
+      [
+        db.profiles,
+        db.bookmarks,
+        db.sessions,
+        db.playRecords,
+        db.handAssignments,
+        db.appState,
+        db.playlists,
+      ],
       async () => {
         for (const id of plan.clearProfileIds) await clearProfileData(db, id)
         await db.profiles.bulkPut([...plan.add.profiles])
@@ -393,6 +403,7 @@ export class Library {
         await db.sessions.bulkPut([...plan.add.sessions])
         await db.playRecords.bulkPut([...plan.add.playRecords])
         await db.handAssignments.bulkPut([...plan.add.handAssignments])
+        await db.playlists.bulkPut([...(plan.add.playlists ?? [])])
       },
     )
     return plan.summary

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-/** The Library | Bookmarks tabs at the top of both pages (brief decision 73). */
-defineProps<{ readonly active: 'library' | 'bookmarks' }>()
+import type { ManageTab } from './manageTabStep'
+
+/** The Library | Bookmarks | Playlists tabs at the top of each page (decision 73, m9.5 B1). */
+defineProps<{ readonly active: ManageTab }>()
 </script>
 
 <template>
@@ -20,6 +22,14 @@ defineProps<{ readonly active: 'library' | 'bookmarks' }>()
       :aria-current="active === 'bookmarks' ? 'page' : undefined"
       data-testid="tab-bookmarks"
       >Bookmarks</RouterLink
+    >
+    <RouterLink
+      :to="{ name: 'playlists' }"
+      class="tab"
+      :class="{ active: active === 'playlists' }"
+      :aria-current="active === 'playlists' ? 'page' : undefined"
+      data-testid="tab-playlists"
+      >Playlists</RouterLink
     >
   </nav>
 </template>

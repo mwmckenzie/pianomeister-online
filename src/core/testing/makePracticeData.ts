@@ -76,5 +76,6 @@ export function makePracticeData(options: {
         playedMs: (options.minutesEach ?? 10) * MIN,
       }),
     ),
+    playlists: [],
   }
 }

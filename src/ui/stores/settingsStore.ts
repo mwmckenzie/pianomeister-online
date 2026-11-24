@@ -3,6 +3,7 @@ import { computed, shallowRef, watch } from 'vue'
 
 import { EMPTY_LOOKS } from '@/core/looks/EMPTY_LOOKS'
 import type { Look } from '@/core/looks/Look'
+import { LOOK_KEYS } from '@/core/looks/LOOK_KEYS'
 import type { LooksState } from '@/core/looks/LooksState'
 import { defaultSettings } from '@/core/settings/DEFAULT_SETTINGS'
 import type { DeviceClass } from '@/core/settings/DeviceClass'
@@ -122,9 +123,38 @@ export const useSettingsStore = defineStore('settings', () => {
   const layoutMap = shallowRef<ReadonlyMap<string, string> | null>(null)
   void readLayoutMap().then((map) => (layoutMap.value = map))
 
+  /**
+   * The listening overlay (milestone 9.5): while a playlist plays, `settings` shows its look on
+   * top of the user's own; the user's own look values wait here and are what's stored. App
+   * settings changed meanwhile (not look keys) are the user's and stay when listening ends.
+   */
+  const overlayBase = shallowRef<PlayerSettings | null>(null)
+  const overlayActive = computed(() => overlayBase.value !== null)
+
+  /** The user's own settings: under an overlay, its look keys from before it. */
+  function ownSettings(): PlayerSettings {
+    const base = overlayBase.value
+    if (base === null) return settings.value
+    return restoreValues(settings.value, new Map(LOOK_KEYS.map((k) => [k, readSetting(base, k)])))
+  }
+
+  /** Shows `next` (the user's settings with a look applied) without storing it. */
+  function setOverlay(next: PlayerSettings): void {
+    if (overlayBase.value === null) overlayBase.value = settings.value
+    settings.value = next
+  }
+
+  /** Ends the overlay: the user's own look values come back, exactly as they were. */
+  function endOverlay(): void {
+    if (overlayBase.value === null) return
+    const own = ownSettings()
+    overlayBase.value = null
+    settings.value = own
+  }
+
   function persist(): void {
     write({
-      settings: settings.value,
+      settings: ownSettings(),
       shortcuts: shortcuts.value,
       looks: { active: looks.value.active, saved: unmoved },
       deviceClass,
@@ -256,6 +286,10 @@ export const useSettingsStore = defineStore('settings', () => {
     setLooks,
     reloadLooks,
     snapshot,
+    overlayActive,
+    ownSettings,
+    setOverlay,
+    endOverlay,
     editShortcuts,
     restoreShortcuts,
     keyLabel,

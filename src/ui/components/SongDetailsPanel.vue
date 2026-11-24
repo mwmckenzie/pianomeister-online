@@ -16,6 +16,7 @@ import type { OpenedSong } from '@/data/OpenedSong'
 
 import { formatTime } from '../format/formatTime'
 import { useLibraryStore } from '../stores/libraryStore'
+import AddToPlaylistMenu from '../playlists/AddToPlaylistMenu.vue'
 import AppButton from './AppButton.vue'
 import ComboboxField from './ComboboxField.vue'
 import IconButton from './IconButton.vue'
@@ -405,6 +406,7 @@ function play(): void {
         Play
       </AppButton>
       <AppButton data-testid="details-bookmarks" @click="emit('bookmarks')">Bookmarks</AppButton>
+      <AddToPlaylistMenu :song-id="songId" />
     </footer>
   </aside>
 </template>
@@ -557,6 +559,7 @@ dd {
 
 .foot {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   padding: 14px 18px 18px;
   border-top: 1px solid var(--divider);

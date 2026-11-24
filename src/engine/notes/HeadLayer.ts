@@ -32,6 +32,7 @@ attribute vec2 aLane;
 attribute vec3 aTicks;
 attribute vec3 aColor;
 attribute float aVelocity;
+attribute float aDeck;
 
 varying vec3 vNormal;
 varying vec3 vWorld;
@@ -44,8 +45,10 @@ varying float vEnd;
 varying float vVelocity;
 varying float vClipped;
 varying float vSeed;
+varying float vBand;
 
 void main() {
+  vBand = bandStrength(aDeck, aTicks.x);
   // The head spans its visible ticks: clipped at the now line, so it sinks into the key. A ridge
   // (a raised sustain) spans the rest of the note, from the head's end.
 #ifdef RIDGE
@@ -104,6 +107,7 @@ varying float vEnd;
 varying float vVelocity;
 varying float vClipped;
 varying float vSeed;
+varying float vBand;
 
 void main() {
   float haze = hazeAlpha(vTick);
@@ -133,7 +137,7 @@ void main() {
 #ifdef GLOW_PASS
   // An occluder on the glow layer: black, except what glows.
   float glow = (rim * uEdgeIntensity + f.emission + sounding + pulse) * haze;
-  glow *= 1.0 - loopDim(vTick);
+  glow *= (1.0 - loopDim(vTick)) * vBand;
   gl_FragColor = vec4(mix(glowColor(f), rimColor, rim) * glow, 1.0);
 #else
   vec3 n = normalize(vNormal);
@@ -148,6 +152,8 @@ void main() {
   float alpha = f.alpha * mix(uOpacity, 1.0, step(0.5, side));
   // Dimmed like an overlay in the highway's colour (opaque blocks: mix, not fade).
   color = mix(color, uDimColor, loopDim(vTick));
+  // The ending song in the crossfade band fades toward the highway's colour, like its audio.
+  color = mix(uDimColor, color, vBand);
   gl_FragColor = vec4(color, haze * alpha);
 #endif
 }

@@ -54,14 +54,22 @@ export class Profiles {
   }
 
   /**
-   * Deletes a profile with its bookmarks, play log, sessions, hand assignments and last opened
-   * song. The last remaining profile can't be deleted.
+   * Deletes a profile with its bookmarks, play log, sessions, hand assignments, playlists and
+   * last opened song. The last remaining profile can't be deleted.
    */
   async delete(profileId: string): Promise<void> {
     const { db } = this
     await db.transaction(
       'rw',
-      [db.profiles, db.bookmarks, db.sessions, db.playRecords, db.handAssignments, db.appState],
+      [
+        db.profiles,
+        db.bookmarks,
+        db.sessions,
+        db.playRecords,
+        db.handAssignments,
+        db.appState,
+        db.playlists,
+      ],
       async () => {
         if ((await db.profiles.count()) <= 1) throw new Error("The last profile can't be deleted")
         await clearProfileData(db, profileId)
@@ -89,4 +97,5 @@ export async function clearProfileData(db: PianoMeisterDb, profileId: string): P
     .between([profileId, Dexie.minKey], [profileId, Dexie.maxKey])
     .delete()
   await db.appState.delete(lastOpenedKey(profileId))
+  await db.playlists.where('profileId').equals(profileId).delete()
 }

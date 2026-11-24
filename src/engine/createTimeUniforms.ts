@@ -19,5 +19,8 @@ export function createTimeUniforms(): TimeUniforms {
     uLoopPeriod: { value: 0 },
     uLoopRepeat: { value: 0 },
     uLoopDim: { value: 0 },
+    uBandStart: { value: 0 },
+    uBandEnd: { value: 0 },
+    uBandDeck: { value: -1 },
   }
 }

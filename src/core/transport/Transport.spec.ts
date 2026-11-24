@@ -100,6 +100,43 @@ describe('Transport', () => {
     record()
   })
 
+  it('replaceSong swaps the song mid-play without stopping, at the given position', () => {
+    const changes: string[] = []
+    bus.on('timelineChange', (e) => changes.push(e.reason))
+    transport.play()
+    run(1)
+    const before = transport.position
+    // The same notes, shifted 10 s later (a rebuilt playlist timeline).
+    const shifted = makeSong(
+      NOTES.map((n) => ({
+        ...n,
+        startTick: n.startTick + 20 * 480,
+        endTick: n.endTick + 20 * 480,
+        soundEndTick: n.soundEndTick + 20 * 480,
+      })),
+    )
+    transport.replaceSong(shifted, before + 10)
+    expect(transport.state).toBe('playing')
+    expect(transport.position).toBeCloseTo(before + 10, 6)
+    expect(changes).toEqual(['play', 'resync'])
+    expect(types('allNotesOff')).toEqual([])
+    run(0.6)
+    expect(transport.state).toBe('playing')
+  })
+
+  it('seekToSeconds moves to a song time, playing on without pre-roll, or parks there', () => {
+    transport.setPreRoll({ beats: 2, mode: 'muted' })
+    transport.play()
+    run(0.5)
+    transport.seekToSeconds(2.5)
+    expect(transport.position).toBeCloseTo(2.5, 6)
+    expect(transport.inPreRoll).toBe(false)
+    transport.pause()
+    transport.seekToSeconds(1)
+    expect(transport.state).toBe('paused')
+    expect(transport.position).toBe(1)
+  })
+
   it('plays notes and beats in order from bar 1', () => {
     transport.play()
     run(1.6)

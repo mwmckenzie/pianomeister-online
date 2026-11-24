@@ -23,6 +23,7 @@ import type { MeterSummary } from '@/core/timing/MeterSummary'
 import type { LoopRange } from '@/core/transport/LoopRange'
 
 import AppButton from '../components/AppButton.vue'
+import AddToPlaylistMenu from '../playlists/AddToPlaylistMenu.vue'
 import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
 import IconButton from '../components/IconButton.vue'
@@ -611,6 +612,7 @@ const LOAD_SORTS = SONG_SORTS
           Library…
         </AppButton>
         <span class="spacer" />
+        <AddToPlaylistMenu v-if="highlighted" :song-id="highlighted.songId" @done="open = false" />
         <AppButton @click="open = false">Cancel</AppButton>
         <AppButton
           variant="primary"

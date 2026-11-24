@@ -1,3 +1,5 @@
+import { mergePlaylists } from '../playlists/mergePlaylists'
+import type { Playlist } from '../playlists/Playlist'
 import { isFullSongId } from '../practice/fullSongId'
 import type { Profile } from '../profiles/Profile'
 import type { BackupMergePlan } from './BackupMergePlan'
@@ -36,12 +38,23 @@ export function planBackupMerge(
     record: new Set(local.playRecords.map((r) => r.id)),
     hands: new Set(local.handAssignments.map((h) => `${h.profileId}\u0000${h.songId}`)),
   }
-  const add: Mutable<PracticeData> = {
+  const playlists: Playlist[] = []
+  const add: Mutable<PracticeData> & { playlists: Playlist[] } = {
     profiles: [],
     bookmarks: [],
     handAssignments: [],
     sessions: [],
     playRecords: [],
+    playlists,
+  }
+  // Every playlist here or already planned: ids stay unique across profiles.
+  const localPlaylists = local.playlists ?? []
+  const addPlaylists = (from: readonly Playlist[], profileId: string, keepLocal: boolean) => {
+    const existing = [
+      ...(keepLocal ? localPlaylists : localPlaylists.filter((p) => p.profileId !== profileId)),
+      ...playlists,
+    ]
+    playlists.push(...mergePlaylists(from, existing, profileId, newId).added)
   }
   const clearProfileIds: string[] = []
   const merged: { name: string; bookmarksAdded: number }[] = []
@@ -54,6 +67,7 @@ export function planBackupMerge(
     const sessions = owned(incoming.sessions, profile.id)
     const records = owned(incoming.playRecords, profile.id)
     const hands = owned(incoming.handAssignments, profile.id)
+    const lists = owned(incoming.playlists ?? [], profile.id)
     const choice = mine === undefined ? 'new' : (choices.get(profile.id) ?? 'merge')
 
     if (choice === 'merge' && mine !== undefined) {
@@ -64,6 +78,7 @@ export function planBackupMerge(
       add.handAssignments.push(
         ...hands.filter((h) => !has.hands.has(`${h.profileId}\u0000${h.songId}`)),
       )
+      addPlaylists(lists, profile.id, true)
       merged.push({ name: mine.name, bookmarksAdded: newBookmarks.length })
     } else if (choice === 'addNew') {
       const id = newId()
@@ -100,6 +115,7 @@ export function planBackupMerge(
         })),
       )
       add.handAssignments.push(...hands.map((h) => ({ ...h, profileId: id })))
+      addPlaylists(lists, id, true)
       addedProfiles++
     } else if (choice === 'replace' && mine !== undefined) {
       clearProfileIds.push(profile.id)
@@ -116,6 +132,7 @@ export function planBackupMerge(
       add.sessions.push(...sessions.filter((s) => !others.session.has(s.id)))
       add.playRecords.push(...records.filter((r) => !others.record.has(r.id)))
       add.handAssignments.push(...hands)
+      addPlaylists(lists, profile.id, false)
       replaced.push(mine.name)
     } else {
       add.profiles.push(profile)
@@ -123,6 +140,7 @@ export function planBackupMerge(
       add.sessions.push(...sessions.filter((s) => !has.session.has(s.id)))
       add.playRecords.push(...records.filter((r) => !has.record.has(r.id)))
       add.handAssignments.push(...hands)
+      addPlaylists(lists, profile.id, true)
       addedProfiles++
     }
   }

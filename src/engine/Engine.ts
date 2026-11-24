@@ -32,6 +32,7 @@ import type { GlowTwin } from './GlowTwin'
 import { NoteMask } from './notes/NoteMask'
 import { BlackOutline } from './notes/BlackOutline'
 import { LoopLines } from './lines/LoopLines'
+import { PlaylistSeam } from './lines/PlaylistSeam'
 import { LoopRepeat, type RepeatSource } from './LoopRepeat'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
@@ -132,6 +133,8 @@ export class Engine {
   private loopWindow: LoopWindow | null = null
   private readonly loopRepeat = new LoopRepeat(this.time)
   private readonly loopLines = new LoopLines(this.time, 2 * (MAX_LOOP_REPEATS + 1), ORDER.loopLines)
+  /** The playlist seam and crossfade band (milestone 9.5). */
+  private readonly seam = new PlaylistSeam(this.time, ORDER.loopLines)
   private settings: PlayerSettings = DEFAULT_SETTINGS
   private keyboardKey = ''
   private placement: CameraPlacement | null = null
@@ -167,7 +170,14 @@ export class Engine {
   private sizedForDpr = 0
 
   constructor() {
-    this.scene.add(this.keyboard.group, this.effects.group, this.loopLines.mesh)
+    this.scene.add(
+      this.keyboard.group,
+      this.effects.group,
+      this.loopLines.mesh,
+      this.seam.lines.mesh,
+      this.seam.band,
+    )
+    this.labelScene.add(this.seam.label)
     this.effects.setKeyTops(this.keyboard.keyBodies)
     this.effects.recolor(this.noteColors)
     // Key labels fit their key by the names' widths, which change once the font has loaded.
@@ -201,7 +211,13 @@ export class Engine {
     this.timeSource = source
   }
 
-  setSong(song: EngineSong): void {
+  /**
+   * A new song. `continuity` (a playlist timeline swapped mid-song, milestone 9.5) keeps what's in
+   * flight: particles and pulses go on, and the tick history moves by `shiftTicks` (the rebased
+   * timeline's ticks are the old ones minus that), so the swap isn't read as a seek.
+   */
+  setSong(song: EngineSong, continuity: { readonly shiftTicks: number } | null = null): void {
+    const lastTick = this.lastTick
     this.disposeSong()
     const instances = noteInstances(song.notes, song.ppq)
     const white = instances.filter((n) => !n.isBlack)
@@ -326,8 +342,13 @@ export class Engine {
     )
     this.labelScene.add(s.names.white.mesh, s.names.black.mesh)
     this.loopRepeat.setSources(this.repeatSources(s))
-    this.lastTick = null
-    this.effects.clear()
+    if (continuity === null) {
+      this.lastTick = null
+      this.effects.clear()
+    } else {
+      this.lastTick = lastTick === null ? null : lastTick - continuity.shiftTicks
+      this.time.uJumpTick.value -= continuity.shiftTicks
+    }
     this.applySettings(this.settings)
     this.invalidate()
   }
@@ -350,6 +371,18 @@ export class Engine {
       return
     }
     this.loopWindow = window
+    this.invalidate()
+  }
+
+  /**
+   * The playlist seam (milestone 9.5): where the next song starts, with its label, and the
+   * crossfade band where both songs sound (the ending song's notes dim through it). Null: none.
+   */
+  setPlaylistSeam(
+    seam: { readonly tick: number; readonly label: string } | null,
+    band: { readonly startTick: number; readonly endTick: number; readonly deck: number } | null,
+  ): void {
+    this.seam.set(seam, band)
     this.invalidate()
   }
 
@@ -468,6 +501,10 @@ export class Engine {
     }
     this.keyboard.applySettings(settings)
     const { loop } = settings
+    this.seam.setStyle(
+      settings.lines.seam,
+      lineColor(settings.lines.seamColor, settings.lines.seamCustom, settings.appearance),
+    )
     this.loopLines.setStyle(
       loop.lines,
       lineColor(loop.linesColor, loop.linesCustom, settings.appearance),
@@ -738,6 +775,7 @@ export class Engine {
     this.sizeObserver?.disconnect()
     this.disposeSong()
     this.loopLines.dispose()
+    this.seam.dispose()
     this.keyboard.dispose()
     this.effects.dispose()
     this.atlas.dispose()
@@ -772,6 +810,10 @@ export class Engine {
     const fixed = this.fixedAnimationTime
     this.time.uTick.value = tick
     this.updateLoop(tick)
+    this.seam.update(
+      this.pipeline?.renderer.domElement.clientHeight ?? 720,
+      this.camera.projectionMatrix.elements[5] ?? 1,
+    )
     this.time.uTime.value = fixed ?? now / 1000
     this.time.uLoopTime.value = fixed ?? this.loopClock
     this.time.uPausedFor.value = fixed === null || playing ? this.pausedFor : SETTLED_SECONDS
@@ -934,7 +976,12 @@ export class Engine {
     const bloomActive = this.pipeline?.bloomActive ?? false
     this.glowSyncedFor = this.pipeline === null ? null : bloomActive
     const song = this.song
-    const twins: GlowTwin[] = [...this.keyboard.twins, ...this.effects.twins, this.loopLines.twin]
+    const twins: GlowTwin[] = [
+      ...this.keyboard.twins,
+      ...this.effects.twins,
+      this.loopLines.twin,
+      this.seam.lines.twin,
+    ]
     if (song !== null) {
       twins.push(
         ...song.highway.twins,

@@ -31,6 +31,7 @@ export const SETTINGS_LAYOUT = {
         { id: 'volume', title: 'Volume' },
         { id: 'preRollMetronome', title: 'Pre-roll & metronome' },
         { id: 'soundSource', title: 'Sound source' },
+        { id: 'playback', title: 'Playback' },
       ],
     },
     {
@@ -42,6 +43,7 @@ export const SETTINGS_LAYOUT = {
         { id: 'motion', title: 'Motion' },
         { id: 'playerControls', title: 'Player controls' },
         { id: 'start', title: 'Start' },
+        { id: 'listening', title: 'Listening' },
       ],
     },
   ],

@@ -18,6 +18,7 @@ attribute vec2 aLane;    // left x, width
 attribute vec3 aTicks;   // start, end, head end
 attribute vec3 aColor;
 attribute float aVelocity;
+attribute float aDeck;
 
 varying float vU;
 varying float vTick;
@@ -29,8 +30,10 @@ varying float vVelocity;
 varying float vHalfWidth;
 varying float vStartOpen;
 varying float vSeed;
+varying float vBand;
 
 void main() {
+  vBand = bandStrength(aDeck, aTicks.x);
   // Clip the strip to what is visible: from the now line (notes shorten into the keys as they
   // play) to 1.5 look-aheads out. With 3D heads the strip starts where the head block ends.
   float start = mix(aTicks.z, aTicks.x, uFlatHeads);
@@ -71,6 +74,7 @@ varying float vVelocity;
 varying float vHalfWidth;
 varying float vStartOpen;
 varying float vSeed;
+varying float vBand;
 
 void main() {
   // Varyings are perspective-correct, so vU is the note's own lane coordinate: the gradient
@@ -98,7 +102,7 @@ void main() {
   float lit = mix(opacity, 1.0, f.keep);
 #ifdef GLOW_PASS
   float glow = (rim * uEdgeIntensity + (f.emission + sounding + pulse) * f.alpha) * lit;
-  float dim = 1.0 - loopDim(vTick);
+  float dim = (1.0 - loopDim(vTick)) * vBand;
   glow *= haze * dim;
   if (glow <= 0.002) discard;
   gl_FragColor = vec4(mix(glowColor(f), rimColor, rim) * glow, 1.0);
@@ -117,7 +121,7 @@ void main() {
     color += mix(vColor, vec3(1.0), 0.5) * pulse;
     alpha = min(1.0, alpha + pulse * opacity);
   }
-  alpha *= haze * (1.0 - loopDim(vTick));
+  alpha *= haze * (1.0 - loopDim(vTick)) * vBand;
   if (alpha <= 0.002) discard;
   gl_FragColor = vec4(color, alpha);
 #endif

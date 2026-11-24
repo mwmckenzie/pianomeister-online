@@ -35,7 +35,7 @@ const router = useRouter()
  * Pages where the Everywhere keys work (decisions 86, 89): Show shortcuts, Home and Stats — not
  * while typing, recording a key, or with a dialog open.
  */
-const APP_PAGES = new Set(['player', 'welcome', 'editor', 'library', 'bookmarks', 'stats'])
+const APP_PAGES = new Set(['player', 'welcome', 'editor', 'library', 'bookmarks', 'playlists', 'stats'])
 
 function onKeyDown(event: KeyboardEvent): void {
   if (event.defaultPrevented || keyCapture.value || ui.shortcutsOpen) return

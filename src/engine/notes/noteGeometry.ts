@@ -32,15 +32,18 @@ export function noteGeometry(
   const lane = new Float32Array(notes.length * 2)
   const ticks = new Float32Array(notes.length * 3)
   const velocity = new Float32Array(notes.length)
+  const deck = new Float32Array(notes.length)
   notes.forEach((n, i) => {
     lane.set([n.x, n.width], i * 2)
     ticks.set([n.startTick, n.endTick, n.headEndTick], i * 3)
     velocity[i] = n.velocity
+    deck[i] = n.deck
   })
   geometry.setAttribute('aLane', new InstancedBufferAttribute(lane, 2))
   geometry.setAttribute('aTicks', new InstancedBufferAttribute(ticks, 3))
   geometry.setAttribute('aColor', new InstancedBufferAttribute(colorData(notes, colors), 3))
   geometry.setAttribute('aVelocity', new InstancedBufferAttribute(velocity, 1))
+  geometry.setAttribute('aDeck', new InstancedBufferAttribute(deck, 1))
   geometry.instanceCount = notes.length
   return geometry
 }

@@ -7,6 +7,7 @@ export const SHORTCUT_GROUPS: readonly {
   readonly where: string
 }[] = [
   { scope: 'player', title: 'Player', where: 'While the player (or the loop editor) has the keyboard' },
+  { scope: 'listening', title: 'Listening', where: 'While a playlist plays (listening mode)' },
   { scope: 'lists', title: 'Lists', where: 'Song picker, library and bookmark manager' },
   {
     scope: 'tabs',

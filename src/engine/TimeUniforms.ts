@@ -40,4 +40,11 @@ export interface TimeUniforms {
   uLoopRepeat: IUniform<number>
   /** How strongly everything outside the practice section is dimmed (0: not at all, no loop). */
   uLoopDim: IUniform<number>
+  /**
+   * The playlist crossfade band (milestone 9.5): ticks where both songs sound, and the ending
+   * song's deck (-1: no band). Its notes dim through the band as its audio fades.
+   */
+  uBandStart: IUniform<number>
+  uBandEnd: IUniform<number>
+  uBandDeck: IUniform<number>
 }

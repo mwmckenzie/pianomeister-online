@@ -1,3 +1,4 @@
+import { readPlaylist } from '../playlists/readPlaylist'
 import type { HandAssignment } from '../hands/HandAssignment'
 import type { Bookmark } from '../practice/Bookmark'
 import type { MetronomeMode } from '../practice/MetronomeMode'
@@ -145,5 +146,6 @@ export function readPracticeData(value: unknown): PracticeData {
     handAssignments: list(v.handAssignments, toHands),
     sessions: list(v.sessions, toSession),
     playRecords: list(v.playRecords, toRecord),
+    playlists: list(v.playlists, (raw) => readPlaylist(raw)),
   }
 }

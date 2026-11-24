@@ -159,6 +159,7 @@ export class AudioScheduler {
         duration: Math.max(MIN_DURATION_SEC, (soundEnd - timed.startSec) / segment.rate),
         hand: timed.note.hand,
         preRoll: segment.preRoll !== null && timed.startSec < segment.preRoll.endSec,
+        deck: timed.note.deck === 1 ? 1 : 0,
       })
     }
   }
