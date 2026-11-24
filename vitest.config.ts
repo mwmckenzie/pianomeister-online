@@ -7,7 +7,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
-      exclude: [...configDefaults.exclude, 'e2e/**'],
+      // .claude/worktrees holds other sessions' checkouts, with their own copies of every spec.
+      exclude: [...configDefaults.exclude, 'e2e/**', '.claude/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
     },
   }),
