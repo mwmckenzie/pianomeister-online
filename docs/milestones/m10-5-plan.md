@@ -2,9 +2,9 @@
 
 Spec: `docs/milestones/m10-5.md`. Behaviour: `docs/milestones/m10-5-hand-detection-brief.md` ("the HD brief"). Mockups: `docs/design/m10-5/source/`. Branch `feat/m10-5-hands` from `main` (#28 merged).
 
-**Status:** waiting for approval. Nothing is built. §8 has the questions. Q1–Q4 change the design; the others have a default I'll take unless you say otherwise.
+**Status:** approved 2026-11-24, with the answers in §9 (they override §1–§8 where they differ).
 
-**Reference code:** read at `6caa9ec`, so I can port it; the pseudocode is the cross-check. The repo has no licence file; I assume it's yours to port from.
+**Reference code:** read at `6caa9ec`, so I can port it; the pseudocode is the cross-check. It is the author's own repo: ported freely.
 
 ## 1. `handOf` audit
 
@@ -163,3 +163,13 @@ _Recommend:_ such a voice takes the role the default map gives its channel, so d
 - **Q8. Tab through every note** could mean thousands of stops before the next control, and as many buttons. _Default:_ the lane is **one** Tab stop. ← and → move between notes in time order (Home and End for the ends), and Enter or Space flips. This deviates from the spec; if you want Tab itself, only notes in view would be stops.
 - **Q9. Export with equal channels, two tracks:** the reference compares channels, so everything lands in "Right Hand". _Default:_ the dialog warns, as specified, and the writer picks the track by hand.
 - **Q10. Changing one role in the Library:** _Default:_ the song becomes the player's, with the detection's other roles copied in, so a later detector can't change the rest of it.
+
+## 9. Answers (2026-11-24)
+
+- **Q1.** Two tables: detection per song in `handDetections`, the player's changes per profile in `handAssignments`. A profile row is what "user" means.
+- **Q2.** The beam 8 chords after the note, with the 75 % rule. Both numbers are named constants with a comment pointing at the measurements in §8.
+- **Q3.** Yes: `other` and `drums` voices take the role the default map gives their channel; channel 9 stays Hidden unless the default map plays it today.
+- **Q4.** (a) The 30 % and its hint stay. (b) A voice chosen by name keeps its hand; noted as a deviation in the brief's decisions.
+- **Q5–Q10.** The defaults. Q8: the lane is one Tab stop; ←/→ step through notes in time order, Home/End jump to the ends, Enter or Space flips the note.
+- **Notes never released** sound to the track's end, as the HD brief says. If that produces a drone on a real file, report it; never cap it silently.
+- **Review** after step 6, before the Review page. No push.
