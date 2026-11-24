@@ -177,3 +177,15 @@ Round 1 approved; decisions 1–9 stand. Blueprint's faint cages stay as they ar
 - `npm run check` itself exits 1 on this machine: Vitest also collects `.claude/worktrees/m10-pixel-test` (another session's checkout). Every failure is in there. Excluding it, all pass.
 - `npm run test:e2e:affected` (chromium, 11 tags): 174 passed, 0 failed, on a preview on port 4174: the one already running on 4173 served a different build.
 - Seen on screen: the three curves before and during the overlap (8 s), with hand cages fading with their song. The round 1 crossfade was checked by ear by the author; the new curves are not yet.
+
+## Round 5 — 2026-11-24: worktrees out of the checks
+
+- `.claude/**` added to the Vitest `exclude` (`vitest.config.ts`) and the ESLint global ignores (`eslint.config.ts`). This fixes the round 4 `npm run check` failure.
+- `npm run check`: **exit 0**, 838 unit tests (119 files).
+- Probed with a temporary spec under `.claude/worktrees/`: Vitest doesn't list it and ESLint ignores it.
+- E2e not run: no app code changed.
+- **Open question:** `oxlint .` (the other half of `npm run lint`) still reads `.claude/worktrees`; it reported the probe. Left alone because only Vitest and ESLint were asked for. Fix: `"ignorePatterns": [".claude/**"]` in `.oxlintrc.json`.
+
+**Review**
+
+- [ ] Decide on the oxlint ignore.
