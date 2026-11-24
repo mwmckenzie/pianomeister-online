@@ -261,10 +261,15 @@ export const useSettingsStore = defineStore('settings', () => {
 
   /** Built-in colour sets changed by the player count in Appearance and its section. */
   function changedSets(group: SettingGroup): number {
-    const here =
+    return resetsColourSets(group) ? Object.keys(noteColourSets.value.overrides).length : 0
+  }
+
+  /** Whether a group's reset also clears the changes to built-in colour sets. */
+  function resetsColourSets(group: SettingGroup): boolean {
+    return (
       (group.kind === 'tab' && group.id === 'appearance') ||
       (group.kind === 'section' && group.id === 'noteColours')
-    return here ? Object.keys(noteColourSets.value.overrides).length : 0
+    )
   }
 
   function setColourSets(next: NoteColourSets): void {
@@ -382,6 +387,7 @@ export const useSettingsStore = defineStore('settings', () => {
     looks,
     noteColourSets,
     setColourSets,
+    resetsColourSets,
     chooseColourSet,
     deleteColourSet,
     saveMissingSet,
