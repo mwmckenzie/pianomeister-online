@@ -1,0 +1,10 @@
+{
+  "off": {
+    "cages off": 17,
+    "cages on": 19
+  },
+  "medium": {
+    "cages off": 31,
+    "cages on": 35
+  }
+}

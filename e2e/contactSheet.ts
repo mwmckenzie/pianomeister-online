@@ -227,7 +227,7 @@ export async function writeSheet(
 ): Promise<void> {
   const page = await browser.newPage()
   const dataUrl = await page.evaluate(
-    async ({ title, cells, columns, cellWidth }) => {
+    async ({ jpeg, title, cells, columns, cellWidth }) => {
       const images = await Promise.all(
         cells.map(async (c) => {
           const image = new Image()
@@ -260,9 +260,11 @@ export async function writeSheet(
         g.fillStyle = '#C9D1E0'
         g.fillText(cells[i]?.label ?? '', x + 2, y + cellHeight + 16)
       })
-      return canvas.toDataURL('image/png')
+      // A .jpg path (sheets committed to docs/design) is written as a JPEG, smaller than a PNG.
+      return jpeg ? canvas.toDataURL('image/jpeg', 0.86) : canvas.toDataURL('image/png')
     },
     {
+      jpeg: path.endsWith('.jpg'),
       title,
       cells: cells.map((c) => ({ label: c.label, png: c.png.toString('base64') })),
       columns,
