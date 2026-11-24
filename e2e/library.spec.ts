@@ -144,11 +144,11 @@ test('@library edits title, composer and tags; they persist and are searchable',
   expect(errors).toEqual([])
 })
 
-test('@library hand channels and a meter override carry over to the player', async ({ page }) => {
+test('@library hands and a meter override carry over to the player', async ({ page }) => {
   const errors = watchErrors(page)
   await uploadPedalDemo(page)
   await row(page, 'Pedal demo').click()
-  await choose(page, page.getByTestId('hand-ch1'), 'Hidden')
+  await choose(page, page.getByTestId('hand-voice-2:1'), 'Hidden')
   await page.getByTestId('edit-meter').click()
   await page.getByTestId('override-numerator').fill('3')
   await expect(page.getByTestId('override-preview')).toContainText('11 bars')
@@ -159,7 +159,7 @@ test('@library hand channels and a meter override carry over to the player', asy
 
   await page.getByTestId('details-play').click()
   await expect(page.getByTestId('hud-title')).toHaveText('Pedal demo')
-  await expect(page.getByTestId('hud-hands')).toHaveText('R ch0 · L –')
+  await expect(page.getByTestId('hud-hands')).toHaveText('R 64 notes · L 0 notes')
   await expect(page.getByTestId('hud-bars')).toHaveText('11')
   await page.getByRole('button', { name: 'Next bar' }).click()
   await expect(page.getByTestId('hud-bar-beat')).toHaveText('2:1')
@@ -180,45 +180,31 @@ async function failStorageWrites(page: Page) {
 const HAND_LABEL: Record<string, string> = { right: 'Right', left: 'Left', hidden: 'Hidden' }
 
 async function expectHands(page: Page, ch0: string, ch1: string) {
-  await expect(page.getByTestId('hand-ch0')).toHaveText(HAND_LABEL[ch0] ?? ch0)
-  await expect(page.getByTestId('hand-ch1')).toHaveText(HAND_LABEL[ch1] ?? ch1)
+  await expect(page.getByTestId('hand-voice-0:0')).toHaveText(HAND_LABEL[ch0] ?? ch0)
+  await expect(page.getByTestId('hand-voice-1:1')).toHaveText(HAND_LABEL[ch1] ?? ch1)
 }
 
 async function reopenDetails(page: Page, title: string) {
   await page.reload()
   await row(page, title).click()
-  await expect(page.getByTestId('hand-ch0')).toBeVisible()
+  await expect(page.getByTestId('hand-voice-0:0')).toBeVisible()
 }
 
-test('@library swap hands, per-channel changes and restore default persist', async ({ page }) => {
+test('@library hand roles persist and reach the player', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./#/library')
   await row(page, 'Canon in D').click()
   await expectHands(page, 'right', 'left')
 
-  await page.getByRole('button', { name: 'Swap hands' }).click()
-  await expectHands(page, 'left', 'right')
-  await reopenDetails(page, 'Canon in D')
-  await expectHands(page, 'left', 'right')
-
-  await choose(page, page.getByTestId('hand-ch1'), 'Hidden')
+  await choose(page, page.getByTestId('hand-voice-0:0'), 'Left')
+  await expectHands(page, 'left', 'left')
+  await choose(page, page.getByTestId('hand-voice-1:1'), 'Hidden')
   await expectHands(page, 'left', 'hidden')
   await reopenDetails(page, 'Canon in D')
   await expectHands(page, 'left', 'hidden')
 
   await page.getByTestId('details-play').click()
-  await expect(page.getByTestId('hud-hands')).toHaveText('R – · L ch0')
-  await page.getByTestId('open-picker').click()
-  await page.getByTestId('open-library').click()
-  await row(page, 'Canon in D').click()
-
-  await page.getByRole('button', { name: 'Restore default' }).click()
-  await expectHands(page, 'right', 'left')
-  await reopenDetails(page, 'Canon in D')
-  await expectHands(page, 'right', 'left')
-  await expect(page.getByRole('button', { name: 'Restore default' })).toBeDisabled()
-
-  await expect(page.getByTestId('details-error')).toBeHidden()
+  await expect(page.getByTestId('hud-hands')).toHaveText('R 0 notes · L 786 notes')
   expect(errors).toEqual([])
 })
 
@@ -228,14 +214,12 @@ test('@library a failed save is shown, logged, and undone in the panel', async (
   await row(page, 'Canon in D').click()
   await expectHands(page, 'right', 'left')
   await failStorageWrites(page)
-  await page.getByRole('button', { name: 'Swap hands' }).click()
-  await expect(page.getByTestId('details-error')).toContainText("Couldn't save the hand channels")
-  await expectHands(page, 'right', 'left')
-  // A per-channel change that fails snaps back to the stored hand.
-  await page.getByTestId('hand-ch1').click()
+  // A role change that fails snaps back to the stored hand.
+  await page.getByTestId('hand-voice-1:1').click()
   await page.getByRole('option', { name: 'Hidden', exact: true }).click()
+  await expect(page.getByTestId('details-error')).toContainText("Couldn't save the hands")
   await expectHands(page, 'right', 'left')
-  expect(errors.filter((e) => e.includes("Couldn't save the hand channels"))).toHaveLength(2)
+  expect(errors.filter((e) => e.includes("Couldn't save the hands"))).toHaveLength(1)
   await page.getByRole('button', { name: 'Dismiss error' }).first().click()
   await expect(page.getByTestId('details-error')).toBeHidden()
 })
@@ -290,6 +274,7 @@ test('@library exports, deletes and re-imports an upload with its metadata', asy
 
   const downloading = page.waitForEvent('download')
   await page.getByTestId('export').click()
+  await page.getByTestId('export-backup').click()
   const download = await downloading
   expect(download.suggestedFilename()).toMatch(/^pianomeister-library-.*\.zip$/)
   const zip = unzipSync(new Uint8Array(readFileSync(await download.path())))

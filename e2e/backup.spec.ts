@@ -25,6 +25,7 @@ function bookmark(id: string, name: string, profileId = 'default') {
 async function exportBackup(page: Page): Promise<string> {
   const downloading = page.waitForEvent('download')
   await page.getByTestId('export').click()
+  await page.getByTestId('export-backup').click()
   return (await downloading).path()
 }
 

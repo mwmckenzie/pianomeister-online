@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review hands</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit}
+input{font:inherit}
+select{font:inherit}
+a{color:#8AB4FF}a:hover{color:#B7D0FF}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: 720px; overflow: hidden; background: #05070F; font-family: 'Inter Tight', system-ui, sans-serif; color: #E8ECF6">
+  <div style="position: absolute; inset: 0"><dc-import name="Scene" hint-size="100%,720px"></dc-import></div>
+  <div style="position: absolute; inset: 0; background: rgba(5,7,15,0.78)"></div>
+
+  <div style="position: absolute; inset: 16px; display: flex; flex-direction: column; border-radius: 22px; background: rgba(18,24,44,0.60); backdrop-filter: blur(26px) saturate(140%); -webkit-backdrop-filter: blur(26px) saturate(140%); border: 1px solid rgba(255,255,255,0.10); overflow: hidden">
+    <header style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08)">
+      <a href="QGHandsSummary.dc.html" style="height: 40px; padding: 0 14px 0 10px; border-radius: 12px; background: rgba(255,255,255,0.06); color: #E8ECF6; font-size: 14px; display: flex; align-items: center; gap: 6px; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Library</a>
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+        <h1 style="margin: 0; font-size: 18px; font-weight: 500">Review hands</h1>
+        <div style="font-size: 13px; color: #A7B0C6">Gymnopédie No. 1 · Erik Satie · bars 1–8 of 78</div>
+      </div>
+      <div style="flex: 1"></div>
+      <span style="font-size: 13px; color: #A7B0C6">{{dirtyText}}</span>
+      <button onClick="{{resetAll}}" style="height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #E8ECF6; font-size: 14px; cursor: pointer">Reset to detected</button>
+      <button style="height: 40px; padding: 0 18px; border-radius: 12px; border: 0; background: {{accent}}; color: #0B1020; font-size: 14px; font-weight: 600; cursor: pointer">Save</button>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <aside aria-label="Detection" style="width: 280px; flex-shrink: 0; padding: 16px; border-right: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 16px; overflow: auto">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Voices</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.05)">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+              <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px">Track 1 · ch 0 · Piano</span><span style="font-size: 12px; color: #8F9AB6">412 notes · 82 % confident</span></span>
+              <select aria-label="Role for Track 1" style="height: 32px; padding: 0 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 13px"><option>Split</option><option>Right</option><option>Left</option><option>Ignore</option></select>
+            </div>
+            <div style="font-size: 12px; line-height: 1.45; color: #A7B0C6">Spans 3½ octaves with up to 5 notes at once: holds both hands.</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Split method
+            <select style="height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 14px; letter-spacing: 0; text-transform: none"><option>Phrase look-ahead (recommended)</option><option>Chord-aware</option><option>Fixed split point</option><option>Hand-position cost</option></select>
+          </label>
+          <button aria-expanded="{{advStr}}" onClick="{{toggleAdv}}" style="align-self: flex-start; display: flex; align-items: center; gap: 4px; padding: 2px 0; border: 0; background: transparent; color: #A7B0C6; font-size: 13px; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="{{advChevron}}"><path d="M9 6l6 6-6 6"></path></svg>Advanced</button>
+          <sc-if value="{{adv}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.04); font-size: 13px; color: #C9D2E8">
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="display: flex; justify-content: space-between">Look-ahead<span style="color: #FFFFFF">2 bars</span></span>
+                <input type="range" min="1" max="8" value="2" aria-label="Look-ahead in bars">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="display: flex; justify-content: space-between">Max hand span<span style="color: #FFFFFF">14 semitones</span></span>
+                <input type="range" min="10" max="17" value="14" aria-label="Max hand span in semitones">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="display: flex; justify-content: space-between">Default split<span style="color: #FFFFFF">E4</span></span>
+                <input type="range" min="48" max="72" value="64" aria-label="Default split note">
+              </label>
+              <button style="align-self: flex-start; padding: 0; border: 0; background: transparent; color: #A7B0C6; font-size: 12px; text-decoration: underline; cursor: pointer">Reset these</button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8F9AB6">Result</div>
+          <div aria-hidden="true" style="display: flex; height: 6px; border-radius: 999px; overflow: hidden; gap: 2px"><span style="{{barR}}"></span><span style="{{barL}}"></span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; color: #C9D2E8"><span><span style="color: #9CC2FF">Right</span> {{countR}}</span><span><span style="color: #F5BE8A">Left</span> {{countL}}</span></div>
+          <div style="font-size: 13px; color: #A7B0C6">{{flipText}} · {{unsureCount}} uncertain</div>
+        </div>
+
+        <div style="margin-top: auto; font-size: 12px; line-height: 1.5; color: #8F9AB6">Saved with the song; the MIDI file is unchanged until you export with hands split.</div>
+      </aside>
+
+      <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 18px 14px; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #C9D2E8"><span style="width: 12px; height: 8px; border-radius: 3px; background: #6FA8FF"></span>Right</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #C9D2E8"><span style="width: 12px; height: 8px; border-radius: 3px; background: #F0A35E"></span>Left</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #C9D2E8"><span style="width: 12px; height: 8px; border-radius: 3px; border: 1.5px solid #FFFFFF"></span>Flipped by you</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #C9D2E8"><span style="width: 12px; height: 8px; border-radius: 3px; background: repeating-linear-gradient(135deg, #6FA8FF 0 2px, rgba(111,168,255,0.35) 2px 4px)"></span>Uncertain</span>
+          <div style="flex: 1"></div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #C9D2E8">Compare with
+            <select onChange="{{pickCmp}}" style="height: 32px; padding: 0 8px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 13px">
+              <option value="none">Nothing</option><option value="chord" selected>Chord-aware</option><option value="fixed">Fixed split point</option><option value="cost">Hand-position cost</option>
+            </select>
+          </label>
+          <button onClick="{{clearFlips}}" style="height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #E8ECF6; font-size: 13px; cursor: pointer">Clear flips</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-size: 12px; color: #8F9AB6">Current · by channel (ch 0 → Right)</div>
+          <div style="position: relative; height: 92px; border-radius: 10px; background: rgba(255,255,255,0.03); overflow: hidden">
+            <sc-for list="{{bars}}" as="b" hint-placeholder-count="8"><span style="{{b.lineSmall}}"></span></sc-for>
+            <sc-for list="{{current}}" as="n" hint-placeholder-count="40"><span style="{{n.style}}"></span></sc-for>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #8F9AB6"><span>Proposed · Phrase look-ahead — click a note to flip it</span><span>{{cmpText}}</span></div>
+          <div style="flex: 1; position: relative; border-radius: 10px; background: rgba(255,255,255,0.03); overflow: hidden">
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="3"><span style="{{r.line}}"></span><span style="{{r.label}}">{{r.name}}</span></sc-for>
+            <sc-for list="{{bars}}" as="b" hint-placeholder-count="8"><span style="{{b.line}}"></span><span style="{{b.num}}">{{b.n}}</span></sc-for>
+            <sc-for list="{{proposed}}" as="n" hint-placeholder-count="40">
+              <button aria-label="{{n.label}}" aria-pressed="{{n.flipped}}" onClick="{{n.flip}}" style="{{n.style}}"></button>
+            </sc-for>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#8AB4FF","options":["#8AB4FF","#7EE0C3","#E8ECF6"]},"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // flips: note index -> true when the user flipped it; cmp: algorithm to compare with
+    this.state = { flips: { 17: true, 41: true }, adv: true, cmp: 'chord' };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var accent = this.props.accent ?? '#8AB4FF';
+    var RH = '#6FA8FF', LH = '#F0A35E';
+    var NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    var nm = function (p) { return NAMES[p % 12] + (Math.floor(p / 12) - 1); };
+    // 8 bars of 3/4: bass on beat 1, chord on beats 2-3, melody above
+    var notes = [], melody = [[1,1,2,73],[2,0,1,74],[2,1,1,76],[2,2,1,73],[3,0,1,71],[3,1,1,69],[3,2,1,71],[4,0,3,66],[5,0,1,64],[5,1,2,66],[6,0,1,69],[6,1,1,71],[6,2,1,73],[7,0,3,74]];
+    for (var bar = 0; bar < 8; bar++) {
+      var g = bar % 2 === 0;
+      notes.push({ bar: bar, beat: 0, dur: 1, p: g ? 43 : 38, hand: 'L' });
+      (g ? [59, 62, 66] : [57, 61, 66]).forEach(function (p) { notes.push({ bar: bar, beat: 1, dur: 2, p: p, hand: 'L' }); });
+    }
+    melody.forEach(function (m) { notes.push({ bar: m[0], beat: m[1], dur: m[2], p: m[3], hand: 'R' }); });
+    // uncertain: chord tops (F#4) in bars where the melody comes down to A4 or lower
+    var lowMel = {}; melody.forEach(function (m) { if (m[3] <= 69) lowMel[m[0]] = true; });
+    notes.forEach(function (n) { n.unsure = n.hand === 'L' && n.p === 66 && !!lowMel[n.bar]; });
+    var alt = {
+      none: function (n) { return n.hand; },
+      chord: function (n) { return n.unsure ? 'R' : n.hand; },
+      fixed: function (n) { return n.p >= 64 ? 'R' : 'L'; },
+      cost: function (n) { return n.unsure && n.bar >= 5 ? 'R' : n.hand; }
+    };
+    var W = 100 / 24, lo = 36, hi = 80;
+    var y = function (p, h) { return (1 - (p - lo) / (hi - lo)) * h; };
+    var final = function (n, i) { return st.flips[i] ? (n.hand === 'R' ? 'L' : 'R') : n.hand; };
+    var r = 0, l = 0, diffs = 0;
+    var proposed = notes.map(function (n, i) {
+      var h = final(n, i), col = h === 'R' ? RH : LH, flipped = !!st.flips[i];
+      if (h === 'R') r++; else l++;
+      var differs = st.cmp !== 'none' && alt[st.cmp](n) !== h;
+      if (differs) diffs++;
+      var left = (n.bar * 3 + n.beat) * W, width = n.dur * W;
+      var bg = n.unsure && !flipped ? 'repeating-linear-gradient(135deg, ' + col + ' 0 3px, ' + col + '59 3px 6px)' : col;
+      var outline = flipped ? 'box-shadow: 0 0 0 2px #FFFFFF; ' : differs ? 'outline: 1.5px dashed #FFFFFF; outline-offset: 2px; ' : '';
+      return {
+        label: nm(n.p) + ', bar ' + (n.bar + 1) + ' beat ' + (n.beat + 1) + ': ' + (h === 'R' ? 'right' : 'left') + ' hand' + (flipped ? ', flipped by you' : '') + '. Click to flip.',
+        flipped: flipped ? 'true' : 'false',
+        style: 'position: absolute; left: calc(' + left + '% + 2px); width: calc(' + width + '% - 4px); top: calc(' + (1 - (n.p - lo) / (hi - lo)) * 100 + '% - 5px); height: 10px; padding: 0; border: 0; border-radius: 4px; cursor: pointer; background: ' + bg + '; ' + outline,
+        flip: function () { var f = Object.assign({}, st.flips); if (f[i]) delete f[i]; else f[i] = true; self.setState({ flips: f }); }
+      };
+    });
+    var nFlips = Object.keys(st.flips).length;
+    var unsure = notes.filter(function (n, i) { return n.unsure && !st.flips[i]; }).length;
+    var cmpName = { chord: 'Chord-aware', fixed: 'Fixed split point', cost: 'Hand-position cost' }[st.cmp];
+    return {
+      accent: accent,
+      adv: st.adv, advStr: st.adv ? 'true' : 'false', advChevron: st.adv ? 'transform: rotate(90deg)' : '',
+      toggleAdv: function () { self.setState({ adv: !st.adv }); },
+      countR: r + ' notes', countL: l + ' notes',
+      barR: 'flex: ' + r + '; background: ' + RH, barL: 'flex: ' + l + '; background: ' + LH,
+      flipText: nFlips === 0 ? 'No flips' : nFlips === 1 ? '1 note flipped' : nFlips + ' notes flipped',
+      unsureCount: unsure,
+      dirtyText: nFlips ? 'Unsaved changes' : '',
+      cmpText: st.cmp === 'none' ? '' : cmpName + ' differs on ' + diffs + (diffs === 1 ? ' note' : ' notes') + ' (dashed)',
+      pickCmp: function (e) { self.setState({ cmp: e && e.target ? e.target.value : 'none' }); },
+      clearFlips: function () { self.setState({ flips: {} }); },
+      resetAll: function () { self.setState({ flips: {}, cmp: 'none' }); },
+      rows: [48, 60, 72].map(function (p) {
+        var top = (1 - (p - lo) / (hi - lo)) * 100;
+        return { name: nm(p),
+          line: 'position: absolute; left: 0; right: 0; top: ' + top + '%; height: 1px; background: rgba(255,255,255,0.06)',
+          label: 'position: absolute; right: 6px; top: calc(' + top + '% - 16px); font-size: 11px; color: #6F7A96' };
+      }),
+      bars: [0, 1, 2, 3, 4, 5, 6, 7].map(function (b) {
+        var left = b * 3 * W;
+        return { n: b + 1,
+          line: 'position: absolute; top: 0; bottom: 0; left: ' + left + '%; width: 1px; background: rgba(255,255,255,0.08)',
+          lineSmall: 'position: absolute; top: 0; bottom: 0; left: ' + left + '%; width: 1px; background: rgba(255,255,255,0.06)',
+          num: 'position: absolute; top: 6px; left: calc(' + left + '% + 6px); font-size: 11px; color: #6F7A96' };
+      }),
+      current: notes.map(function (n) {
+        var left = (n.bar * 3 + n.beat) * W, width = n.dur * W;
+        return { style: 'position: absolute; left: calc(' + left + '% + 2px); width: calc(' + width + '% - 4px); top: calc(' + (1 - (n.p - lo) / (hi - lo)) * 100 + '% - 2px); height: 4px; border-radius: 2px; background: rgba(111,168,255,0.55)' };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

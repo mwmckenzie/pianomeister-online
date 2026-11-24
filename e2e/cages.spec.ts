@@ -72,17 +72,17 @@ test('@cages @library a change of hand assignment in the Library updates the cag
 }) => {
   await openPlayer(page)
   const both = await cages(page)
-  // The Minuet's left hand is channel 1: Hidden leaves only the right hand's cages.
+  // The Minuet's left hand is track 1: Hidden leaves only the right hand's cages.
   await page.goto('./#/library')
   await page.getByTestId('song-row').filter({ hasText: 'Minuet in G' }).click()
-  await choose(page, page.getByTestId('hand-ch1'), 'Hidden')
+  await choose(page, page.getByTestId('hand-voice-1:1'), 'Hidden')
   await openPlayer(page)
   expect((await cages(page))?.left.count).toBe(0)
   expect((await cages(page))?.left.visible).toBe(false)
   expect((await cages(page))?.right.count).toBe(both?.right.count)
   await page.goto('./#/library')
   await page.getByTestId('song-row').filter({ hasText: 'Minuet in G' }).click()
-  await choose(page, page.getByTestId('hand-ch1'), 'Left')
+  await choose(page, page.getByTestId('hand-voice-1:1'), 'Left')
   await openPlayer(page)
   expect((await cages(page))?.left.count).toBe(both?.left.count)
 })

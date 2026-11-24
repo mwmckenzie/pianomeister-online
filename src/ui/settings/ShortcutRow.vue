@@ -369,7 +369,7 @@ const conflictLabel = computed(() =>
 }
 
 .conflict {
-  color: var(--warning, #ffc078);
+  color: var(--warning);
 }
 
 .link {

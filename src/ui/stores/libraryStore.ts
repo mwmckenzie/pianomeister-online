@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 
-import type { HandAssignment } from '@/core/hands/HandAssignment'
+import type { HandExportOptions } from '@/core/hands/applyHandAssignment'
+import { handsPassMessage } from '@/core/hands/handsPassMessage'
+import type { HandReview } from '@/core/hands/HandReview'
+import type { HandSettings } from '@/core/hands/HandSettings'
+import { needsHandsCheck } from '@/core/hands/needsHandsCheck'
 import { filterEntries } from '@/core/library/filterEntries'
 import { groupEntries } from '@/core/library/groupEntries'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
@@ -15,6 +19,7 @@ import { sortEntries } from '@/core/library/sortEntries'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
 import { browserStorage } from '@/data/browserStorage'
 import { fetchBundledSongs } from '@/data/fetchBundledSongs'
+import type { HandDetails } from '@/data/HandDetails'
 import type { ImportReport } from '@/data/ImportReport'
 import type { LastOpened } from '@/data/LastOpened'
 import { Library, type PreparedImport } from '@/data/Library'
@@ -23,10 +28,16 @@ import type { StorageStatus } from '@/data/StorageStatus'
 import type { UploadFile } from '@/data/UploadFile'
 import type { UploadResult } from '@/data/UploadResult'
 
+import { HandsWorkerClient } from '../hands/HandsWorkerClient'
+import { runHandsPass } from '../hands/runHandsPass'
+import { whenIdle } from '../hands/whenIdle'
+import { songIsPlaying } from '../playback/sharedSession'
 import { appDatabase } from './appDatabase'
 import { useBookmarkStore } from './bookmarkStore'
 import { useProfileStore } from './profileStore'
+import { useSettingsStore } from './settingsStore'
 import { useStatsStore } from './statsStore'
+import { useToastStore } from './toastStore'
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
@@ -44,6 +55,9 @@ export const useLibraryStore = defineStore('library', () => {
   const profiles = useProfileStore()
   const stats = useStatsStore()
   const bookmarks = useBookmarkStore()
+  const settings = useSettingsStore()
+  const toasts = useToastStore()
+  const handsWorker = new HandsWorkerClient()
 
   const entries = shallowRef<readonly LibraryEntry[]>([])
   const loaded = ref(false)
@@ -91,12 +105,65 @@ export const useLibraryStore = defineStore('library', () => {
       .catch((e: unknown) => console.warn("[library] Couldn't update stored song facts:", e))
   }
 
+  /** Detects a song's hands and stores them; false when the song is gone. */
+  async function detect(songId: string): Promise<boolean> {
+    const bytes = await library.songBytes(songId)
+    const detected = await handsWorker.detect(bytes, settings.settings.hands.defaultAlgorithm)
+    const saved = await library.saveDetection(songId, detected)
+    if (saved) entries.value = await library.entries()
+    return saved
+  }
+
+  /** New uploads, one after another, without holding the upload up. */
+  async function detectUploads(results: readonly UploadResult[]): Promise<void> {
+    if (!settings.settings.hands.detectOnUpload) return
+    for (const result of results) {
+      if (result.outcome !== 'added') continue
+      try {
+        await detect(result.songId)
+      } catch (e) {
+        console.warn(`[library] Couldn't detect the hands of ${result.fileName}:`, e)
+      }
+    }
+  }
+
+  /** Started once, on the first load. */
+  let handsPassStarted = false
+
+  /** Detects songs from before milestone 10.5 (or an older detector) in the background. */
+  async function handsPass(): Promise<void> {
+    if (handsPassStarted) return
+    handsPassStarted = true
+    const songIds = await library.songsToDetect()
+    const quiet = await library.handsPassIsQuiet()
+    const detected = new Set(
+      await runHandsPass({
+        songIds,
+        isPlaying: songIsPlaying,
+        idle: whenIdle,
+        wait: () => new Promise((resolve) => setTimeout(resolve, 1000)),
+        detect,
+        onFailed: (songId, e) =>
+          console.warn(`[library] Couldn't detect the hands of ${songId}:`, e),
+      }),
+    )
+    await library.finishHandsPass()
+    // The player's own songs were only given reasons: they don't count.
+    const mine = entries.value.filter(
+      (e) => detected.has(e.songId) && e.hands.source === 'detected',
+    )
+    const toCheck = mine.filter((e) => needsHandsCheck(e.hands, settings.settings.hands.hintBelow))
+    const message = quiet ? null : handsPassMessage(mine.length, toCheck.length)
+    if (message !== null) toasts.show(message)
+  }
+
   async function refresh(): Promise<void> {
     await profiles.load()
     library.setProfile(profiles.activeId)
     entries.value = await library.entries()
     loaded.value = true
     refreshStaleFacts()
+    handsPass().catch((e: unknown) => console.warn("[library] Couldn't detect hands:", e))
     // A tag may have disappeared with an edit or delete.
     const known = new Set(allTags.value.map((t) => t.toLocaleLowerCase()))
     tagFilter.value = tagFilter.value.filter((t) => known.has(t.toLocaleLowerCase()))
@@ -220,6 +287,7 @@ export const useLibraryStore = defineStore('library', () => {
     upload: async (files: readonly UploadFile[]): Promise<UploadResult[]> => {
       const results = await write(() => library.upload(files))
       await refreshStorage()
+      void detectUploads(results)
       return results
     },
     setMeta: (songId: string, fields: SongMetaFields) =>
@@ -235,10 +303,28 @@ export const useLibraryStore = defineStore('library', () => {
         return null
       }
     },
-    setHands: (songId: string, hands: HandAssignment) =>
-      persist('save the hand channels', () => library.setHands(songId, hands)),
-    resetHands: (songId: string) =>
-      persist('restore the default hands', () => library.resetHands(songId)),
+    handDetails: async (songId: string): Promise<HandDetails> => {
+      await profiles.load()
+      library.setProfile(profiles.activeId)
+      return library.handDetails(songId)
+    },
+    /** Saves the player's own hands; detection never changes them again. */
+    setHands: (songId: string, next: HandSettings) =>
+      persist('save the hands', async () => {
+        const resolved = await handsWorker.resolve(await library.songBytes(songId), next)
+        await library.setHands(songId, next, resolved)
+      }),
+    /** Splits with these settings for the Review page; stores nothing. */
+    reviewHands: async (songId: string, next: HandSettings): Promise<HandReview> =>
+      handsWorker.review(await library.songBytes(songId), next),
+    /** A copy of the song's file with its current hands split. The stored song stays as it is. */
+    exportHands: async (songId: string, options: HandExportOptions): Promise<Uint8Array> => {
+      await profiles.load()
+      library.setProfile(profiles.activeId)
+      const { settings: current } = await library.handDetails(songId)
+      return handsWorker.export(await library.songBytes(songId), current, options)
+    },
+    detectHands: (songId: string) => persist('detect the hands', () => detect(songId)),
     setOverride: (songId: string, override: MeterOverride) =>
       persist('save the meter override', () => library.setOverride(songId, override)),
     clearOverride: (songId: string) =>
@@ -261,6 +347,7 @@ export const useLibraryStore = defineStore('library', () => {
       const report = await write(() => library.applyImport(prepared, choices))
       await refreshPractice()
       await refreshStorage()
+      void detectUploads(report.uploads)
       return report
     },
   }

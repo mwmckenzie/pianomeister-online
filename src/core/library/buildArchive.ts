@@ -7,11 +7,11 @@ import type { PracticeData } from './PracticeData'
 import type { SongMetaEdit } from './SongMetaEdit'
 
 export const LIBRARY_FORMAT = 'pianomeister-library'
-export const LIBRARY_VERSION = '1.4'
+export const LIBRARY_VERSION = '1.5'
 
 /**
  * Zips all uploads plus library.json (with the profiles' practice data from 1.1, the saved
- * looks from 1.3 and the profiles' playlists from 1.4). MIDI is
+ * looks from 1.3, the profiles' playlists from 1.4 and hands per note from 1.5). MIDI is
  * already compact, so files are stored, not deflated.
  */
 export function buildArchive(input: {

@@ -451,7 +451,7 @@ export class ListeningController {
     try {
       const opened = await this.host.openSong(songId)
       const loaded = PlaybackSession.prepare(opened.song, {
-        hands: opened.hands,
+        handOf: opened.handOf,
         override: opened.override,
       })
       return {
@@ -786,6 +786,7 @@ function timelineSong(timeline: PlaylistTimeline, name: string): Song {
     title: name,
     format: 1,
     trackCount: 1,
+    noteIds: [],
     ppq: timeline.ppq,
     notes: [],
     channels: [],

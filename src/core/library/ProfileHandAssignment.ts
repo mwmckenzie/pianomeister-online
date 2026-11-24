@@ -1,8 +1,5 @@
-import type { HandAssignment } from '../hands/HandAssignment'
+import type { ChannelHands } from './ChannelHands'
+import type { PlayerHands } from './PlayerHands'
 
-/** A song's hand-channel assignment for one profile (brief decision 6). */
-export interface ProfileHandAssignment {
-  readonly profileId: string
-  readonly songId: string
-  readonly hands: HandAssignment
-}
+/** A song's hands for one profile (brief decision 6). */
+export type ProfileHandAssignment = PlayerHands | ChannelHands

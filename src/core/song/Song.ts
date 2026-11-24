@@ -14,6 +14,11 @@ export interface Song {
   readonly ppq: number
   /** Sorted by startTick, then midi. */
   readonly notes: readonly Note[]
+  /**
+   * The ids of every note in the file in extractNotes order, zero-length ones included: what a
+   * resolved hand assignment (one char per note) is read against.
+   */
+  readonly noteIds: readonly string[]
   /** Channels that have at least one note, ascending. */
   readonly channels: readonly ChannelInfo[]
   readonly tempoEvents: readonly TempoEvent[]

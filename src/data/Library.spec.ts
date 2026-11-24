@@ -163,27 +163,20 @@ describe('Library', () => {
     })
   })
 
-  it('opens songs with default or stored hands and the meter override', async () => {
+  it('opens songs with their meter override', async () => {
     const id = await uploadPedalDemo()
     let opened = await library.openSong(id)
     expect(opened.song.notes.length).toBe(72)
-    expect(opened.hands).toEqual({ right: [0], left: [1] })
-    expect(opened.defaultHands).toBe(true)
     expect(opened.override).toBeNull()
 
     const override = { timeSignature: { numerator: 3, denominator: 4 }, barOneStartTick: 0 }
-    await library.setHands(id, { right: [0], left: [] })
     await library.setOverride(id, override)
     opened = await library.openSong(id)
-    expect(opened.hands).toEqual({ right: [0], left: [] })
-    expect(opened.defaultHands).toBe(false)
     expect(opened.override).toEqual(override)
     expect(opened.entry.bars).toBe(11)
 
-    await library.resetHands(id)
     await library.clearOverride(id)
     opened = await library.openSong(id)
-    expect(opened.defaultHands).toBe(true)
     expect(opened.override).toBeNull()
 
     const bundledSong = await library.openSong((await library.entries())[1]?.songId ?? '')
@@ -198,7 +191,11 @@ describe('Library', () => {
       timeSignature: { numerator: 3, denominator: 4 },
       barOneStartTick: 0,
     })
-    await library.setHands(id, { right: [1], left: [0] })
+    await db.handAssignments.put({
+      profileId: 'default',
+      songId: id,
+      hands: { right: [1], left: [0] },
+    })
     await library.setLastOpened(id, 'b1')
     expect(await library.startEntry()).toEqual({ songId: id, bookmarkId: 'b1' })
     await db.bookmarks.put(makeBookmark({ id: 'b1', profileId: 'default', songId: id }))
@@ -241,15 +238,6 @@ describe('Library', () => {
     expect((await library.startEntry()).songId).toBe(entries[2]?.songId)
     await library.setLastOpened('no-such-song', null)
     expect((await library.startEntry()).songId).toBe(entries[0]?.songId)
-  })
-
-  it('keeps hand assignments per profile', async () => {
-    const id = (await library.entries())[0]?.songId ?? ''
-    await library.setHands(id, { right: [1], left: [0] })
-    library.setProfile('p2')
-    expect((await library.entry(id))?.hands).not.toEqual({ right: [1], left: [0] })
-    library.setProfile('default')
-    expect((await library.entry(id))?.hands).toEqual({ right: [1], left: [0] })
   })
 
   it('exports and re-imports uploads with metadata and overrides', async () => {

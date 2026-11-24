@@ -12,6 +12,8 @@ import { keyLayout } from './keyLayout'
 import { noteInstances } from './noteInstances'
 
 const note = (midi: number, startTick: number, endTick: number): HandNote => ({
+  id: 'n',
+  track: 0,
   midi,
   channel: 0,
   startTick,

@@ -100,7 +100,7 @@ const deleteText = computed(() => {
   const time = totalFor(p.id).playedMs
   const marks = `${count} ${count === 1 ? 'bookmark' : 'bookmarks'}`
   const history = time > 0 ? `${formatPracticeTime(time)} of practice stats` : 'its practice stats'
-  return `This deletes ${p.name}'s ${marks} and ${history}, and its hand channel choices. This can't be undone.`
+  return `This deletes ${p.name}'s ${marks} and ${history}, and its own hands for songs. This can't be undone.`
 })
 
 async function confirmDelete(): Promise<void> {
@@ -156,7 +156,7 @@ onMounted(() => {
   <section class="block" aria-label="Profiles">
     <h3 class="section-caps">Profiles</h3>
     <p class="text">
-      Each profile has its own bookmarks, practice stats and hand channels. Settings are shared.
+      Each profile has its own bookmarks, practice stats and hands. Settings are shared.
     </p>
     <ul class="profiles" role="list">
       <li

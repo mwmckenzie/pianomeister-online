@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 
-import { summariseHandNotes } from '@/core/hands/summariseHandNotes'
 import { formatTempoRange } from '@/core/library/formatTempoRange'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import type { LibrarySortField } from '@/core/library/LibrarySortField'
@@ -152,9 +151,7 @@ const meter = computed((): MeterSummary => {
   return { main, changes: 0, runs: [{ bar: 1, meter: main }] }
 })
 const notes = computed(() => {
-  const entry = highlighted.value
-  const channels = entry?.facts.channels
-  return entry === null || channels === undefined ? null : summariseHandNotes(channels, entry.hands)
+  return highlighted.value?.hands.summary ?? null
 })
 const pitchRange = computed(() => {
   const n = notes.value

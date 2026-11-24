@@ -1,5 +1,20 @@
+import { assignmentHandOf } from '@/core/hands/assignmentHandOf'
+import type { CachedHands } from '@/core/hands/CachedHands'
+import { channelHandOf } from '@/core/hands/channelHandOf'
+import { computeVoiceStats } from '@/core/hands/computeVoiceStats'
 import { defaultHands } from '@/core/hands/defaultHands'
-import type { HandAssignment } from '@/core/hands/HandAssignment'
+import type { DetectedHands } from '@/core/hands/DetectedHands'
+import { DETECTOR_VERSION } from '@/core/hands/DETECTOR_VERSION'
+import { extractNotes } from '@/core/hands/extractNotes'
+import { handsHash } from '@/core/hands/handsHash'
+import type { HandOf } from '@/core/hands/HandOf'
+import type { HandSettings } from '@/core/hands/HandSettings'
+import { resolveSongHands } from '@/core/hands/resolveSongHands'
+import { rolesFromChannels } from '@/core/hands/rolesFromChannels'
+import { sameChannelHands } from '@/core/hands/sameChannelHands'
+import { SPLIT_ALGORITHMS } from '@/core/hands/SPLIT_ALGORITHMS'
+import { summariseHands } from '@/core/hands/summariseHands'
+import { voiceId } from '@/core/hands/voiceId'
 import { buildEntries } from '@/core/library/buildEntries'
 import { computeSongFacts } from '@/core/library/computeSongFacts'
 import { guessSongMetadata } from '@/core/library/guessSongMetadata'
@@ -13,20 +28,32 @@ import { normalizeTags } from '@/core/library/normalizeTags'
 import type { SongManifest } from '@/core/library/SongManifest'
 import type { SongMetaFields } from '@/core/library/SongMetaFields'
 import { validateUpload } from '@/core/library/validateUpload'
+import { readMidiFile } from '@/core/midi/readMidiFile'
 import { importMidi } from '@/core/song/importMidi'
+import { parseMidi } from '@/core/song/parseMidi'
 import { readMidiText } from '@/core/song/readMidiText'
 import { sha256Hex } from '@/core/song/sha256Hex'
+import type { Song } from '@/core/song/Song'
 import type { MeterOverride } from '@/core/timing/MeterOverride'
 
 import type { BundledSongs } from './BundledSongs'
+import type { HandDetails } from './HandDetails'
 import type { ImportReport } from './ImportReport'
 import type { LastOpened } from './LastOpened'
 import type { OpenedSong } from './OpenedSong'
-import { DEFAULT_PROFILE_ID, lastOpenedKey, type PianoMeisterDb } from './PianoMeisterDb'
+import {
+  DEFAULT_PROFILE_ID,
+  lastOpenedKey,
+  NEW_DATABASE_KEY,
+  type PianoMeisterDb,
+} from './PianoMeisterDb'
 import { clearProfileData } from './Profiles'
 import type { UploadFile } from './UploadFile'
 import type { UploadResult } from './UploadResult'
 import { factsFailureKey, refreshStaleFacts } from './refreshStaleFacts'
+
+/** appState key: the DETECTOR_VERSION whose background pass has finished. */
+const HANDS_PASS_KEY = 'handsPass'
 
 /** A backup read and checked against this device, before anything is written. */
 export interface PreparedImport {
@@ -64,19 +91,21 @@ export class Library {
   }
 
   async entries(): Promise<LibraryEntry[]> {
-    const [manifest, uploads, meta, overrides, hands] = await Promise.all([
+    const [manifest, uploads, meta, overrides, hands, detections] = await Promise.all([
       this.manifest(),
       this.db.uploads.orderBy('addedAt').toArray(),
       this.db.songMeta.toArray(),
       this.db.meterOverrides.toArray(),
       this.db.handAssignments.toArray(),
+      this.db.handDetections.toArray(),
     ])
     return buildEntries(
       manifest,
       uploads,
       new Map(meta.map((m) => [m.songId, m.edit])),
       new Map(overrides.map((o) => [o.songId, o.override])),
-      new Map(hands.filter((h) => h.profileId === this.profileId).map((h) => [h.songId, h.hands])),
+      new Map(hands.filter((h) => h.profileId === this.profileId).map((h) => [h.songId, h])),
+      new Map(detections.map((d) => [d.songId, d])),
     )
   }
 
@@ -95,19 +124,171 @@ export class Library {
   async openSong(songId: string): Promise<OpenedSong> {
     const entry = await this.entry(songId)
     if (entry === null) throw new Error('Song not found in the library')
-    const bytes =
-      entry.source === 'bundled'
-        ? await this.bundled.bytes(entry.fileName)
-        : new Uint8Array((await this.db.uploads.get(songId))?.bytes ?? new ArrayBuffer(0))
+    const bytes = await this.fileBytes(entry)
     const song = await importMidi(bytes, { fileName: entry.fileName })
-    const stored = await this.db.handAssignments.get([this.profileId, songId])
     return {
       entry,
       song,
-      hands: stored?.hands ?? defaultHands(song.channels),
-      defaultHands: stored === undefined,
+      handOf: await this.handOf(songId, song, bytes),
       override: entry.override,
     }
+  }
+
+  /** A song's MIDI file. */
+  async songBytes(songId: string): Promise<Uint8Array> {
+    const entry = await this.entry(songId)
+    if (entry === null) throw new Error('Song not found in the library')
+    return this.fileBytes(entry)
+  }
+
+  private async fileBytes(entry: LibraryEntry): Promise<Uint8Array> {
+    if (entry.source === 'bundled') return this.bundled.bytes(entry.fileName)
+    const upload = await this.db.uploads.get(entry.songId)
+    return new Uint8Array(upload?.bytes ?? new ArrayBuffer(0))
+  }
+
+  /**
+   * Every note's hand. Reads the stored, resolved hands: a split only runs here when a profile's
+   * hands were resolved by an older version of the methods.
+   */
+  private async handOf(songId: string, song: Song, bytes: Uint8Array): Promise<HandOf> {
+    await this.convertChannelHands(songId, song)
+    const row = await this.db.handAssignments.get([this.profileId, songId])
+    if (row !== undefined && 'settings' in row) {
+      const current =
+        row.resolved.hash === handsHash(row.settings)
+          ? assignmentHandOf(song.noteIds, row.resolved.hands)
+          : null
+      if (current !== null) return current
+      const resolved = resolveSongHands(bytes, row.settings)
+      await this.db.handAssignments.put({ ...row, resolved })
+      const fresh = assignmentHandOf(song.noteIds, resolved.hands)
+      if (fresh !== null) return fresh
+    }
+    const detected = await this.db.handDetections.get(songId)
+    return (
+      (detected === undefined ? null : assignmentHandOf(song.noteIds, detected.resolved.hands)) ??
+      channelHandOf(defaultHands(song.channels))
+    )
+  }
+
+  /**
+   * Turns channel maps from before milestone 10.5 into voice roles, for every profile: a map equal
+   * to the default is dropped (the song is detection's), any other stays the player's.
+   */
+  private async convertChannelHands(
+    songId: string,
+    song: Pick<Song, 'channels' | 'notes' | 'noteIds'>,
+  ): Promise<void> {
+    const { db } = this
+    const old = (await db.handAssignments.where('songId').equals(songId).toArray()).filter(
+      (row) => 'hands' in row,
+    )
+    if (old.length === 0) return
+    const voices = [
+      ...new Map(song.notes.map((n) => [voiceId(n), { id: voiceId(n), channel: n.channel }])),
+    ].map(([, v]) => v)
+    const defaults = defaultHands(song.channels)
+    await db.transaction('rw', db.handAssignments, async () => {
+      for (const { profileId, hands } of old) {
+        const key: [string, string] = [profileId, songId]
+        // Saved by the player in the meantime: theirs stands.
+        const now = await db.handAssignments.get(key)
+        if (now === undefined || !('hands' in now)) continue
+        if (sameChannelHands(song.channels, hands, defaults)) {
+          await db.handAssignments.delete(key)
+          continue
+        }
+        const settings: HandSettings = {
+          roles: rolesFromChannels(voices, hands),
+          algorithm: SPLIT_ALGORITHMS[0].id,
+          params: {},
+          flips: {},
+        }
+        await db.handAssignments.put({
+          profileId,
+          songId,
+          settings,
+          resolved: wholeVoiceHands(song, settings),
+        })
+      }
+    })
+  }
+
+  /** A song's hands in full: voices, the settings in effect and detection's reasons. */
+  async handDetails(songId: string): Promise<HandDetails> {
+    const bytes = await this.songBytes(songId)
+    const song = parseMidi(bytes, { fileName: '' })
+    await this.convertChannelHands(songId, song)
+    const [row, detected, entry] = await Promise.all([
+      this.db.handAssignments.get([this.profileId, songId]),
+      this.db.handDetections.get(songId),
+      this.entry(songId),
+    ])
+    if (entry === null) throw new Error('Song not found in the library')
+    let voices = detected?.voices
+    if (voices === undefined) {
+      const file = readMidiFile(bytes)
+      voices = computeVoiceStats(file, extractNotes(file))
+    }
+    const settings =
+      row !== undefined && 'settings' in row
+        ? row.settings
+        : (detected?.settings ?? {
+            roles: rolesFromChannels(voices, defaultHands(song.channels)),
+            algorithm: SPLIT_ALGORITHMS[0].id,
+            params: {},
+            flips: {},
+          })
+    return {
+      hands: entry.hands,
+      voices,
+      settings,
+      detected: detected?.settings ?? null,
+      guesses: detected?.guesses ?? [],
+    }
+  }
+
+  /** Saves the profile's own hands: from now on detection doesn't decide this song's. */
+  async setHands(songId: string, settings: HandSettings, resolved: CachedHands): Promise<void> {
+    await this.db.handAssignments.put({ profileId: this.profileId, songId, settings, resolved })
+  }
+
+  /** Stores what detection found, unless the song is gone. Never touches a profile's hands. */
+  async saveDetection(songId: string, detected: DetectedHands): Promise<boolean> {
+    if ((await this.entry(songId)) === null) return false
+    await this.db.handDetections.put({ songId, ...detected })
+    return true
+  }
+
+  /**
+   * Songs the background pass should detect: on its first run every song without a current
+   * detection; after a detector change only songs detected by an older version.
+   */
+  async songsToDetect(): Promise<string[]> {
+    const [entries, detections, done] = await Promise.all([
+      this.entries(),
+      this.db.handDetections.toArray(),
+      this.db.appState.get(HANDS_PASS_KEY),
+    ])
+    const doneVersion = Number(done?.value ?? 0)
+    if (doneVersion >= DETECTOR_VERSION) return []
+    const versions = new Map(detections.map((d) => [d.songId, d.detectorVersion]))
+    return entries
+      .map((e) => e.songId)
+      .filter((id) => {
+        const version = versions.get(id)
+        return version === undefined ? doneVersion === 0 : version < DETECTOR_VERSION
+      })
+  }
+
+  async finishHandsPass(): Promise<void> {
+    await this.db.appState.put({ key: HANDS_PASS_KEY, value: String(DETECTOR_VERSION) })
+  }
+
+  /** A database made by this version: its bundled songs are detected without a toast. */
+  async handsPassIsQuiet(): Promise<boolean> {
+    return (await this.db.appState.get(NEW_DATABASE_KEY)) !== undefined
   }
 
   /** Validates, de-duplicates by content hash, parses and stores each file. */
@@ -159,14 +340,6 @@ export class Library {
     await this.db.songMeta.delete(songId)
   }
 
-  async setHands(songId: string, hands: HandAssignment): Promise<void> {
-    await this.db.handAssignments.put({ profileId: this.profileId, songId, hands })
-  }
-
-  async resetHands(songId: string): Promise<void> {
-    await this.db.handAssignments.delete([this.profileId, songId])
-  }
-
   async setOverride(songId: string, override: MeterOverride): Promise<void> {
     await this.db.meterOverrides.put({ songId, override })
   }
@@ -189,6 +362,7 @@ export class Library {
         db.songMeta,
         db.meterOverrides,
         db.handAssignments,
+        db.handDetections,
         db.appState,
         db.bookmarks,
         db.playRecords,
@@ -198,6 +372,7 @@ export class Library {
         await db.songMeta.delete(songId)
         await db.meterOverrides.delete(songId)
         await db.handAssignments.where('songId').equals(songId).delete()
+        await db.handDetections.delete(songId)
         if (options.withPracticeData === true) {
           await db.bookmarks.where('songId').equals(songId).delete()
           await db.playRecords.where('songId').equals(songId).delete()
@@ -441,6 +616,23 @@ export class Library {
     })
     return { fileName, outcome: 'added', songId, title: guess.title }
   }
+}
+
+/** The hands of settings without Split voices or flips (a converted channel map). */
+function wholeVoiceHands(
+  song: Pick<Song, 'notes' | 'noteIds'>,
+  settings: HandSettings,
+): CachedHands {
+  const byId = new Map(song.notes.map((n) => [n.id, n]))
+  let hands = ''
+  const pitches: { midi: number }[] = []
+  for (const id of song.noteIds) {
+    const note = byId.get(id)
+    const role = note === undefined ? 'hidden' : settings.roles[voiceId(note)]
+    hands += role === 'right' ? 'R' : role === 'left' ? 'L' : '-'
+    pitches.push({ midi: note?.midi ?? 0 })
+  }
+  return { hash: handsHash(settings), hands, summary: summariseHands(pitches, hands) }
 }
 
 /** The composers already in the library, each once, for matching an upload's composer. */

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
+import { confidencePercent } from '@/core/hands/confidencePercent'
+import { needsHandsCheck } from '@/core/hands/needsHandsCheck'
+import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import { filterEntries } from '@/core/library/filterEntries'
 import { formatAddedAt } from '@/core/library/formatAddedAt'
 import { formatUploadToast } from '@/core/library/formatUploadToast'
@@ -15,6 +18,7 @@ import type { UploadResult } from '@/data/UploadResult'
 
 import AppButton from '../components/AppButton.vue'
 import AppIcon from '../components/AppIcon.vue'
+import AppPopover from '../components/AppPopover.vue'
 import HomeLink from '../components/HomeLink.vue'
 import SearchField from '../components/SearchField.vue'
 import SelectField from '../components/SelectField.vue'
@@ -24,6 +28,7 @@ import SortableHeader from '../components/SortableHeader.vue'
 import { formatStorage } from '../format/formatStorage'
 import { formatTime } from '../format/formatTime'
 import { summariseImport, summariseUploads } from '../format/summariseUploads'
+import ExportSplitDialog from '../hands/ExportSplitDialog.vue'
 import ManageTabs from '../library/ManageTabs.vue'
 import { manageTabStep } from '../library/manageTabStep'
 import { useLibraryBackup } from '../library/useLibraryBackup'
@@ -42,6 +47,7 @@ import { useToastStore } from '../stores/toastStore'
  * decision 73), and the details of the selected song on the right, always shown (the first song
  * until another is chosen).
  */
+const route = useRoute()
 const router = useRouter()
 const store = useLibraryStore()
 const bookmarks = useBookmarkStore()
@@ -56,6 +62,8 @@ const importInput = useTemplateRef<HTMLInputElement>('importInput')
 const songList = useTemplateRef<HTMLElement>('songList')
 
 const selectedId = ref<string | null>(null)
+const exportOpen = ref(false)
+const splitOpen = ref(false)
 const uploadResults = ref<readonly UploadResult[]>([])
 const importReport = ref<ImportReport | null>(null)
 const dragDepth = ref(0)
@@ -82,6 +90,14 @@ const COLUMNS: readonly {
   { field: 'last', label: 'Last', num: true },
   { field: 'dateAdded', label: 'Added', num: true },
 ]
+
+/** "Check hands · 58 %" on a row whose detected hands are below the threshold. */
+function handsHint(e: LibraryEntry): string {
+  const { confidence } = e.hands
+  return confidence !== null && needsHandsCheck(e.hands, settings.settings.hands.hintBelow)
+    ? `Check hands · ${confidencePercent(confidence)} %`
+    : ''
+}
 
 /** A song row's subtitle: its bookmark count ("2 bookmarks"), nothing without any. */
 function bookmarkCount(songId: string): string {
@@ -362,6 +378,20 @@ function openBookmarks(songId: string): void {
   void router.push({ name: 'bookmarks', query: { song: songId } })
 }
 
+const selectedTitle = computed(
+  () => store.entries.find((e) => e.songId === selectedId.value)?.title ?? '',
+)
+
+function exportBackup(): void {
+  exportOpen.value = false
+  void backup.exportLibrary()
+}
+
+function exportSplit(): void {
+  exportOpen.value = false
+  splitOpen.value = true
+}
+
 const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
 
 function onDragEnter(event: DragEvent): void {
@@ -398,9 +428,10 @@ onMounted(() => {
   void backup.run(async () => {
     await store.refresh()
     await Promise.all([store.refreshStorage(), bookmarks.refresh(), stats.refresh()])
-    if (rows.value.some((e) => e.songId === currentSongId.value)) {
-      selectedId.value = currentSongId.value
-    }
+    // Back from Review hands: its song; otherwise the player's.
+    const asked = route.query.song
+    const first = [asked, currentSongId.value].find((id) => rows.value.some((e) => e.songId === id))
+    if (typeof first === 'string') selectedId.value = first
     await revealSelected()
   })
 })
@@ -443,9 +474,30 @@ onBeforeUnmount(() => {
         >
           Upload MIDI
         </AppButton>
-        <AppButton :disabled="busy" data-testid="export" @click="backup.exportLibrary()">
-          Export
-        </AppButton>
+        <AppPopover v-model:open="exportOpen" side="bottom" align="end" label="Export">
+          <template #trigger>
+            <AppButton :disabled="busy" data-testid="export">Export</AppButton>
+          </template>
+          <div class="menu" role="menu" data-testid="export-menu">
+            <button type="button" role="menuitem" data-testid="export-backup" @click="exportBackup">
+              Back up library
+            </button>
+            <button
+              v-if="selectedTitle"
+              type="button"
+              role="menuitem"
+              data-testid="export-split"
+              @click="exportSplit"
+            >
+              Export split of {{ selectedTitle }}…
+            </button>
+          </div>
+        </AppPopover>
+        <ExportSplitDialog
+          v-if="selectedId !== null"
+          v-model:open="splitOpen"
+          :song-id="selectedId"
+        />
         <AppButton :disabled="busy" data-testid="import" @click="importInput?.click()">
           Import
         </AppButton>
@@ -589,6 +641,7 @@ onBeforeUnmount(() => {
                 role="option"
                 :title="e.title"
                 :subtitle="bookmarkCount(e.songId)"
+                :hint="handsHint(e)"
                 :selected="e.songId === selectedId"
                 :aria-selected="e.songId === selectedId"
                 :tag="newSongIds.has(e.songId) ? 'New' : ''"
@@ -704,6 +757,27 @@ onBeforeUnmount(() => {
 
 .top :deep(.btn.primary) {
   padding: 0 16px;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-1);
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: var(--field-hover);
 }
 
 .back {

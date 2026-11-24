@@ -65,7 +65,7 @@ describe('buildEntries', () => {
     })
   })
 
-  it('uses the stored hands, else the default from the channels, else channel 0/1', () => {
+  it('uses the stored hands, else the default from the channels, else none', () => {
     const withChannels: SongFacts = {
       ...facts,
       channels: [
@@ -75,11 +75,15 @@ describe('buildEntries', () => {
     }
     const songs = { version: 1 as const, songs: [{ ...manifest.songs[0]!, facts: withChannels }] }
     const [byChannels] = buildEntries(songs, [], new Map(), new Map())
-    expect(byChannels?.hands).toEqual({ right: [2], left: [3] })
-    const stored = { right: [3], left: [] }
-    const [byStore] = buildEntries(songs, [], new Map(), new Map(), new Map([['b1', stored]]))
-    expect(byStore?.hands).toEqual(stored)
+    expect(byChannels?.hands).toEqual({
+      source: 'default',
+      confidence: null,
+      summary: { right: 10, left: 10, lowest: 30, highest: 80 },
+    })
+    const row = { profileId: 'p', songId: 'b1', hands: { right: [3], left: [] } }
+    const [byStore] = buildEntries(songs, [], new Map(), new Map(), new Map([['b1', row]]))
+    expect(byStore?.hands).toMatchObject({ source: 'user', summary: { right: 10, left: 0 } })
     const [oldFacts] = buildEntries(manifest, [], new Map(), new Map())
-    expect(oldFacts?.hands).toEqual({ right: [0], left: [1] })
+    expect(oldFacts?.hands).toEqual({ source: 'default', confidence: null, summary: null })
   })
 })

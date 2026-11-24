@@ -11,7 +11,7 @@ export interface LoadedSong {
   readonly tempoMap: TempoMap
   readonly barMap: BarMap
   readonly notes: readonly HandNote[]
-  /** Pedal spans of the assigned channels only. */
+  /** Pedal spans of the channels with notes shown. */
   readonly pedalIntervals: readonly PedalInterval[]
   /** The hand cages (milestone 10), from the same hand of each note as everything else. */
   readonly handCages: HandCages

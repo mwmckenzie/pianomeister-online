@@ -30,6 +30,12 @@ export const router = createRouter({
     },
     // Lazy: the library UI isn't needed to play.
     { path: '/library', name: 'library', component: () => import('../views/LibraryView.vue') },
+    // Lazy: reached from a song's details in the library.
+    {
+      path: '/hands/:songId',
+      name: 'hands',
+      component: () => import('../views/ReviewHandsView.vue'),
+    },
     {
       path: '/bookmarks',
       name: 'bookmarks',

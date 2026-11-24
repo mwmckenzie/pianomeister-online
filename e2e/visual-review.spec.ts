@@ -242,7 +242,7 @@ test('@visual library page with details panel', async ({ page }) => {
   await openUpload(page, PEDAL_DEMO, 'Pedal demo')
   await page.goto('./#/library')
   await page.getByTestId('song-row').filter({ hasText: 'Pedal demo' }).click()
-  await expect(page.getByTestId('hand-ch0')).toBeVisible()
+  await expect(page.getByTestId('hand-voice-1:0')).toBeVisible()
   await shoot(page, 'library-details')
 })
 

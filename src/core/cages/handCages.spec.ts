@@ -13,6 +13,8 @@ const PPQ = 480
 const BAR = 4 * PPQ
 
 const note = (midi: number, startTick: number, endTick: number, channel = 0): Note => ({
+  id: 'n',
+  track: 0,
   midi,
   channel,
   startTick,
@@ -130,7 +132,7 @@ describe('computeHandCages', () => {
 
   it('reads hands only through handOf', () => {
     const notes = [note(60, 0, 100, 0), note(48, 0, 100, 0)]
-    // Per note, as milestone 10.5 will: same channel, different hands.
+    // Per note (milestone 10.5): same channel, different hands.
     const r = computeHandCages(notes, bars(1), (n) => (n.midi >= 60 ? 'right' : 'left'))
     expect(range(r.right[0])).toEqual([58, 63])
     expect(range(r.left[0])).toEqual([46, 51])

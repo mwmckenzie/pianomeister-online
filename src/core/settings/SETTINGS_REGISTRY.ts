@@ -1,3 +1,4 @@
+import { SPLIT_ALGORITHMS } from '../hands/SPLIT_ALGORITHMS'
 import type { NoteFill } from './NoteFill'
 import type { PlayerSettings } from './PlayerSettings'
 import type { SettingDefinition, SettingUnit } from './SettingDefinition'
@@ -1302,6 +1303,28 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       home: tab('audio', 'soundSource'),
       control: 'select',
       options: [{ value: 'piano', label: 'Built-in grand piano' }],
+    },
+
+    // Hand detection (milestone 10.5)
+    'hands.detectOnUpload': bool('Detect hands on upload', true, tab('library', 'handDetection')),
+    'hands.hintBelow': num(
+      'Show "Check hands" below',
+      70,
+      tab('library', 'handDetection'),
+      [50, 90, 5],
+      'wholePercent',
+      0,
+    ),
+    'hands.defaultAlgorithm': {
+      kind: 'choice',
+      label: 'Default split method',
+      default: 'beam',
+      home: tab('library', 'handDetection'),
+      options: SPLIT_ALGORITHMS.map(({ id, name }) => ({
+        value: id as PlayerSettings['hands']['defaultAlgorithm'],
+        label: name,
+      })),
+      control: 'select',
     },
 
     // Practice (decisions 2, 10, 61)

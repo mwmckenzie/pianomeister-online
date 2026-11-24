@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
+import { buildSmf, ev } from '../testing/buildSmf'
 import { readFixture, type FixtureName } from '../testing/readFixture'
 import { synthFixtures } from '../testing/synthFixtures'
 import { importMidi } from './importMidi'
@@ -120,6 +121,35 @@ describe('importMidi — synthetic fixtures', () => {
     expect(song.notes.map((n) => [n.midi, n.startTick, n.endTick])).toEqual([
       [60, 0, 96],
       [64, 0, 192],
+    ])
+  })
+
+  it('gives notes their file ids, and keeps the ids of zero-length notes for the hands', async () => {
+    const song = await load('minuet-in-g.mid')
+    expect(song.noteIds).toHaveLength(408)
+    expect(new Set(song.noteIds).size).toBe(408)
+    expect(song.notes.every((n) => n.id.startsWith(`${n.track}:`))).toBe(true)
+    const overlapping = await importMidi(synthFixtures.overlapping(), { fileName: 'x.mid' })
+    expect(overlapping.noteIds.length).toBeGreaterThan(overlapping.notes.length)
+  })
+
+  it('keeps notes never released, and notes held over a program change', async () => {
+    const bytes = buildSmf({
+      format: 0,
+      ppq: 96,
+      tracks: [
+        [
+          ev.noteOn(0, 0, 60),
+          ev.noteOn(0, 0, 64),
+          { tick: 48, bytes: [0xc0, 5] },
+          ev.noteOff(96, 0, 64),
+        ],
+      ],
+    })
+    const song = await importMidi(bytes, { fileName: 'x.mid' })
+    expect(song.notes.map((n) => [n.midi, n.endTick])).toEqual([
+      [60, 96],
+      [64, 96],
     ])
   })
 

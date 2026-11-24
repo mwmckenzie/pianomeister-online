@@ -32,6 +32,8 @@
   --text-3: #a7b0c6;
   --text-4: #8f9ab6;
   --danger: #ff8a8a;
+  --warning: #e9c07a;
+  --warning-rgb: 233 192 122;
 
   /* Menu colours (Glacier) and their translucent variants via rgb(var(--…-rgb) / α) */
   --primary: #8ab4ff;

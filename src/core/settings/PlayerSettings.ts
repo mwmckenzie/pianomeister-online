@@ -388,6 +388,13 @@ export interface PlayerSettings {
     readonly preRollBeats: number
     readonly preRollMode: PreRollMode
   }
+  /** Hand detection (milestone 10.5). */
+  readonly hands: {
+    readonly detectOnUpload: boolean
+    /** "Check hands" shows below this confidence, whole percent. */
+    readonly hintBelow: number
+    readonly defaultAlgorithm: 'beam' | 'chord' | 'moving' | 'fixed'
+  }
   readonly appearance: {
     /** UI colours only (never the note palette). */
     readonly primary: string

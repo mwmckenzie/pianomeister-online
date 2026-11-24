@@ -8,7 +8,8 @@ import { EventBus } from '@/core/events/EventBus'
 import { computeHandCages } from '@/core/cages/computeHandCages'
 import { channelHandOf } from '@/core/hands/channelHandOf'
 import { assignHands } from '@/core/hands/assignHands'
-import { DEFAULT_HAND_ASSIGNMENT, type HandAssignment } from '@/core/hands/HandAssignment'
+import { DEFAULT_HAND_ASSIGNMENT } from '@/core/hands/HandAssignment'
+import type { HandOf } from '@/core/hands/HandOf'
 import type { Song } from '@/core/song/Song'
 import { applySustain } from '@/core/sustain/applySustain'
 import { BarMap } from '@/core/timing/BarMap'
@@ -79,21 +80,21 @@ export class PlaybackSession {
   /** A song set up for playback (hands, sustain, maps) without loading it: a playlist's next song. */
   static prepare(
     song: Song,
-    options: { readonly hands?: HandAssignment; readonly override?: MeterOverride | null } = {},
+    options: { readonly handOf?: HandOf; readonly override?: MeterOverride | null } = {},
   ): LoadedSong {
-    const hands = options.hands ?? DEFAULT_HAND_ASSIGNMENT
     const tempoMap = new TempoMap(song.ppq, song.tempoEvents)
     const barMap = BarMap.fromSong(song, options.override ?? null)
     // One function decides every note's hand: sound, the highway and the cages (milestone 10).
-    const handOf = channelHandOf(hands)
+    const handOf = options.handOf ?? channelHandOf(DEFAULT_HAND_ASSIGNMENT)
     const notes = assignHands(applySustain(song.notes, song.pedalIntervals), handOf)
-    const assigned = new Set([...hands.right, ...hands.left])
+    // The pedal of a channel is shown when any of its notes is (it isn't a hand's).
+    const shown = new Set(notes.map((n) => n.channel))
     return {
       song,
       tempoMap,
       barMap,
       notes,
-      pedalIntervals: song.pedalIntervals.filter((p) => assigned.has(p.channel)),
+      pedalIntervals: song.pedalIntervals.filter((p) => shown.has(p.channel)),
       // Recomputed only here: on song load and a change of hands, never on tempo or seek.
       handCages: computeHandCages(notes, barMap, (n) => n.hand),
     }
@@ -102,7 +103,7 @@ export class PlaybackSession {
   load(
     song: Song,
     options: {
-      readonly hands?: HandAssignment
+      readonly handOf?: HandOf
       readonly override?: MeterOverride | null
       readonly key?: string
     } = {},

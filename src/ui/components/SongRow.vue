@@ -9,6 +9,8 @@ withDefaults(
   defineProps<{
     readonly title: string
     readonly subtitle?: string
+    /** A hint after the subtitle, in the warning colour ("Check hands · 58 %"). */
+    readonly hint?: string
     readonly selected: boolean
     readonly as?: string
     /** A small tag after the title, e.g. "New" for a song just uploaded. */
@@ -16,7 +18,7 @@ withDefaults(
     /** A short highlight pulse (a song just uploaded or pointed at). */
     readonly pulse?: boolean
   }>(),
-  { subtitle: '', as: 'div', tag: '', pulse: false },
+  { subtitle: '', hint: '', as: 'div', tag: '', pulse: false },
 )
 </script>
 
@@ -27,7 +29,13 @@ withDefaults(
         <span class="title" :title="title">{{ title }}</span>
         <span v-if="tag" class="tag" data-testid="song-row-tag">{{ tag }}</span>
       </span>
-      <span v-if="subtitle" class="subtitle" :title="subtitle">{{ subtitle }}</span>
+      <span
+        v-if="subtitle || hint"
+        class="subtitle"
+        :title="[subtitle, hint].filter(Boolean).join(' · ')"
+        >{{ subtitle }}<template v-if="subtitle && hint"> · </template
+        ><span v-if="hint" class="hint" data-testid="song-row-hint">{{ hint }}</span></span
+      >
     </span>
     <slot />
   </component>
@@ -132,6 +140,10 @@ withDefaults(
 .subtitle {
   color: var(--text-3);
   font-size: var(--text-xs);
+}
+
+.hint {
+  color: var(--warning);
 }
 
 .song-row :slotted(.num) {

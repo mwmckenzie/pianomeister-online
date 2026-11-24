@@ -7,6 +7,8 @@ import { channelHandOf } from './channelHandOf'
 import { DEFAULT_HAND_ASSIGNMENT } from './HandAssignment'
 
 const note = (channel: number, startTick = 0): SoundingNote => ({
+  id: 'n',
+  track: 0,
   midi: 60,
   channel,
   startTick,

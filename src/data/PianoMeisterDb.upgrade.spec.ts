@@ -64,7 +64,7 @@ describe('PianoMeisterDb upgrade to v2', () => {
     await createV1([upload('minuet', readFixture('minuet-in-g.mid'))])
     const db = new PianoMeisterDb(name)
     expect((await db.uploads.get('minuet'))?.facts).toEqual(v1Facts)
-    expect(db.verno).toBe(8)
+    expect(db.verno).toBe(9)
     db.close()
   })
 })

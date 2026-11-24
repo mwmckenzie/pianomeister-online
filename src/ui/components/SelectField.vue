@@ -95,7 +95,7 @@ function update(value: unknown): void {
   cursor: pointer;
 }
 
-/* Inline in a row (hand channels): the reference's 34 px select. */
+/* Inline in a row (hands): the reference's 34 px select. */
 .select-trigger.compact {
   min-width: 100px;
   min-height: 34px;

@@ -33,7 +33,7 @@ const settings = useSettingsStore()
 const resetWithUndo = useResetWithUndo()
 const toasts = useToastStore()
 
-type TabId = SettingsTabId | 'shortcuts' | 'profiles' | 'library' | 'about'
+type TabId = SettingsTabId | 'shortcuts' | 'profiles' | 'about'
 const active = ref<TabId>('practice')
 const ui = useUiStateStore()
 
@@ -61,17 +61,20 @@ function resetShortcuts(): void {
   toasts.showUndo('Shortcuts reset to defaults', () => settings.restoreShortcuts(previous))
 }
 
-const tabs = computed(() => [
-  ...SETTINGS_LAYOUT.tabs.map((t) => ({
+const tabs = computed(() => {
+  const settingsTabs = SETTINGS_LAYOUT.tabs.map((t) => ({
     value: t.id,
     title: t.title,
     changed: settings.changedCount({ kind: 'tab', id: t.id }) > 0,
-  })),
-  { value: 'shortcuts', title: 'Shortcuts', changed: shortcutsChanged.value > 0 },
-  { value: 'profiles', title: 'Profiles' },
-  { value: 'library', title: 'Library & data' },
-  { value: 'about', title: 'About' },
-])
+  }))
+  return [
+    ...settingsTabs.filter((t) => t.value !== 'library'),
+    { value: 'shortcuts', title: 'Shortcuts', changed: shortcutsChanged.value > 0 },
+    { value: 'profiles', title: 'Profiles' },
+    ...settingsTabs.filter((t) => t.value === 'library'),
+    { value: 'about', title: 'About' },
+  ]
+})
 /** Next / Previous tab (decision 90) step through the tabs and wrap around. */
 function onKeyDown(event: KeyboardEvent): void {
   const command = pageListCommand(

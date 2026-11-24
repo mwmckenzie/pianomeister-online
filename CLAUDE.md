@@ -17,6 +17,7 @@ Browser-based piano practice visualizer: MIDI songs scroll down a perspective no
 - `npm run test:e2e` — the full functional suite (chromium + polish) against the production preview. **Only when asked;** the full suite runs in CI.
 - `npm run test:e2e:dev` — Playwright against the dev server (5173, reused if running) for quick checks. Expect flakes in full runs: on the dev server the ~230 sample downloads saturate HTTP/1.1's six connections and lazy chunks queue behind them.
 - `npm run test:visual` / `npm run test:perf` — visual review shots / frame timings, also against the production preview. Only when a milestone asks; never in CI.
+- `npm run bench:hands -- <folder>` — scores the hand-split methods on a **local** folder of MIDI files with tracks named right/left (`--algos=beam,chord`, `--params=<JSON>`). Never commit those files; not part of `check`.
 - `npm run songs:manifest` — regenerate `public/songs/manifest.json` after adding/changing bundled songs (then fill in title/composer/tags)
 
 ## Testing
@@ -25,7 +26,7 @@ Keep local test time small; the full e2e suite runs in CI.
 
 1. **Unit tests.** While working, run only the related tests (`npm run test:unit:changed`, or `npx vitest related <files> --run`). Run the full `npm run check` once, before a PR (and whenever you call a task done).
 2. **E2e tags.** Every functional spec test carries an area tag at the start of its title:
-   - Areas: `@player`, `@library`, `@bookmarks`, `@looks`, `@loop`, `@welcome`, `@stats`, `@settings`, `@shortcuts`; `@playlists` and others as areas arrive.
+   - Areas: `@player`, `@library`, `@bookmarks`, `@looks`, `@loop`, `@welcome`, `@stats`, `@settings`, `@shortcuts`, `@playlists`, `@cages`, `@hands`; others as areas arrive.
    - About 15 main-path tests also carry `@smoke` (a minute or two).
    - New specs and tests get a tag. When a new source folder appears, add it to the map in `scripts/e2e-affected.mjs`.
 3. **During a milestone,** run only `npm run test:e2e:affected` locally. Never the full suite locally unless asked.
@@ -75,6 +76,8 @@ src/
 
 - For anything touching more than one file: plan first, then implement.
 - Every `core/` change ships with unit tests.
+- A note's hand comes only from `handOf(note)` (`src/core/hands`); nothing reads channels for hands (the debug page excepted).
+- When detection or a split method gives different results, bump `DETECTOR_VERSION` (`src/core/hands/DETECTOR_VERSION.ts`): detections are then computed again in the background. The player's roles and flips stay.
 - Whenever `SongFacts` gains or changes a field, bump `FACTS_VERSION` (`src/core/library/FACTS_VERSION.ts`) and run `npm run songs:manifest`. Stored uploads with older facts are then recomputed in the background on the next load; never rely on a Dexie upgrade to refresh facts.
 - Definition of done: `npm run check` passes, `npm run build` passes, and for UI/visual changes you have viewed the result.
 - Small, focused commits with conventional prefixes (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`).

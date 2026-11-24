@@ -11,6 +11,8 @@ import { songStartTimes } from './songStartTimes'
 import type { TimelineSource } from './TimelineSource'
 
 const note = (start: number, end: number, midi = 60): HandNote => ({
+  id: 'n',
+  track: 0,
   midi,
   startTick: start,
   endTick: end,

@@ -15,7 +15,6 @@ import { RouterView, useRoute, useRouter } from 'vue-router'
 import type { CommandId } from '@/core/commands/CommandId'
 import { commandForEvent } from '@/core/commands/shortcutBindings'
 import { tempoSliderRange } from '@/core/practice/tempoSliderRange'
-import type { HandAssignment } from '@/core/hands/HandAssignment'
 import type { LibraryEntry } from '@/core/library/LibraryEntry'
 import { sameRange } from '@/core/practice/diffFromBookmark'
 import type { MetronomeMode } from '@/core/practice/MetronomeMode'
@@ -108,7 +107,6 @@ let stopBarWatch: (() => void) | null = null
 let listener: ListeningController | null = null
 
 const entry = shallowRef<LibraryEntry | null>(null)
-const hands = shallowRef<HandAssignment | null>(null)
 const loaded = shallowRef<LoadedSong | null>(null)
 const samplesReady = ref(false)
 const sampleProgress = ref({ loaded: 0, total: 0 })
@@ -213,11 +211,10 @@ const beatDigits = computed(() => {
 })
 const tempoChanged = computed(() => tempoPercent.value !== 100)
 const handsLabel = computed(() => {
-  const h = hands.value
-  if (h === null) return ''
-  const list = (channels: readonly number[]) =>
-    channels.length === 0 ? '–' : channels.map((c) => `ch${c}`).join(',')
-  return `R ${list(h.right)} · L ${list(h.left)}`
+  const notes = loaded.value?.notes
+  if (notes === undefined) return ''
+  const right = notes.filter((n) => n.hand === 'right').length
+  return `R ${right} notes · L ${notes.length - right} notes`
 })
 const sampleStatus = computed(() => {
   if (samplesReady.value) return 'loaded'
@@ -338,14 +335,16 @@ function showSong(
       : null
   const sameEntry = !fresh && practice.songId === songId && practice.bookmarkId === bookmarkId
   loopNudge.cancel()
-  const key = JSON.stringify([songId, opened.hands, opened.override])
+  // The hands themselves, not where they came from: a detection that changes nothing keeps the
+  // song as it is loaded.
+  const noteHands = opened.song.notes.map((n) => opened.handOf(n)?.[0] ?? '-').join('')
+  const key = JSON.stringify([songId, noteHands, opened.override])
   const current = playback.song
   const sameSong = playback.songKey === key && current !== null
   const prepared = sameSong
     ? current
-    : playback.load(opened.song, { hands: opened.hands, override: opened.override, key })
+    : playback.load(opened.song, { handOf: opened.handOf, override: opened.override, key })
   entry.value = opened.entry
-  hands.value = opened.hands
   loaded.value = prepared
   const map = prepared.barMap
   // Loading another song or bookmark drops temporary changes; coming back keeps them.
@@ -1010,6 +1009,7 @@ onMounted(() => {
     Object.assign(window, {
       // Listening (milestone 9.5): start a playlist, and read the timeline swaps for the report.
       pianomeisterCages: () => engine?.handCageInfo() ?? null,
+      pianomeisterCageBars: () => loaded.value?.handCages ?? null,
       pianomeisterListening: {
         play: (playlistId: string, start = 0) => listening.requestPlay(playlistId, start),
         swapMs: () => [...(listener?.swapMs ?? [])],
