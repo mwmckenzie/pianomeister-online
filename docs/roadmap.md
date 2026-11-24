@@ -288,4 +288,5 @@ A built-in, repeatable performance test that can be run on any device (PC, lapto
 
 ## Other ideas (unscheduled)
 
+- **Parse MIDI once:** `parseMidi` reads the file twice (raw events for the notes, @tonejs/midi for tempo, meter and title). Read tempo, meter and title from the raw events too and drop @tonejs/midi from `parseMidi`, comparing the result with `main` on every bundled song and fixture. The extra read was measured and accepted in milestone 10.5 (report, round 2).
 - _(add new ideas here; they get scheduled when a milestone is planned)_
