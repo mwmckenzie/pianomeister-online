@@ -189,3 +189,14 @@ Round 1 approved; decisions 1–9 stand. Blueprint's faint cages stay as they ar
 **Review**
 
 - [ ] Decide on the oxlint ignore.
+
+## Round 6 — 2026-11-24: oxlint ignores worktrees
+
+- `"ignorePatterns": [".claude/**"]` in `.oxlintrc.json`; closes the round 5 open question.
+- Probed with a temporary file under `.claude/worktrees/`: oxlint no longer reports it.
+- `npm run check`: **exit 0**, 838 unit tests (119 files). E2e not run, as agreed.
+- No decisions beyond the instructions, no known issues.
+
+**Review**
+
+- [ ] Nothing to check by hand.
