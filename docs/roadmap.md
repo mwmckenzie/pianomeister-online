@@ -260,6 +260,7 @@ Play full songs back-to-back as background music, with the piano and highway as 
 
 ### Tablet, MIDI out, offline _(milestone 11)_
 
+- Touch pinch zoom on the Review page (drag pans and the buttons zoom since milestone 10.5).
 - Check the loop repeat's draw calls on the tablet (worst case 223 at Medium: one-bar loop at look-ahead 32); fallback = one instanced draw per layer, rebuilt on loop change.
 
 ### Benchmark mode _(milestone 12, the final milestone; spec to be written when we reach it)_
