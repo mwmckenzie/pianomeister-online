@@ -366,6 +366,7 @@ function showSong(
     barMap: prepared.barMap,
     pedalIntervals: prepared.pedalIntervals,
     endTick: opened.song.durationTicks,
+    handCages: prepared.handCages,
   })
   syncEngineLoop()
   return sameEntry
@@ -383,6 +384,7 @@ function listenerFor(playback: PlaybackSession): ListeningController {
     endOverlay: () => settingsStore.endOverlay(),
     setTrackingSuspended: (on) => (statsStore.trackingSuspended = on),
     crossfadeSec: () => settingsStore.settings.audio.crossfade,
+    crossfadeCurve: () => settingsStore.settings.audio.crossfadeCurve,
     showTimeline: (timeline, shiftTicks) => {
       const started = performance.now()
       engine?.setSong(
@@ -392,6 +394,7 @@ function listenerFor(playback: PlaybackSession): ListeningController {
           barMap: timeline.song.barMap,
           pedalIntervals: timeline.pedalIntervals,
           endTick: timeline.song.endTick,
+          handCages: timeline.handCages,
         },
         shiftTicks === null ? null : { shiftTicks },
       )
@@ -462,10 +465,16 @@ function cycleListeningHud(): void {
   settingsStore.set('appearance.listeningHud', HUD_MODES[(now + 1) % HUD_MODES.length] ?? 'show')
 }
 
+/** Shift+← / → while listening. */
+const LISTENING_SEEK_SEC = 5
+const listeningBarAt = (fraction: number) => listener?.barAt(fraction) ?? 1
+
 /** Listening keys (milestone 9.5): its own commands, then the player's few that still apply. */
 const LISTENING_ACTIONS: Readonly<Partial<Record<CommandId, () => void>>> = {
   nextSong: () => void listener?.next(),
   previousSong: () => void listener?.previous(),
+  seekBack: () => void listener?.seekBy(-LISTENING_SEEK_SEC),
+  seekForward: () => void listener?.seekBy(LISTENING_SEEK_SEC),
   toggleMute: toggleListeningMute,
   cycleListeningHud,
   leaveListening: () => void leaveListening(),
@@ -1000,6 +1009,7 @@ onMounted(() => {
     const labels = () => engine?.labelSnapshot()
     Object.assign(window, {
       // Listening (milestone 9.5): start a playlist, and read the timeline swaps for the report.
+      pianomeisterCages: () => engine?.handCageInfo() ?? null,
       pianomeisterListening: {
         play: (playlistId: string, start = 0) => listening.requestPlay(playlistId, start),
         swapMs: () => [...(listener?.swapMs ?? [])],
@@ -1098,6 +1108,8 @@ onBeforeUnmount(() => {
         :idle="controlsHidden"
         :reduced-motion="reducedMotion"
         :sidebar-open="ui.sidebarOpen"
+        :bar-at="listeningBarAt"
+        @seek-bar="listener?.seekToBar($event)"
         @leave="leaveListening"
         @next="listener?.next()"
         @previous="listener?.previous()"

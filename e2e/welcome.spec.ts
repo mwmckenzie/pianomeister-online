@@ -1,7 +1,15 @@
 import { type Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
-import { seedBookmark, seedPractice, segment, SONG_IDS, watchErrors } from './support'
+import {
+  earlierToday,
+  middayDaysAgo,
+  seedBookmark,
+  seedPractice,
+  segment,
+  SONG_IDS,
+  watchErrors,
+} from './support'
 
 /**
  * Milestone 7.7: the Welcome screen (m7-7 decisions 1–13). Opened at the site root (no hash) the
@@ -151,7 +159,8 @@ test('@welcome highlights rotate every 8 s and pause while hovered; a suggestion
   page,
 }) => {
   const errors = watchErrors(page)
-  await page.clock.install()
+  // Mid-month: the seeded plays (1 and 2 days ago) are "this month" on any real date.
+  await page.clock.install({ time: new Date('2026-11-18T12:00:00') })
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
   const now = await page.evaluate(() => Date.now())
@@ -212,7 +221,7 @@ test('@welcome This week and the 12-week calendar show the practice, and the str
       sessionId: `s${daysAgo}`,
       songId: SONG_IDS.minuet,
       bookmarkId: `full:${SONG_IDS.minuet}`,
-      startedAt: now - daysAgo * 86_400_000 - 30 * MIN,
+      startedAt: daysAgo === 0 ? earlierToday(now) : middayDaysAgo(daysAgo, now),
       playedMs: 20 * MIN,
       plays: 1,
     })),

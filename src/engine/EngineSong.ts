@@ -1,3 +1,5 @@
+import type { HandCage } from '@/core/cages/HandCage'
+import type { Hand } from '@/core/hands/Hand'
 import type { HandNote } from '@/core/hands/HandNote'
 import type { BarMap } from '@/core/timing/BarMap'
 
@@ -10,4 +12,9 @@ export interface EngineSong {
   /** Pedal-down spans of the assigned channels (merged by the engine). */
   readonly pedalIntervals: readonly { readonly startTick: number; readonly endTick: number }[]
   readonly endTick: number
+  /**
+   * The hand cages (milestone 10); in a playlist timeline each carries its song's deck (the
+   * crossfade band fades the ending song's).
+   */
+  readonly handCages: Readonly<Record<Hand, readonly (HandCage & { readonly deck?: number })[]>>
 }

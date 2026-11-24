@@ -11,4 +11,14 @@ export interface CageRegion {
   readonly highMidi: number | null
   readonly openStart?: boolean
   readonly openEnd?: boolean
+  /**
+   * The whole region this piece belongs to (ticks), when pieces join (milestone 10: played and
+   * carried bars of one hand cage): fills, stripes and corners follow the region, not the piece.
+   */
+  readonly spanStart?: number
+  readonly spanEnd?: number
+  /** A rest bar holding the hand's last position: drawn at the "Carried bars" strength. */
+  readonly carried?: boolean
+  /** The playlist timeline's deck (milestone 9.5): the crossfade band dims the ending song's. */
+  readonly deck?: number
 }

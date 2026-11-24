@@ -29,6 +29,8 @@ ${TIME_GLSL}
 uniform float uY;
 attribute vec4 aRect;  // x0, x1, start tick, end tick
 attribute vec2 aOpen;  // start open, end open
+attribute vec2 aSpan;  // the region's start and end ticks (pieces of one region share it)
+attribute vec2 aKind;  // carried (0/1), deck
 varying float vX;
 varying float vWidth;
 varying float vTick;
@@ -36,6 +38,8 @@ varying float vStart;
 varying float vEnd;
 varying float vStartEdge;
 varying float vEndEdge;
+varying float vCarried;
+varying float vDeck;
 void main() {
   float lo = max(max(aRect.z, uTick), uClipLo);
   float hi = max(lo, min(min(aRect.w, uTick + 1.5 * uLookAheadTicks), uClipHi));
@@ -44,8 +48,10 @@ void main() {
   vX = x - aRect.x;
   vWidth = aRect.y - aRect.x;
   vTick = tick;
-  vStart = aRect.z;
-  vEnd = aRect.w;
+  vStart = aSpan.x;
+  vEnd = aSpan.y;
+  vCarried = aKind.x;
+  vDeck = aKind.y;
   // No border where the cage is cut at the now line or joins the next region.
   vStartEdge = (1.0 - aOpen.x) * step(uTick, aRect.z);
   vEndEdge = 1.0 - aOpen.y;
@@ -68,6 +74,7 @@ uniform vec4 uStripeA;
 uniform vec4 uStripeB;
 uniform vec2 uStripeOpacity;
 uniform vec4 uStripeShape;
+uniform float uCarried;
 varying float vX;
 varying float vWidth;
 varying float vTick;
@@ -75,8 +82,12 @@ varying float vStart;
 varying float vEnd;
 varying float vStartEdge;
 varying float vEndEdge;
+varying float vCarried;
+varying float vDeck;
 void main() {
-  float haze = hazeAlpha(vTick) * (1.0 - loopDim(vTick));
+  // Rest bars at the "Carried bars" strength; the ending song fades through a playlist crossfade.
+  float strength = mix(1.0, uCarried, vCarried) * bandStrength(vDeck, vTick);
+  float haze = hazeAlpha(vTick) * (1.0 - loopDim(vTick)) * strength;
   float along = (vTick - vStart) * uUnitsPerTick;
   float len = (vEnd - vStart) * uUnitsPerTick;
   // Distance inside the cage's outline (world units), rounded at the corners.
@@ -148,6 +159,7 @@ export class CageLayer {
           uStripeB: { value: new Vector4(0, 0, 0, 2) },
           uStripeOpacity: { value: new Vector2(1, 1) },
           uStripeShape: { value: new Vector4(1, 0.5, Math.PI / 4, 0) },
+          uCarried: { value: 0.5 },
         },
         transparent: true,
         depthWrite: false,
@@ -171,6 +183,12 @@ export class CageLayer {
     const old = this.mesh.geometry
     this.mesh.geometry = geometry(regions)
     old.dispose()
+  }
+
+  /** Strength of carried (rest) bars, 0–1: a uniform, so the setting never rebuilds. */
+  setCarried(strength: number): void {
+    const u = this.mesh.material.uniforms.uCarried
+    if (u) u.value = strength
   }
 
   setStyle(style: CageStyle): void {
@@ -217,6 +235,20 @@ function geometry(regions: readonly CageRegion[]): InstancedBufferGeometry {
     'aOpen',
     new InstancedBufferAttribute(
       new Float32Array(quads.flatMap((q) => [q.openStart ? 1 : 0, q.openEnd ? 1 : 0])),
+      2,
+    ),
+  )
+  g.setAttribute(
+    'aSpan',
+    new InstancedBufferAttribute(
+      new Float32Array(quads.flatMap((q) => [q.spanStart, q.spanEnd])),
+      2,
+    ),
+  )
+  g.setAttribute(
+    'aKind',
+    new InstancedBufferAttribute(
+      new Float32Array(quads.flatMap((q) => [q.carried ? 1 : 0, q.deck])),
       2,
     ),
   )

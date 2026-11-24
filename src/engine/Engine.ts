@@ -12,7 +12,9 @@ import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 import { loopRepeatCount, MAX_LOOP_REPEATS, repeatActive } from '@/core/transport/loopRepeat'
 import type { LoopWindow } from '@/core/transport/LoopWindow'
 
+import type { CrossfadeBand } from '@/core/playlists/CrossfadeBand'
 import { CageLayer } from './cages/CageLayer'
+import { handCageRegions } from './model/handCageRegions'
 import { createTimeUniforms } from './createTimeUniforms'
 import { NowLineEffects } from './effects/NowLineEffects'
 import type { EngineSong } from './EngineSong'
@@ -68,6 +70,8 @@ const SETTLED_SECONDS = 1e3
 const ORDER = {
   noteMasks: 0.5,
   cages: 1,
+  /** Hand cages (milestone 10): over the pedal cage, under the lines and notes. */
+  handCages: 1.1,
   whiteSustains: 3,
   whiteHeads: 3.1,
   outline: 3.5,
@@ -90,6 +94,8 @@ interface SongParts {
   readonly ppq: number
   readonly highway: Highway
   readonly pedals: CageLayer
+  /** Each hand's cages (milestone 10); visibility is set per frame from the settings. */
+  readonly handCages: { readonly right: CageLayer; readonly left: CageLayer }
   readonly sustains: { readonly white: SustainLayer; readonly black: SustainLayer }
   readonly heads: { readonly white: HeadLayer; readonly black: HeadLayer }
   /** Raised black-lane sustains (milestone 9.2), shown instead of the flat ones when on. */
@@ -300,6 +306,17 @@ export class Engine {
         this.noteStyle,
         { y: 0.003, renderOrder: ORDER.cages },
       ),
+      // Just above the pedal cage, so the two never z-fight.
+      handCages: {
+        right: new CageLayer(handCageRegions(song.handCages.right), this.time, this.noteStyle, {
+          y: 0.0036,
+          renderOrder: ORDER.handCages,
+        }),
+        left: new CageLayer(handCageRegions(song.handCages.left), this.time, this.noteStyle, {
+          y: 0.0036,
+          renderOrder: ORDER.handCages,
+        }),
+      },
       sustains,
       heads,
       ridges,
@@ -332,6 +349,8 @@ export class Engine {
     this.scene.add(
       s.highway.group,
       s.pedals.mesh,
+      s.handCages.right.mesh,
+      s.handCages.left.mesh,
       s.sustains.white.mesh,
       s.heads.white.mesh,
       s.outline.mesh,
@@ -380,10 +399,72 @@ export class Engine {
    */
   setPlaylistSeam(
     seam: { readonly tick: number; readonly label: string } | null,
-    band: { readonly startTick: number; readonly endTick: number; readonly deck: number } | null,
+    band: CrossfadeBand | null,
   ): void {
     this.seam.set(seam, band)
     this.invalidate()
+  }
+
+  /**
+   * The hand cages as drawn (tests, `?stats=1`): instances and visibility per hand, and their
+   * draw order against the pedal cage and the first note layer.
+   */
+  handCageInfo(): {
+    readonly right: { readonly count: number; readonly visible: boolean }
+    readonly left: { readonly count: number; readonly visible: boolean }
+    readonly order: { readonly pedal: number; readonly cages: number; readonly notes: number }
+  } | null {
+    const song = this.song
+    if (song === null) return null
+    const info = (layer: CageLayer) => ({
+      count: layer.mesh.geometry.instanceCount,
+      visible: layer.mesh.visible,
+    })
+    return {
+      right: info(song.handCages.right),
+      left: info(song.handCages.left),
+      order: {
+        pedal: song.pedals.mesh.renderOrder,
+        cages: song.handCages.right.mesh.renderOrder,
+        notes: Math.min(song.sustains.white.mesh.renderOrder, song.heads.white.mesh.renderOrder),
+      },
+    }
+  }
+
+  /**
+   * The hand cages' visibility and style (milestone 10), read at render time from the settings:
+   * the toggles never rebuild anything.
+   */
+  private applyHandCages(song: SongParts, settings: PlayerSettings): void {
+    const cages = settings.handCages
+    const { appearance } = settings
+    for (const hand of ['right', 'left'] as const) {
+      const layer = song.handCages[hand]
+      const color = lineColor(cages[`${hand}Color`], cages[`${hand}Custom`], appearance)
+      layer.mesh.visible = cages.show && cages[hand] && layer.mesh.geometry.instanceCount > 0
+      layer.setCarried(cages.carried)
+      layer.setStyle({
+        fill: cages[`${hand}Fill`],
+        fillColor: color,
+        fillOpacity: cages.fillOpacity,
+        border: cages.border,
+        borderColor:
+          cages[`${hand}BorderColor`] === 'custom' ? cages[`${hand}BorderCustom`] : color,
+        borderWidth: cages.borderWidth,
+        borderGlow: cages.borderGlow,
+        cornerRadius: cages.cornerRadius,
+        stripes: {
+          a: { mode: 'custom', color: cages[`${hand}StripeA`] },
+          b: { mode: 'custom', color: cages[`${hand}StripeB`] },
+          aOpacity: cages[`${hand}StripeAOpacity`],
+          bOpacity: cages[`${hand}StripeBOpacity`],
+          width: cages[`${hand}StripeWidth`],
+          balance: cages[`${hand}StripeBalance`],
+          angleDeg: cages[`${hand}StripeAngle`],
+          drift: cages[`${hand}StripeDrift`],
+        },
+      })
+    }
   }
 
   /** Every layer that shows song content again in each repeat, with where its copies go. */
@@ -399,6 +480,8 @@ export class Engine {
       song.heads.black.mesh,
       song.outline.mesh,
       song.pedals.mesh,
+      song.handCages.right.mesh,
+      song.handCages.left.mesh,
       ...song.masks.map((m) => m.mesh),
       ...song.highway.repeatMeshes,
     ]
@@ -411,6 +494,8 @@ export class Engine {
       song.names.white.twin.mesh,
       song.names.black.twin.mesh,
       song.pedals.twin.mesh,
+      song.handCages.right.twin.mesh,
+      song.handCages.left.twin.mesh,
       ...song.highway.repeatTwins,
     ]
     return [
@@ -537,6 +622,7 @@ export class Engine {
           drift: pedal.stripeDrift,
         },
       })
+      this.applyHandCages(song, settings)
       const emit = notesEmit(settings)
       for (const layer of [song.sustains.white, song.sustains.black]) layer.twin.enabled = emit
       // Black-lane notes sit on the highway like the white ones (milestone 9.2: a lift made them
@@ -583,7 +669,10 @@ export class Engine {
         layer.setLift(y)
         layer.applySettings(settings.names, headTop)
       }
-      const cageShown = pedal.show && (pedal.fillOpacity > 0 || pedal.border)
+      const cageShown =
+        (pedal.show && (pedal.fillOpacity > 0 || pedal.border)) ||
+        song.handCages.right.mesh.visible ||
+        song.handCages.left.mesh.visible
       for (const mask of song.masks) mask.sync(cageShown)
     }
     if (this.pipeline !== null) {
@@ -986,6 +1075,8 @@ export class Engine {
       twins.push(
         ...song.highway.twins,
         song.pedals.twin,
+        song.handCages.right.twin,
+        song.handCages.left.twin,
         song.sustains.white.twin,
         song.sustains.black.twin,
         song.heads.white.twin,
@@ -1014,6 +1105,8 @@ export class Engine {
       song.ridges,
       song.outline,
       song.pedals,
+      song.handCages.right,
+      song.handCages.left,
       song.names.white,
       song.names.black,
     ]

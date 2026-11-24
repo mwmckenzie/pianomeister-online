@@ -22,5 +22,6 @@ export function createTimeUniforms(): TimeUniforms {
     uBandStart: { value: 0 },
     uBandEnd: { value: 0 },
     uBandDeck: { value: -1 },
+    uBandCurve: { value: 0 },
   }
 }

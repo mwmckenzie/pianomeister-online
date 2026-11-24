@@ -1,3 +1,4 @@
+import type { HandCages } from '@/core/cages/HandCages'
 import type { HandNote } from '@/core/hands/HandNote'
 import type { PedalInterval } from '@/core/song/PedalInterval'
 import type { Song } from '@/core/song/Song'
@@ -12,4 +13,6 @@ export interface LoadedSong {
   readonly notes: readonly HandNote[]
   /** Pedal spans of the assigned channels only. */
   readonly pedalIntervals: readonly PedalInterval[]
+  /** The hand cages (milestone 10), from the same hand of each note as everything else. */
+  readonly handCages: HandCages
 }

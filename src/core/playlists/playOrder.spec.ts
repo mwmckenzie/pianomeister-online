@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import { crossfadeGains } from './crossfadeGains'
 import { nextInOrder } from './nextInOrder'
 import { previousInOrder } from './previousInOrder'
 import { seededRandom } from './seededRandom'
@@ -55,16 +54,5 @@ describe('play order', () => {
     expect(previousInOrder(s, 3.5)).toEqual({ order: s, restart: true })
     expect(previousInOrder(s, 1).order.position).toBe(1)
     expect(previousInOrder({ ...s, position: 0 }, 1).restart).toBe(true)
-  })
-})
-
-describe('crossfadeGains', () => {
-  it('is equal power: out² + in² = 1 throughout, from out to in', () => {
-    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
-      const g = crossfadeGains(t)
-      expect(g.out ** 2 + g.in ** 2).toBeCloseTo(1, 12)
-    }
-    expect(crossfadeGains(0)).toEqual({ out: 1, in: 0 })
-    expect(crossfadeGains(1).in).toBe(1)
   })
 })

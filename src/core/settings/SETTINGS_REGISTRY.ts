@@ -143,6 +143,31 @@ const sustainStripes = noteStripes('Sustain stripes', (s) => s.noteStyle.sustain
 const pedalStriped = (s: PlayerSettings) => s.pedal.show && s.pedal.fill === 'stripes'
 const pedalStripes = stripeShape('Stripes', sidebar('cages'), 1, pedalStriped)
 
+const handCagesOn = (s: PlayerSettings) => s.handCages.show
+const handCageOn = (hand: 'right' | 'left') => (s: PlayerSettings) =>
+  s.handCages.show && s.handCages[hand]
+const handCageBorder = (hand: 'right' | 'left') => (s: PlayerSettings) =>
+  handCageOn(hand)(s) && s.handCages.border
+const handCageStriped = (hand: 'right' | 'left') => (s: PlayerSettings) =>
+  handCageOn(hand)(s) && s.handCages[`${hand}Fill`] === 'stripes'
+const rightCageStripes = stripeShape(
+  'Right-hand stripes',
+  sidebar('cages'),
+  1,
+  handCageStriped('right'),
+)
+const leftCageStripes = stripeShape(
+  'Left-hand stripes',
+  sidebar('cages'),
+  1,
+  handCageStriped('left'),
+)
+const HAND_CAGES = 'Hand cages'
+const HAND_BORDER_COLORS = [
+  { value: 'hand', label: 'Hand colour' },
+  { value: 'custom', label: 'Custom' },
+] as const
+
 const namesShown = (s: PlayerSettings) => s.names.mode !== 'off'
 const namesOnNotes = (s: PlayerSettings) => s.names.mode === 'notes' || s.names.mode === 'both'
 const namesOnKeys = (s: PlayerSettings) => s.names.mode === 'keys' || s.names.mode === 'both'
@@ -831,6 +856,145 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
     'pedal.stripeAngle': pedalStripes.angle,
     'pedal.stripeDrift': pedalStripes.drift,
 
+    // Hand cages (milestone 10): each hand's keys per bar; Classic keeps them off.
+    'handCages.show': { ...bool('Hand cages', true, cages), group: HAND_CAGES },
+    'handCages.right': {
+      ...bool('Right hand', true, cages),
+      group: HAND_CAGES,
+      visible: handCagesOn,
+    },
+    'handCages.left': {
+      ...bool('Left hand', true, cages),
+      group: HAND_CAGES,
+      visible: handCagesOn,
+    },
+    'handCages.rightColor': {
+      ...lineColor('primary'),
+      home: cages,
+      label: 'Right colour',
+      group: HAND_CAGES,
+      visible: handCageOn('right'),
+    },
+    'handCages.rightCustom': {
+      ...color('Right custom colour', '#8AB4FF', cages),
+      group: HAND_CAGES,
+      visible: (s) => handCageOn('right')(s) && s.handCages.rightColor === 'custom',
+    },
+    'handCages.rightFill': {
+      ...fill('Right fill', cages),
+      group: HAND_CAGES,
+      visible: handCageOn('right'),
+    },
+    'handCages.leftColor': {
+      ...lineColor('secondary'),
+      home: cages,
+      label: 'Left colour',
+      group: HAND_CAGES,
+      visible: handCageOn('left'),
+    },
+    'handCages.leftCustom': {
+      ...color('Left custom colour', '#7EE0C3', cages),
+      group: HAND_CAGES,
+      visible: (s) => handCageOn('left')(s) && s.handCages.leftColor === 'custom',
+    },
+    'handCages.leftFill': {
+      ...fill('Left fill', cages),
+      group: HAND_CAGES,
+      visible: handCageOn('left'),
+    },
+    'handCages.fillOpacity': {
+      ...num('Fill opacity', 0.12, cages, [0, 0.5, 0.01]),
+      ...percent,
+      group: HAND_CAGES,
+      visible: handCagesOn,
+    },
+    'handCages.border': { ...bool('Border', true, cages), group: HAND_CAGES, visible: handCagesOn },
+    'handCages.rightBorderColor': {
+      kind: 'choice',
+      label: 'Right border colour',
+      default: 'hand' as 'hand' | 'custom',
+      home: cages,
+      control: 'select',
+      options: HAND_BORDER_COLORS,
+      group: HAND_CAGES,
+      visible: handCageBorder('right'),
+    },
+    'handCages.rightBorderCustom': {
+      ...color('Right custom border colour', '#FFFFFF', cages),
+      group: HAND_CAGES,
+      visible: (s) => handCageBorder('right')(s) && s.handCages.rightBorderColor === 'custom',
+    },
+    'handCages.leftBorderColor': {
+      kind: 'choice',
+      label: 'Left border colour',
+      default: 'hand' as 'hand' | 'custom',
+      home: cages,
+      control: 'select',
+      options: HAND_BORDER_COLORS,
+      group: HAND_CAGES,
+      visible: handCageBorder('left'),
+    },
+    'handCages.leftBorderCustom': {
+      ...color('Left custom border colour', '#FFFFFF', cages),
+      group: HAND_CAGES,
+      visible: (s) => handCageBorder('left')(s) && s.handCages.leftBorderColor === 'custom',
+    },
+    'handCages.borderWidth': {
+      ...num('Border width', 0.04, cages, [0.02, 0.4, 0.01], 'mm'),
+      ...log,
+      group: HAND_CAGES,
+      visible: (s) => handCagesOn(s) && s.handCages.border,
+    },
+    'handCages.borderGlow': {
+      ...glow(0.15, 'Border glow', 3, cages),
+      group: HAND_CAGES,
+      visible: (s) => handCagesOn(s) && s.handCages.border,
+    },
+    'handCages.cornerRadius': {
+      ...num('Corner rounding', 0, cages, [0, 2, 0.05], 'mm'),
+      ...log,
+      group: HAND_CAGES,
+      visible: handCagesOn,
+    },
+    'handCages.carried': {
+      ...num('Carried bars', 0.5, cages, [0, 1, 0.05]),
+      ...percent,
+      group: HAND_CAGES,
+      visible: handCagesOn,
+    },
+    'handCages.rightStripeA': {
+      ...color('Stripe A colour', '#FAC400', cages),
+      group: 'Right-hand stripes',
+      visible: handCageStriped('right'),
+    },
+    'handCages.rightStripeB': {
+      ...color('Stripe B colour', '#141414', cages),
+      group: 'Right-hand stripes',
+      visible: handCageStriped('right'),
+    },
+    'handCages.rightStripeAOpacity': rightCageStripes.aOpacity,
+    'handCages.rightStripeBOpacity': rightCageStripes.bOpacity,
+    'handCages.rightStripeWidth': { ...rightCageStripes.width, min: 0.4 },
+    'handCages.rightStripeBalance': rightCageStripes.balance,
+    'handCages.rightStripeAngle': rightCageStripes.angle,
+    'handCages.rightStripeDrift': rightCageStripes.drift,
+    'handCages.leftStripeA': {
+      ...color('Stripe A colour', '#FAC400', cages),
+      group: 'Left-hand stripes',
+      visible: handCageStriped('left'),
+    },
+    'handCages.leftStripeB': {
+      ...color('Stripe B colour', '#141414', cages),
+      group: 'Left-hand stripes',
+      visible: handCageStriped('left'),
+    },
+    'handCages.leftStripeAOpacity': leftCageStripes.aOpacity,
+    'handCages.leftStripeBOpacity': leftCageStripes.bOpacity,
+    'handCages.leftStripeWidth': { ...leftCageStripes.width, min: 0.4 },
+    'handCages.leftStripeBalance': leftCageStripes.balance,
+    'handCages.leftStripeAngle': leftCageStripes.angle,
+    'handCages.leftStripeDrift': leftCageStripes.drift,
+
     // Effects (decisions 47, 113, 117, 118)
     'effects.enabled': bool('Now-line effects', true, effects),
     'effects.velocityScaling': {
@@ -1068,6 +1232,20 @@ export const SETTINGS_REGISTRY: { readonly [K in SettingKey]: SettingDefinition<
       'seconds',
       1,
     ),
+    'audio.crossfadeCurve': {
+      kind: 'choice',
+      label: 'Crossfade curve',
+      default: 'sequential',
+      home: tab('audio', 'playback'),
+      control: 'select',
+      options: [
+        { value: 'sequential', label: 'Sequential' },
+        { value: 'sCurve', label: 'S-curve' },
+        { value: 'equalPower', label: 'Equal power' },
+      ],
+      enabled: (s) => s.audio.crossfade > 0,
+      disabledHint: 'Needs a crossfade',
+    },
     'audio.rightVolume': {
       ...num('Right hand', 1, tab('audio', 'volume'), [0, 1, 0.01]),
       ...percent,

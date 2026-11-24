@@ -2,6 +2,7 @@ import { type Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
 import {
+  earlierToday,
   saveAsBookmark,
   seedBookmark,
   seedPractice,
@@ -28,8 +29,8 @@ test('@settings a second profile has its own bookmarks and stats; switch from th
   const errors = watchErrors(page)
   await page.goto('./#/')
   await expect(page.getByTestId('hud-bars')).toHaveText('64')
-  // Me practised the Minuet an hour ago.
-  const hourAgo = Date.now() - 3_600_000
+  // Me practised the Minuet earlier today (just after midnight, an hour ago would be yesterday).
+  const hourAgo = earlierToday()
   await seedPractice(page, {
     sessions: [{ id: 's1', profileId: 'default', startedAt: hourAgo, endedAt: hourAgo + 600_000 }],
     playRecords: [

@@ -1,3 +1,5 @@
+import type { HandCage } from '../cages/HandCage'
+import type { Hand } from '../hands/Hand'
 import type { HandNote } from '../hands/HandNote'
 import type { PedalInterval } from '../song/PedalInterval'
 import type { TempoEvent } from '../song/TempoEvent'
@@ -15,7 +17,8 @@ import type { PlaylistTimelineSegment } from './TimelineSegment'
  * (songStartTimes) on its deck. The joined tempo map takes each song's tempi from its start, so
  * every song's notes keep their exact times; during an overlap the ending song's notes are placed
  * by the next song's tempo, which only changes where they sit on the (beat-based) highway, never
- * when they sound. Bars restart at each song (BarMap.joined).
+ * when they sound. Bars restart at each song (BarMap.joined). From the middle of an overlap the
+ * ending song starts nothing new (notes, pedal, cages); what already sounds rings out.
  */
 export function buildTimeline(
   parts: readonly {
@@ -55,10 +58,17 @@ export function buildTimeline(
 
   const notes: (HandNote & { deck: number })[] = []
   const pedalIntervals: PedalInterval[] = []
+  const handCages: Record<Hand, (HandCage & { deck: number })[]> = { right: [], left: [] }
   const segments: PlaylistTimelineSegment[] = []
   const meterParts: { startTick: number; events: TimeSignatureEvent[] }[] = []
-  for (const { source, startSec, deck } of parts) {
+  parts.forEach(({ source, startSec, deck }, i) => {
+    const endSec = startSec + songEndSec(source.notes, source.tempoMap)
+    const nextSec = parts[i + 1]?.startSec ?? Infinity
+    const lastSec = nextSec < endSec ? (nextSec + endSec) / 2 : Infinity
+    const starts = (songTick: number) =>
+      startSec + source.tempoMap.tickToSeconds(songTick) <= lastSec
     for (const n of source.notes) {
+      if (!starts(n.startTick)) continue
       notes.push({
         ...n,
         startTick: toTick(source, startSec, n.startTick),
@@ -68,13 +78,24 @@ export function buildTimeline(
       })
     }
     for (const p of source.song.pedalIntervals) {
+      if (!starts(p.startTick)) continue
       pedalIntervals.push({
         ...p,
         startTick: toTick(source, startSec, p.startTick),
         endTick: toTick(source, startSec, p.endTick),
       })
     }
-    const endSec = startSec + songEndSec(source.notes, source.tempoMap)
+    for (const hand of ['right', 'left'] as const) {
+      for (const c of source.handCages?.[hand] ?? []) {
+        if (!starts(c.startTick)) continue
+        handCages[hand].push({
+          ...c,
+          startTick: toTick(source, startSec, c.startTick),
+          endTick: toTick(source, startSec, c.endTick),
+          deck,
+        })
+      }
+    }
     const startTick = tempoMap.secondsToTick(startSec)
     segments.push({ deck, startSec, endSec, startTick, endTick: tempoMap.secondsToTick(endSec) })
     meterParts.push({
@@ -84,13 +105,14 @@ export function buildTimeline(
         tick: toTick(source, startSec, e.tick),
       })),
     })
-  }
+  })
   notes.sort((a, b) => a.startTick - b.startTick)
   const endTick = Math.max(0, ...segments.map((s) => s.endTick))
   return {
     ppq,
     notes,
     pedalIntervals,
+    handCages,
     segments,
     song: { notes, tempoMap, barMap: BarMap.joined(ppq, endTick, meterParts), endTick },
   }

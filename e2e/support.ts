@@ -187,3 +187,24 @@ export function seedBookmark(
  * otherwise starts with render quality Off, see playwright.config.ts).
  */
 export const EMPTY_STORAGE = { cookies: [], origins: [] }
+
+/**
+ * Local midday `days` calendar days before `now`: a seed that a day label reads ("3 days",
+ * "Yesterday") stays on its day whatever the hour the test runs.
+ */
+export function middayDaysAgo(days: number, now = Date.now()): number {
+  const d = new Date(now)
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() - days)
+  return d.getTime()
+}
+
+/**
+ * A moment earlier today: halfway between local midnight and `now`, so "today" seeds stay today
+ * even just after midnight (an hour ago can be yesterday).
+ */
+export function earlierToday(now = Date.now()): number {
+  const midnight = new Date(now)
+  midnight.setHours(0, 0, 0, 0)
+  return midnight.getTime() + Math.floor((now - midnight.getTime()) / 2)
+}

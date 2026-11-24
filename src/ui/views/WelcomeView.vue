@@ -41,15 +41,18 @@ const date = computed(() =>
 )
 const songTitle = (songId: string) =>
   library.entries.find((e) => e.songId === songId)?.title ?? 'A removed song'
+// None until the library has loaded: before that every song would read "A removed song".
 const highlights = computed(() =>
-  pickHighlights({
-    records: stats.records,
-    bookmarks: bookmarks.bookmarks,
-    songTitle,
-    now: stats.now,
-    weekStart,
-    gapMs: stats.gapMs,
-  }),
+  !library.loaded
+    ? []
+    : pickHighlights({
+        records: stats.records,
+        bookmarks: bookmarks.bookmarks,
+        songTitle,
+        now: stats.now,
+        weekStart,
+        gapMs: stats.gapMs,
+      }),
 )
 const suggestions = computed(() =>
   pickSuggestions({

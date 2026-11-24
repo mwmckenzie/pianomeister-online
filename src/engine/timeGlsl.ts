@@ -24,6 +24,7 @@ uniform float uLoopDim;
 uniform float uBandStart;
 uniform float uBandEnd;
 uniform float uBandDeck;
+uniform float uBandCurve;
 
 float tickToZ(float tick) {
   return uNowZ - (tick - uTick) * uUnitsPerTick;
@@ -54,15 +55,23 @@ float loopDim(float tick) {
   return (t >= uLoopStart && t < uLoopEnd) ? 0.0 : uLoopDim;
 }
 
+/** The ending song's gain at a tick of the crossfade band: core crossfadeGains, out. */
+float bandGain(float tick) {
+  float t = clamp((tick - uBandStart) / max(uBandEnd - uBandStart, 1.0), 0.0, 1.0);
+  if (uBandCurve < 0.5) t = min(1.0, t / 0.6);
+  float c = cos(t * 1.5707963);
+  return uBandCurve > 1.5 ? c : c * c;
+}
+
 /**
- * A note's strength in the playlist crossfade band (milestone 9.5, board QGCrossfade): the ending
- * song's notes that start in the band fade from 0.85 near the seam to 0.25 at its end, as its
- * audio does; every other note keeps full strength.
+ * The ending song's strength in the playlist crossfade band (milestone 9.5): its notes follow
+ * its gain where they start, and, once they sound, its gain now; never quite gone. Everything
+ * else keeps full strength.
  */
 float bandStrength(float deck, float startTick) {
-  if (uBandDeck < 0.0 || abs(deck - uBandDeck) > 0.5 || startTick < uBandStart) return 1.0;
-  float t = clamp((startTick - uBandStart) / max(uBandEnd - uBandStart, 1.0), 0.0, 1.0);
-  return mix(0.85, 0.25, t);
+  if (uBandDeck < 0.0 || abs(deck - uBandDeck) > 0.5) return 1.0;
+  float tick = max(startTick, uTick);
+  return tick < uBandStart ? 1.0 : mix(0.1, 1.0, bandGain(tick));
 }
 
 /** The looping animation clock: still while paused and under reduced motion. */

@@ -26,6 +26,20 @@ export const COMMANDS = [
     scope: 'listening',
   },
   {
+    id: 'seekBack',
+    label: 'Seek back 5 s',
+    description: 'Back 5 seconds in the current song',
+    keys: [codeKey('ArrowLeft', { shift: true })],
+    scope: 'listening',
+  },
+  {
+    id: 'seekForward',
+    label: 'Seek forward 5 s',
+    description: 'Forward 5 seconds in the current song',
+    keys: [codeKey('ArrowRight', { shift: true })],
+    scope: 'listening',
+  },
+  {
     id: 'toggleMute',
     label: 'Mute',
     description: 'Mute or unmute while listening',
