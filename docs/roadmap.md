@@ -94,7 +94,7 @@ Where the split methods of milestone 10.5 stand, measured with `npm run bench:ha
 - **Longest wrong runs** look like real hand crossings. Look at the music before tuning for them:
   - liz_et_trans5 bar 68: one way, all methods fail;
   - Schubert D959 and D960, and Don Juan: both ways.
-- **Benchmark folder:** `C:\Users\Matt\Music\midi` (local only).
+- **Benchmark folder:** a local folder (`%USERPROFILE%\Music\midi`).
 
 ## Backlog — idea details
 
