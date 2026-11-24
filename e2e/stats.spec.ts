@@ -3,12 +3,19 @@ import { readFileSync } from 'node:fs'
 import { type Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
-import { choose, seedBookmark, seedPractice, SONG_IDS, watchErrors } from './support'
+import {
+  choose,
+  earlierToday,
+  middayDaysAgo,
+  seedBookmark,
+  seedPractice,
+  SONG_IDS,
+  watchErrors,
+} from './support'
 
 /** Milestone 7.7: the stats page (m7-7 decisions 14–23). */
 
 const MIN = 60_000
-const DAY = 86_400_000
 
 const headline = (page: Page, label: string) =>
   page.locator(`[data-testid="headline"][data-label="${label}"]`)
@@ -22,7 +29,8 @@ async function seedHistory(page: Page): Promise<void> {
     sessionId: id,
     songId,
     bookmarkId: id === 'today' ? 'b' : `full:${songId}`,
-    startedAt: now - daysAgo * DAY - minutes * MIN - 60_000,
+    // Anchored to the calendar day: "today" stays today, whatever the hour the test runs.
+    startedAt: daysAgo === 0 ? earlierToday(now) : middayDaysAgo(daysAgo, now),
     playedMs: minutes * MIN,
     plays,
     tempoPercent: 85,

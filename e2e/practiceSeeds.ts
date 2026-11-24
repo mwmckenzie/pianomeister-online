@@ -1,7 +1,6 @@
-import { SONG_IDS, type PracticeSeed } from './support'
+import { earlierToday, middayDaysAgo, SONG_IDS, type PracticeSeed } from './support'
 
 const MIN = 60_000
-const DAY = 86_400_000
 
 /**
  * A small practice history for sorting tests, relative to `now`: Canon played most (5 plays,
@@ -41,19 +40,22 @@ export function sortingHistory(now: number): PracticeSeed {
     createdAt: 1,
     updatedAt: 1,
   })
+  // Day labels ("3 days", "Today") read these: anchored so the hour the test runs never moves them.
+  const threeDaysAgo = middayDaysAgo(3, now)
+  const today = earlierToday(now)
   return {
     playRecords: [
-      record('c1', SONG_IDS.canon, now - 3 * DAY, 30, 5),
-      record('i1', SONG_IDS.invention, now - 10 * MIN, 5, 1),
+      record('c1', SONG_IDS.canon, threeDaysAgo, 30, 5),
+      record('i1', SONG_IDS.invention, today, 5, 1),
     ],
     sessions: [
       {
         id: 'c1',
         profileId: 'default',
-        startedAt: now - 3 * DAY,
-        endedAt: now - 3 * DAY + 30 * MIN,
+        startedAt: threeDaysAgo,
+        endedAt: threeDaysAgo + 30 * MIN,
       },
-      { id: 'i1', profileId: 'default', startedAt: now - 10 * MIN, endedAt: now - 5 * MIN },
+      { id: 'i1', profileId: 'default', startedAt: today, endedAt: today + 5 * MIN },
     ],
     bookmarks: [bookmark('b1', 'Opening'), bookmark('b2', 'Ending')],
   }
