@@ -151,3 +151,29 @@ Round 1 approved; decisions 1–9 stand. Blueprint's faint cages stay as they ar
 - [ ] Seek to just before a seam at crossfade 0, 2 and 8 s.
 - [ ] Seek during a crossfade: one song, full volume.
 - [ ] Pause a few seconds before a seam, wait, play on.
+
+## Round 4 — 2026-11-24: pixel test (`32e34a9`), crossfade curves (`c8eee30`)
+
+**Pixel test** (`e2e/cagesPixels.spec.ts`, `@cages`)
+
+- Pedal cage and both hand cages at 0.5, Solid: every note over a cage (heads and sustains) keeps its colour within 4/255, and the cages must change the pixels beside it. Sustains are 60 % transparent, because opaque ones hide a tint by themselves.
+- 3/3 with `--repeat-each=3`. It fails with the note mask broken (95 off) and with mask and draw order broken (136 off).
+
+**Crossfade curves**
+
+- Setting "Crossfade curve": Sequential (default), S-curve, Equal power. Disabled at crossfade 0.
+- From the middle of the overlap the ending song starts nothing new, with every curve.
+- The band and the dimming follow the outgoing gain.
+
+**Decisions**
+
+1. Notes after the middle are left out of the timeline, so they are gone from the highway and keys too, not shown silent. Pedal spans and cages starting there go as well.
+2. Notes follow the gain where they start and, once sounding, the gain now, so held notes fade with their audio. They never go below 10 % strength, so they stay readable.
+3. A change of curve applies at once, also during a crossfade.
+
+**Checks**
+
+- Type-check and lint pass; **838 unit tests** (119 files). New: gains of the three curves at 0, 25, 50, 75 and 100 %, and the midpoint rule.
+- `npm run check` itself exits 1 on this machine: Vitest also collects `.claude/worktrees/m10-pixel-test` (another session's checkout). Every failure is in there. Excluding it, all pass.
+- `npm run test:e2e:affected` (chromium, 11 tags): 174 passed, 0 failed, on a preview on port 4174: the one already running on 4173 served a different build.
+- Seen on screen: the three curves before and during the overlap (8 s), with hand cages fading with their song. The round 1 crossfade was checked by ear by the author; the new curves are not yet.
