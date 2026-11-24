@@ -1,3 +1,5 @@
+import type { HandCage } from '../cages/HandCage'
+import type { Hand } from '../hands/Hand'
 import type { HandNote } from '../hands/HandNote'
 import type { PedalInterval } from '../song/PedalInterval'
 import type { TempoEvent } from '../song/TempoEvent'
@@ -55,6 +57,7 @@ export function buildTimeline(
 
   const notes: (HandNote & { deck: number })[] = []
   const pedalIntervals: PedalInterval[] = []
+  const handCages: Record<Hand, (HandCage & { deck: number })[]> = { right: [], left: [] }
   const segments: PlaylistTimelineSegment[] = []
   const meterParts: { startTick: number; events: TimeSignatureEvent[] }[] = []
   for (const { source, startSec, deck } of parts) {
@@ -74,6 +77,16 @@ export function buildTimeline(
         endTick: toTick(source, startSec, p.endTick),
       })
     }
+    for (const hand of ['right', 'left'] as const) {
+      for (const c of source.handCages?.[hand] ?? []) {
+        handCages[hand].push({
+          ...c,
+          startTick: toTick(source, startSec, c.startTick),
+          endTick: toTick(source, startSec, c.endTick),
+          deck,
+        })
+      }
+    }
     const endSec = startSec + songEndSec(source.notes, source.tempoMap)
     const startTick = tempoMap.secondsToTick(startSec)
     segments.push({ deck, startSec, endSec, startTick, endTick: tempoMap.secondsToTick(endSec) })
@@ -91,6 +104,7 @@ export function buildTimeline(
     ppq,
     notes,
     pedalIntervals,
+    handCages,
     segments,
     song: { notes, tempoMap, barMap: BarMap.joined(ppq, endTick, meterParts), endTick },
   }

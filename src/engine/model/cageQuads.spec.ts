@@ -9,7 +9,19 @@ const full = { startTick: 0, endTick: 480, lowMidi: null, highMidi: null }
 describe('cageQuads', () => {
   it('spans the whole highway when no keys are given', () => {
     expect(cageQuads([full])).toEqual([
-      { x0: 0, x1: 52, startTick: 0, endTick: 480, openStart: false, openEnd: false },
+      {
+        x0: 0,
+        x1: 52,
+        startTick: 0,
+        endTick: 480,
+        openStart: false,
+        openEnd: false,
+        // A plain region is its own span, played, and in no playlist deck.
+        spanStart: 0,
+        spanEnd: 480,
+        carried: false,
+        deck: -1,
+      },
     ])
   })
 

@@ -10,6 +10,10 @@ export interface CageQuad {
   readonly endTick: number
   readonly openStart: boolean
   readonly openEnd: boolean
+  readonly spanStart: number
+  readonly spanEnd: number
+  readonly carried: boolean
+  readonly deck: number
 }
 
 /**
@@ -42,6 +46,11 @@ export function cageQuads(regions: readonly CageRegion[]): readonly CageQuad[] {
       endTick: r.endTick,
       openStart: r.openStart ?? false,
       openEnd: r.openEnd ?? false,
+      spanStart: r.spanStart ?? r.startTick,
+      spanEnd: r.spanEnd ?? r.endTick,
+      carried: r.carried ?? false,
+      // No deck (the pedal cage): never faded by a playlist crossfade.
+      deck: r.deck ?? -1,
     })
   }
   return out

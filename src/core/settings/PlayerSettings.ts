@@ -238,6 +238,50 @@ export interface PlayerSettings {
     readonly stripeAngle: number
     readonly stripeDrift: boolean
   }
+  /**
+   * Hand cages (milestone 10): each hand's keys per bar, on the highway. Visibility is read at
+   * render time, so the toggles never rebuild anything.
+   */
+  readonly handCages: {
+    readonly show: boolean
+    readonly right: boolean
+    readonly left: boolean
+    /** Each hand's colour (fill, and the border's "Hand colour"). */
+    readonly rightColor: LineColor
+    readonly rightCustom: string
+    readonly leftColor: LineColor
+    readonly leftCustom: string
+    readonly rightFill: NoteFill
+    readonly leftFill: NoteFill
+    readonly fillOpacity: number
+    readonly border: boolean
+    readonly rightBorderColor: 'hand' | 'custom'
+    readonly rightBorderCustom: string
+    readonly leftBorderColor: 'hand' | 'custom'
+    readonly leftBorderCustom: string
+    readonly borderWidth: number
+    readonly borderGlow: number
+    readonly cornerRadius: number
+    /** Strength of carried bars (rests holding the last position), of the fill and border. */
+    readonly carried: number
+    /** Each hand's own stripes (Diagonal stripes fill), as the pedal cage's group. */
+    readonly rightStripeA: string
+    readonly rightStripeB: string
+    readonly rightStripeAOpacity: number
+    readonly rightStripeBOpacity: number
+    readonly rightStripeWidth: number
+    readonly rightStripeBalance: number
+    readonly rightStripeAngle: number
+    readonly rightStripeDrift: boolean
+    readonly leftStripeA: string
+    readonly leftStripeB: string
+    readonly leftStripeAOpacity: number
+    readonly leftStripeBOpacity: number
+    readonly leftStripeWidth: number
+    readonly leftStripeBalance: number
+    readonly leftStripeAngle: number
+    readonly leftStripeDrift: boolean
+  }
   readonly effects: {
     readonly enabled: boolean
     /** Spark and glow size follow note velocity (else uniform size). */

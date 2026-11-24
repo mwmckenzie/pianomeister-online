@@ -366,6 +366,7 @@ function showSong(
     barMap: prepared.barMap,
     pedalIntervals: prepared.pedalIntervals,
     endTick: opened.song.durationTicks,
+    handCages: prepared.handCages,
   })
   syncEngineLoop()
   return sameEntry
@@ -392,6 +393,7 @@ function listenerFor(playback: PlaybackSession): ListeningController {
           barMap: timeline.song.barMap,
           pedalIntervals: timeline.pedalIntervals,
           endTick: timeline.song.endTick,
+          handCages: timeline.handCages,
         },
         shiftTicks === null ? null : { shiftTicks },
       )
@@ -1000,6 +1002,7 @@ onMounted(() => {
     const labels = () => engine?.labelSnapshot()
     Object.assign(window, {
       // Listening (milestone 9.5): start a playlist, and read the timeline swaps for the report.
+      pianomeisterCages: () => engine?.handCageInfo() ?? null,
       pianomeisterListening: {
         play: (playlistId: string, start = 0) => listening.requestPlay(playlistId, start),
         swapMs: () => [...(listener?.swapMs ?? [])],

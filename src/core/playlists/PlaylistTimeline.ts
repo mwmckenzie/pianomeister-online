@@ -1,3 +1,5 @@
+import type { HandCage } from '../cages/HandCage'
+import type { Hand } from '../hands/Hand'
 import type { HandNote } from '../hands/HandNote'
 import type { PedalInterval } from '../song/PedalInterval'
 import type { TransportSong } from '../transport/TransportSong'
@@ -13,5 +15,7 @@ export interface PlaylistTimeline {
   readonly ppq: number
   readonly notes: readonly (HandNote & { readonly deck: number })[]
   readonly pedalIntervals: readonly PedalInterval[]
+  /** Each song's hand cages in timeline ticks, with the song's deck (milestone 10). */
+  readonly handCages: Readonly<Record<Hand, readonly (HandCage & { readonly deck: number })[]>>
   readonly segments: readonly PlaylistTimelineSegment[]
 }

@@ -97,6 +97,37 @@ describe('buildTimeline', () => {
     expect(t.song.barMap.barEndTick(at.bar) - t.song.barMap.barStartTick(at.bar)).toBe(3 * 960)
   })
 
+  it('places each song’s hand cages with its notes, carrying the song’s deck', () => {
+    const cage = (start: number, end: number) => ({
+      barIndex: 1,
+      startTick: start,
+      endTick: end,
+      low: 55,
+      high: 62,
+      carried: false,
+    })
+    // Song 1: PPQ 480 at 120 bpm (a bar = 2 s); song 2: PPQ 96 at 60 bpm, starting at 10 s.
+    const first = {
+      ...source(480, 120, [note(0, 480)]),
+      handCages: { right: [cage(0, 1920)], left: [] },
+    }
+    const second = {
+      ...source(96, 60, [note(0, 96)]),
+      handCages: { right: [], left: [cage(96, 480)] },
+    }
+    const t = buildTimeline([
+      { source: first, startSec: 0, deck: 0 },
+      { source: second, startSec: 10, deck: 1 },
+    ])
+    const sec = (tick: number) => t.song.tempoMap.tickToSeconds(tick)
+    const [right] = t.handCages.right
+    expect([sec(right?.startTick ?? -1), sec(right?.endTick ?? -1), right?.deck]).toEqual([0, 2, 0])
+    const [left] = t.handCages.left
+    expect(sec(left?.startTick ?? -1)).toBeCloseTo(11, 9)
+    expect(sec(left?.endTick ?? -1)).toBeCloseTo(15, 9)
+    expect(left?.deck).toBe(1)
+  })
+
   it('describes each song’s span, and ends at the last release', () => {
     expect(t.segments.map((s) => s.deck)).toEqual([0, 1])
     expect(t.segments[0]?.endSec).toBeCloseTo(aEnd, 9)

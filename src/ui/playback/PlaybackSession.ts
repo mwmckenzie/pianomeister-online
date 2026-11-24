@@ -5,6 +5,7 @@ import { LatencyCompensatedClock } from '@/audio/LatencyCompensatedClock'
 import { SmplrOutput } from '@/audio/SmplrOutput'
 import { WorkerTicker } from '@/audio/WorkerTicker'
 import { EventBus } from '@/core/events/EventBus'
+import { computeHandCages } from '@/core/cages/computeHandCages'
 import { channelHandOf } from '@/core/hands/channelHandOf'
 import { assignHands } from '@/core/hands/assignHands'
 import { DEFAULT_HAND_ASSIGNMENT, type HandAssignment } from '@/core/hands/HandAssignment'
@@ -93,6 +94,8 @@ export class PlaybackSession {
       barMap,
       notes,
       pedalIntervals: song.pedalIntervals.filter((p) => assigned.has(p.channel)),
+      // Recomputed only here: on song load and a change of hands, never on tempo or seek.
+      handCages: computeHandCages(notes, barMap, (n) => n.hand),
     }
   }
 

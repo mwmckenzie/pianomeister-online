@@ -393,6 +393,7 @@ export class ListeningController {
           song: p.prepared.loaded.song,
           tempoMap: p.prepared.loaded.tempoMap,
           notes: p.prepared.loaded.notes,
+          handCages: p.prepared.loaded.handCages,
         },
         startSec: p.startSec,
         deck: p.deck,
@@ -408,6 +409,7 @@ export class ListeningController {
       barMap: timeline.song.barMap,
       notes: timeline.notes,
       pedalIntervals: timeline.pedalIntervals,
+      handCages: timeline.handCages,
     }
     this.host.session.loadTimeline(loaded, timeline.song.endTick, positionSec, swap)
     this.swapMs.push(this.host.showTimeline(timeline, shiftTicks))
