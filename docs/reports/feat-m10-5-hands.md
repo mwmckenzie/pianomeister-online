@@ -51,7 +51,7 @@
 
 - `npm run check`: exit 0, 896 unit tests (124 files). `npm run build`: pass. `songs:manifest:check`: up to date.
 - `npm run test:e2e:affected`: 133 passed after step 2; **162 passed, 0 failed** after step 6 (chromium and polish, 11 tags), including 5 new `@hands` tests.
-- **Not run as asked:** e2e after *every* step. Step 1 wasn't wired to anything; steps 3–6 were built together, because the new types don't compile without the new Library section, and tested together. Commit `8a6429d` doesn't type-check by itself for the same reason.
+- **Not run as asked:** e2e after _every_ step. Step 1 wasn't wired to anything; steps 3–6 were built together, because the new types don't compile without the new Library section, and tested together. Commit `8a6429d` doesn't type-check by itself for the same reason.
 - Seen on screen: details section (Detected · 95 %, split bar, Why) and the amber row hint, 1280×720.
 
 **Known issues and open points**
@@ -70,3 +70,43 @@
 - [ ] On your existing library: the background toast, once.
 - [ ] Settings → Library & data → Hand detection.
 - [ ] Listen for droning notes.
+
+## Round 2 — 2026-11-24: load time and recovered files (stopped before step 7)
+
+Round 1 approved. No code changed in this round.
+
+**Song load, `main` against this branch**
+
+Node on this machine; parse plus hand assignment, median of 5 runs after a warm-up, three separate processes. Hashing the file, IndexedDB and drawing are not included.
+
+| Song        | `main` (ms)        | branch (ms)        | Change            |
+| ----------- | ------------------ | ------------------ | ----------------- |
+| Minuet      | 0.4 / 0.4 / 0.3    | 0.4 / 0.6 / 0.6    | +14 / +44 / +83 % |
+| Invention 1 | 0.5 / 0.7 / 0.5    | 0.7 / 0.7 / 0.8    | +29 / +5 / +43 %  |
+| Canon in D  | 1.2 / 1.2 / 1.1    | 1.6 / 1.7 / 1.6    | +29 / +44 / +40 % |
+| `long-demo` | 74.2 / 75.2 / 71.9 | 79.2 / 78.3 / 78.3 | +7 / +4 / +9 %    |
+
+- **Over the 20 % limit on Canon in every process** (about 0.4–0.5 ms), and on the other two bundled songs in two of three, where the values are too small to be steady. `long-demo` is within it. So work stopped here.
+- The notes are identical to `main`'s on all four songs.
+- Reading the raw events and notes takes 0.2 ms on Canon and 1.4–3.4 ms on `long-demo`. The rest of the increase wasn't broken down.
+- Proposal: read tempo and meter from the raw events too and drop @tonejs/midi from `parseMidi`, so the file's notes aren't built twice. Not built or measured.
+
+**Files recovered from the transcript**
+
+22 source files, in two batches, plus one scratch script. Each was compared as typed (formatted) with HEAD.
+
+- Unchanged since: `core/midi/` `MidiEvent`, `MidiFile`, `readMidiFile`, `writeMidiFile`; `core/hands/` `HandLetter`, `voiceId`, `extractNotes`, `VoiceStats`, `computeVoiceStats`, `HandDetection`, `VoiceInfo`, `CachedHands`, `DetectedHands`, `SongHands`, `summariseHands`, `resolveSongHands`, `assignmentHandOf`, `sameChannelHands`.
+- Changed on purpose afterwards: `RawNote` (id and track moved to `Note`), `detectHands` (shared `MIN_VOICE_NOTES`), `detectSongHands` (computes the channels itself), `library/ProfileHandAssignment` (split into `PlayerHands` and `ChannelHands`).
+- The script (`s3.mjs`, not in the repo) made or edited files in `core/song`, `core/library`, `core/hands`, `core/testing`, `data` and `SongPicker.vue`. All its edits applied. It overwrote `ChannelInfo.ts` through `channelInfo.ts` (same name on Windows); that file is identical to `main`'s again, and no duplicate is tracked.
+
+Found:
+
+- No file is missing, and no duplicate from the recovery.
+- `applyHandAssignment` and `writeMidiFile` have no user outside tests yet: they are step 8's. Every other export that only its own file uses is a type or constant.
+- `detectSongHands` reads the file, then `resolveSongHands` reads it again (in the worker). Wasteful, not wrong.
+- `summariseHands` and `summariseHandNotes` look alike but both are needed: resolved notes, and the channel map before detection.
+- Stale comments: `channelHandOf.ts` ("the Library's Right / Left / Hidden per channel") and `PracticeConfig.ts` ("Hand-channel assignments").
+
+**Open question**
+
+- [ ] Accept the load time, or make the proposal's change first?
