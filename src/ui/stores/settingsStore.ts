@@ -168,9 +168,29 @@ export const useSettingsStore = defineStore('settings', () => {
     settings.value = own
   }
 
+  /**
+   * A benchmark run's settings (milestone 11): everything, device cost included, is the run's
+   * until it ends; what is stored stays the user's.
+   */
+  const benchBase = shallowRef<PlayerSettings | null>(null)
+
+  function setBench(next: PlayerSettings): void {
+    benchBase.value ??= ownSettings()
+    overlayBase.value = null
+    settings.value = next
+  }
+
+  function endBench(): void {
+    const base = benchBase.value
+    if (base === null) return
+    benchBase.value = null
+    overlayBase.value = null
+    settings.value = base
+  }
+
   function persist(): void {
     write({
-      settings: ownSettings(),
+      settings: benchBase.value ?? ownSettings(),
       shortcuts: shortcuts.value,
       looks: { active: looks.value.active, saved: unmoved },
       deviceClass,
@@ -408,6 +428,8 @@ export const useSettingsStore = defineStore('settings', () => {
     ownSettings,
     setOverlay,
     endOverlay,
+    setBench,
+    endBench,
     editShortcuts,
     restoreShortcuts,
     keyLabel,

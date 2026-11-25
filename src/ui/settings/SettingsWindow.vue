@@ -138,7 +138,7 @@ const changed = computed(() =>
       <template #shortcuts><ShortcutsTab /></template>
       <template #profiles><ProfilesTab /></template>
       <template #library><LibraryDataTab /></template>
-      <template #about><AboutTab /></template>
+      <template #about><AboutTab @navigate="open = false" /></template>
       <template #nav-footer>
         <p class="nav-note">Camera, keyboard and note looks live in the playfield panel.</p>
         <AppButton size="sm" data-testid="open-playfield" @click="emit('openPlayfield')">

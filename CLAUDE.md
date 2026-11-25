@@ -18,6 +18,7 @@ Browser-based piano practice visualizer: MIDI songs scroll down a perspective no
 - `npm run test:e2e:dev` — Playwright against the dev server (5173, reused if running) for quick checks. Expect flakes in full runs: on the dev server the ~230 sample downloads saturate HTTP/1.1's six connections and lazy chunks queue behind them.
 - `npm run test:visual` / `npm run test:perf` — visual review shots / frame timings, also against the production preview. Only when a milestone asks; never in CI.
 - `npm run bench:hands -- <folder>` — scores the hand-split methods on a **local** folder of MIDI files with tracks named right/left (`--algos=beam,chord`, `--params=<JSON>`). Never commit those files; not part of `check`.
+- `npm run bench:render` — the benchmark (`#/bench`) in a browser of its own, on a production build; options and other devices in `docs/performance.md`. Not part of `check`.
 - `npm run songs:manifest` — regenerate `public/songs/manifest.json` after adding/changing bundled songs (then fill in title/composer/tags)
 
 ## Testing
@@ -26,7 +27,7 @@ Keep local test time small; the full e2e suite runs in CI.
 
 1. **Unit tests.** While working, run only the related tests (`npm run test:unit:changed`, or `npx vitest related <files> --run`). Run the full `npm run check` once, before a PR (and whenever you call a task done).
 2. **E2e tags.** Every functional spec test carries an area tag at the start of its title:
-   - Areas: `@player`, `@library`, `@bookmarks`, `@looks`, `@loop`, `@welcome`, `@stats`, `@settings`, `@shortcuts`, `@playlists`, `@cages`, `@hands`, `@colours`; others as areas arrive.
+   - Areas: `@player`, `@library`, `@bookmarks`, `@looks`, `@loop`, `@welcome`, `@stats`, `@settings`, `@shortcuts`, `@playlists`, `@cages`, `@hands`, `@colours`, `@bench`; others as areas arrive.
    - About 15 main-path tests also carry `@smoke` (a minute or two).
    - New specs and tests get a tag. When a new source folder appears, add it to the map in `scripts/e2e-affected.mjs`.
 3. **During a milestone,** run only `npm run test:e2e:affected` locally. Never the full suite locally unless asked.
@@ -34,7 +35,7 @@ Keep local test time small; the full e2e suite runs in CI.
    - Re-run only the failures: `npx playwright test --last-failed`.
    - Suspected flakes: `--last-failed --repeat-each=3`.
    - Fix them or name them in the report. Never re-run the whole suite to confirm.
-5. **CI:** the `check` job (`.github/workflows/ci.yml`: type-check, lint, unit tests, build) runs on every pull request and is the required check. The full e2e suite (`.github/workflows/e2e.yml`) runs **on manual trigger only** until CI e2e is workable (roadmap):
+5. **CI:** the `check` job (`.github/workflows/ci.yml`: type-check, lint, unit tests, build) runs on every pull request and is the required check. The full e2e suite (`.github/workflows/e2e.yml`) runs **on manual trigger only** until CI e2e is workable (roadmap, milestone 11 Phase 5):
    - On the production build, sharded across 4 runners, with 1 retry.
    - A test that passes on its retry is listed as flaky in the job summary and doesn't fail the job.
    - The visual, perf, range and sheet projects never run in CI or automatically, only when a milestone asks.
@@ -62,6 +63,15 @@ src/
 - Note events flow through one event bus (note on/off); audio, MIDI out, and visuals subscribe. Keep this seam — MIDI input will plug in later.
 - All seek/loop/pre-roll math is in bars and beats via the bar map, never raw seconds in UI code.
 - Dispose Three.js geometries, materials, and textures when they are replaced or unmounted.
+
+## Design rules
+
+Permanent. Check every new UI against them, on every platform and form factor.
+
+1. **The protected zone** (brief decision 131): the highway from the hit line up through the near look-ahead (at least the next two bars), across the keyboard's width, plus the keyboard itself.
+   - While practising (playing or paused), no controls, toasts, pop-ups, sheets, hints, tooltips, menus or animated UI may appear there.
+   - UI goes in the top band above the far end of the highway, in the side gutters, or on a full page that replaces the playfield (never an overlay). Toasts appear in the top band.
+   - Exception: listening / playlist mode.
 
 ## Code conventions
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const emit = defineEmits<{ navigate: [] }>()
 const version = __APP_VERSION__
 </script>
 
@@ -17,6 +18,12 @@ const version = __APP_VERSION__
       <li>MIDI parsing: @tonejs/midi (MIT). 3D: three.js (MIT). UI primitives: Reka UI (MIT).</li>
       <li>Font: Inter Tight (SIL Open Font License 1.1).</li>
     </ul>
+    <p class="text">
+      <RouterLink :to="{ name: 'bench' }" data-testid="about-bench" @click="emit('navigate')">
+        Benchmark
+      </RouterLink>
+      measures how smoothly the player runs on this device.
+    </p>
     <p class="text">Full credits are in docs/CREDITS.md in the source repository.</p>
   </section>
 </template>

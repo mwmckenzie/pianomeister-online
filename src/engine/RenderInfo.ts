@@ -14,4 +14,11 @@ export interface RenderInfo {
   readonly gpuMs: number | null
   /** Draw calls in the last frame, every pass included (the CPU's share of the work). */
   readonly drawCalls: number
+  readonly triangles: number
+  readonly points: number
+  readonly programs: number
+  readonly geometries: number
+  readonly textures: number
+  /** Render targets and the drawing buffer, estimated from their sizes (browsers don't tell). */
+  readonly targetBytes: number
 }

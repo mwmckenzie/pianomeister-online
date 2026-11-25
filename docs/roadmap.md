@@ -4,26 +4,26 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 
 ## Milestone plan
 
-| #    | Milestone                                    | Contents                                                                                                                                                                                                                                                                                                    | Status  |
-| ---- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| 0–3  | Setup, core, sound, engine                   | —                                                                                                                                                                                                                                                                                                           | ✅ done |
-| 4    | Library                                      | Library page, uploads, song details, backup, web app manifest                                                                                                                                                                                                                                               | ✅ done |
-| 5    | **Visual clarity**                           | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing)                   | ✅ done |
-| 6    | **UI foundation**                            | Design system (tokens + Reka UI components), settings registry with reset to default everywhere; settings in two homes (playfield sidebar + settings window); Quiet player HUD with toolbar and timeline; song picker; restyled Library; animated menus (respect reduced motion)                            | ✅ done |
-| 7    | **Profiles, bookmarks, stats**               | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens; bookmark manager page; picker stats and sorting (plays, time, last played, bookmarks); "Full song" tracked as a bookmark                                                                                              | ✅ done |
-| 7.5  | **Shortcuts**                                | Settings → Shortcuts tab to rebind every command (press-to-record, conflict warnings, per-command reset, reset all), built on the command registry; later reused for MIDI pedal/foot-switch mapping in milestone 11                                                                                         | ✅ done |
-| 7.6  | **Now playing & play tracking**              | The HUD shows exactly what's playing (a matching bookmark, Full song, or the setup itself); plays count starts; song stats include other setups, so editing or deleting bookmarks never changes a song's totals                                                                                             | ✅ done |
-| 7.7  | **Welcome & stats** _(design session first)_ | Welcome start screen (greeting, pick up where you left off, highlights, at a glance, suggestions, quick actions); stats page (time ranges, drill-down, charts, records, CSV export)                                                                                                                         | ✅ done |
-| 8    | **Section overview & loop editor**           | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection                                                                                                                                                                                                                       | ✅ done |
-| 9    | **Visual polish**                            | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects                                                                                                                                                                             | ✅ done |
-| 9.1  | **Looks v2 & built-in looks**                | Looks cover the whole playfield sidebar (except device cost); rename, export, import, paste, backup; looks stored in Dexie; every slider range trimmed to what makes visual sense, log sliders; Note colours palettes; thirteen built-in looks (looks and defaults provisional until the tuning pass below) | ✅ done |
-| 9.2  | **Practice clarity**                         | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       | ✅ done |
-| 9.5  | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         | ✅ done |
-| 10   | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                                      | ✅ done |
-| 10.5 | **Hand detection and split**                 | Per-note right/left hand assignment from the MIDI (voice detection with confidence and reasons, note-level split for two-handed voices, overrides); replaces milestone 10's `handOf(note)` and feeds the hand cages. Source brief: `docs/milestones/m10-5-hand-detection-brief.md`                          | ✅ done |
-| 10.6 | **Note colour set editor** _(spec first)_    | Settings → Appearance → Note colours: edit the built-in note colour sets in place (reset per colour and per set), save, rename, duplicate and delete custom sets, live preview; looks carry the custom set they use                                                                                         | ✅ done |
-| 11   | **Tablet, MIDI out, offline**                | (was milestone 6) Touch UI, performance pass, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                                                 |         |
-| 12   | **Benchmark mode** _(spec first)_            | A built-in, repeatable performance test for any device (PC, laptop, iPad, desktop build): scripted songs and presets, frame/CPU/GPU timings, device info, results screen with export and local history                                                                                                      |         |
+| #    | Milestone                                    | Contents                                                                                                                                                                                                                                                                                                    | Status               |
+| ---- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| 0–3  | Setup, core, sound, engine                   | —                                                                                                                                                                                                                                                                                                           | ✅ done              |
+| 4    | Library                                      | Library page, uploads, song details, backup, web app manifest                                                                                                                                                                                                                                               | ✅ done              |
+| 5    | **Visual clarity**                           | 3D note heads; lifted black-key-lane notes with contact shadow; black-key lane shading; simple built-in shading; keyboard dimensions + rounded key edges; key edge profile (none / chamfer / rounded); animated keys; velocity-scaled effects; render quality (resolution, anti-aliasing)                   | ✅ done              |
+| 6    | **UI foundation**                            | Design system (tokens + Reka UI components), settings registry with reset to default everywhere; settings in two homes (playfield sidebar + settings window); Quiet player HUD with toolbar and timeline; song picker; restyled Library; animated menus (respect reduced motion)                            | ✅ done              |
+| 7    | **Profiles, bookmarks, stats**               | (was milestone 5) Built on the new UI, incl. profile and bookmark management screens; bookmark manager page; picker stats and sorting (plays, time, last played, bookmarks); "Full song" tracked as a bookmark                                                                                              | ✅ done              |
+| 7.5  | **Shortcuts**                                | Settings → Shortcuts tab to rebind every command (press-to-record, conflict warnings, per-command reset, reset all), built on the command registry; later reused for MIDI pedal/foot-switch mapping in milestone 12                                                                                         | ✅ done              |
+| 7.6  | **Now playing & play tracking**              | The HUD shows exactly what's playing (a matching bookmark, Full song, or the setup itself); plays count starts; song stats include other setups, so editing or deleting bookmarks never changes a song's totals                                                                                             | ✅ done              |
+| 7.7  | **Welcome & stats** _(design session first)_ | Welcome start screen (greeting, pick up where you left off, highlights, at a glance, suggestions, quick actions); stats page (time ranges, drill-down, charts, records, CSV export)                                                                                                                         | ✅ done              |
+| 8    | **Section overview & loop editor**           | Horizontal 2D song overview; select A–B bars on it; create bookmarks from a selection                                                                                                                                                                                                                       | ✅ done              |
+| 9    | **Visual polish**                            | Post-processing (bloom/glow, distance fog, lighting) with quality presets; selectable shader styles for notes, keys and effects                                                                                                                                                                             | ✅ done              |
+| 9.1  | **Looks v2 & built-in looks**                | Looks cover the whole playfield sidebar (except device cost); rename, export, import, paste, backup; looks stored in Dexie; every slider range trimmed to what makes visual sense, log sliders; Note colours palettes; thirteen built-in looks (looks and defaults provisional until the tuning pass below) | ✅ done              |
+| 9.2  | **Practice clarity**                         | Loop visibility on the highway (dim outside the loop, boundary lines); black notes back on the highway with separate white/black note heights; deeper black keys on the keyboard; open Home when a new session starts; Change song / Library open on the current song                                       | ✅ done              |
+| 9.5  | **Playlist mode** _(design session first)_   | Full songs back-to-back as background music with the highway as a visualizer: playlists per profile, shuffle/repeat, crossfade, listening-mode UI (show / minimal / hidden); not logged as practice                                                                                                         | ✅ done              |
+| 10   | **Hand caging**                              | Per-bar hand-position look-ahead (design session first, using code from the Unity app)                                                                                                                                                                                                                      | ✅ done              |
+| 10.5 | **Hand detection and split**                 | Per-note right/left hand assignment from the MIDI (voice detection with confidence and reasons, note-level split for two-handed voices, overrides); replaces milestone 10's `handOf(note)` and feeds the hand cages. Source brief: `docs/milestones/m10-5-hand-detection-brief.md`                          | ✅ done              |
+| 10.6 | **Note colour set editor** _(spec first)_    | Settings → Appearance → Note colours: edit the built-in note colour sets in place (reset per colour and per set), save, rename, duplicate and delete custom sets, live preview; looks carry the custom set they use                                                                                         | ✅ done              |
+| 11   | **Performance on weak hardware**             | Benchmark mode first (Phase 0, was milestone 12), then wasted work, the renderer, quality levels with an automatic governor, timing under load, CI guard; a PR per phase. Brief: `docs/milestones/m11-performance.md`                                                                                       | Phase 0: PC measured |
+| 12   | **Tablet, MIDI out, offline**                | (was milestone 11; its performance pass is now milestone 11) Touch UI, MIDI out, service worker / offline; load piano samples in two passes (middle octaves first) if song/dialog loading still lags on GitHub Pages                                                                                        |                      |
 
 ### Why this order
 
@@ -33,8 +33,8 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 - **Visual polish after the features settle (9, 9.1):** post-processing and shader styles change how everything looks; doing them once the screens and scene are stable avoids re-tuning. Quality presets keep tablets smooth.
 - **Practice clarity right after looks (9.2):** while practising, the loop ending is a surprise, lifted black notes read late on a tilted camera, and pressed white keys show the black keys' bottoms. It's highway and keyboard work on the freshly settled visuals, and its new settings join looks.
 - **Hand caging (10)** is exploratory and independent — it can move earlier if it becomes the priority.
-- **Tablet pass (11)**, with a quick iPad check at the end of every milestone so problems surface early.
-- **Benchmark mode last (12):** it measures the finished app on every device, so it comes after the tablet and performance pass.
+- **Performance before the tablet pass (11 → 12):** nothing can be judged without measuring, so benchmark mode comes first, as Phase 0 of milestone 11; the tablet work then starts from a renderer that holds up on weak hardware.
+- **Tablet pass (12)**, with a quick iPad check at the end of every milestone so problems surface early.
 
 ## Standalone items (not tied to a milestone)
 
@@ -44,25 +44,17 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 - Replace fixed timeouts that wait on animations or timers (the settings close animation, the Welcome highlight rotation, the loop nudge) with waits on the actual state (the element gone, the attribute set), so load doesn't fail them.
 - **Done when:** a full green run (`chromium` + `polish`, `--retries=0`) twice in a row.
 
-### Make CI e2e workable _(done when there is time)_
+### Finer slider steps _(right after milestone 11 Phase 0, on its own branch; not part of a performance phase)_
 
-The E2E workflow (`.github/workflows/e2e.yml`) runs on manual trigger only. On PR #25 two of four shards failed after 16–18 min (21 and 23 failures) and the other two were still running after 25 min. Almost every failure was a timeout: the startup song not loaded after 10 s, samples still loading (200–214 of 226), 30 s test timeouts.
+Every settings slider (playfield sidebar, settings window, playlists; anything using the registry's range format) steps too coarsely. Every step becomes at least 5× finer, rounded to a clean 1-2-5 value: 0.5 → 0.1, 0.1 → 0.02, 5 → 1, 10 → 2, 1 → 0.2, and so on.
 
-- **Diagnosis:** the main thread is starved by software WebGL on GPU-less runners, plus 2 workers on 2 cores. Setup is cheap (npm ci 50 s, Chromium 16 s, build 2 s).
-- **Already on the branch:**
-  - silent stand-in samples for the functional projects;
-  - render scale 0.5, pixel ratio 1 and no AA in CI;
-  - Playwright browser cache;
-  - `timeout-minutes: 20`.
-
-  The run with these was cancelled before it finished, so their effect is unmeasured.
-
-- **Fixes to try:**
-  - workers 1;
-  - a test-only frame cap;
-  - render on demand while paused (pulled forward from milestone 11);
-  - keep the browser cache and `timeout-minutes`.
-- **Done when:** the E2E job finishes green in about 10–12 min; then it goes back on pull requests.
+- Log sliders: the same for the value they snap to.
+- Displayed values get enough decimals to show the new step, with no trailing noise (0.02, not 0.020000001).
+- Arrow keys move by the new step; Shift+arrow by the old, coarse step.
+- Stored values don't change on load: old values stay valid, and nothing re-snaps until the player moves the slider.
+- The special stops (the 0 stop on 9.1's ranges) still land exactly.
+- The report lists every slider with its old and new step, for review.
+- **To watch:** `sameSettingValue` counts two numbers as equal within half a step, so finer steps make "modified" on looks stricter; values that only make sense whole (counts, if any) are listed for a decision.
 
 ### Looks & defaults tuning pass _(done when there is time)_
 
@@ -144,7 +136,7 @@ Where the split methods of milestone 10.5 stand, measured with `npm run bench:ha
 
 ### 7.5 Shortcuts _(milestone 7.5)_
 
-Settings → **Shortcuts** tab to rebind every command: press-to-record a key, conflict warnings (two commands on one key in the same scope), per-command reset and reset all. Built on the command registry (`src/core/commands/COMMANDS.ts`, brief decision 80), which already holds every command's id, label, default keys and scope. Later reused for MIDI pedal / foot-switch mapping in milestone 11.
+Settings → **Shortcuts** tab to rebind every command: press-to-record a key, conflict warnings (two commands on one key in the same scope), per-command reset and reset all. Built on the command registry (`src/core/commands/COMMANDS.ts`, brief decision 80), which already holds every command's id, label, default keys and scope. Later reused for MIDI pedal / foot-switch mapping in milestone 12.
 
 ### 7.6 Now playing & play tracking _(milestone 7.6)_
 
@@ -272,12 +264,11 @@ Play full songs back-to-back as background music, with the piano and highway as 
 - **Looks:** a look stores which set it uses; a look using a custom set carries a copy of that set in look files and backups (same collision rules as looks), so a look always shows the same colours on another device. Classic stays on the built-in Default.
 - **Accessibility helper** (optional): a warning when two neighbouring pitch classes are too close in lightness/hue to tell apart.
 
-### Tablet, MIDI out, offline _(milestone 11)_
+### Performance on weak hardware _(milestone 11; brief `docs/milestones/m11-performance.md`)_
 
-- Touch pinch zoom on the Review page (drag pans and the buttons zoom since milestone 10.5).
-- Check the loop repeat's draw calls on the tablet (worst case 223 at Medium: one-bar loop at look-ahead 32); fallback = one instanced draw per layer, rebuilt on loop change.
+#### Phase 0: Benchmark mode
 
-### Benchmark mode _(milestone 12, the final milestone; spec to be written when we reach it)_
+The earlier notes; the brief and `docs/milestones/m11-plan.md` replace them where they differ.
 
 A built-in, repeatable performance test that can be run on any device (PC, laptop, iPad, a desktop build), with results collected.
 
@@ -301,7 +292,58 @@ A built-in, repeatable performance test that can be run on any device (PC, lapto
   - Export (.json, a stable documented format) and Copy summary (short text);
   - results kept locally with a history, so runs can be compared.
 
+#### Phase 1, first: A hidden tab stops a playlist
+
+A correctness bug, confirmed in Phase 0 (plain Chrome): with the tab hidden more than about 12 s before a song's end, the next song is never prepared (`ListeningController` runs from the HUD's animation frames, which stop in a hidden tab). Playback stops at the end and stays stopped when the tab is shown again. Hidden later than that, once the next song is prepared, it plays on. Fix: drive it from a timer the hidden tab keeps. The e2e test is in `e2e/playlists.spec.ts`, marked `test.fail()`; remove that mark with the fix.
+
+#### Phase 1: Protected-zone fixes
+
+Brief decision 131. Found by reading the code, then checked on screen at 1440 × 900, 1024 × 768 and 768 × 1024 (Phase 0). **Seen at all three sizes:** toasts, settings window, song picker, shortcuts sheet. **Seen at 1024 and 768:** the HUD columns over the highway's far half, and the tooltips of the right-hand column and of the app menu reaching over its sides. **Not violations on screen:** the Play tooltip (above its button) and the look menu (inside the panel); the panel narrows the playfield at all three sizes. **Not seen yet:** the small dialogs, the tempo, loop and profile popovers, the panel's other menus and the overview strip; check them when they are fixed.
+
+| Violation now                                                              | Fix                                                                        |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Toasts** (`ToastHost`): bottom centre, over the keyboard                 | top band, centred                                                          |
+| **Settings window** and **song picker**: dialogs over the playfield        | full pages that replace it (decision 50 is superseded)                     |
+| **Keyboard shortcuts sheet**: a dialog                                     | full page                                                                  |
+| **Small dialogs**: look names, delete, note colour sets, profile collision | anchored in the top band, not centred                                      |
+| **Tempo, loop and profile popovers**: open towards the middle              | open towards the gutter or the top band, never the middle                  |
+| **Tooltips** (transport, reset buttons): placed by room                    | above or to the side, away from the zone; none over the zone while playing |
+| **The playfield panel's menus** when they have no room                     | inside the panel                                                           |
+| **HUD columns and overview strip** on narrow and portrait screens          | milestone 12's layouts (listed there too)                                  |
+| **Perf overlay**: bottom left (a developer tool, exempt)                   | top-right corner anyway, so screenshots and runs stay clean                |
+
+Fine: the loop editor (a full page that replaces the playfield: you're editing, not reading ahead, and the engine is frozen under it), Home, the benchmark (not practising), and the playfield panel as long as the playfield reflows (highway and keyboard narrow) instead of being covered.
+
+#### Phase 1: Parse MIDI once
+
+`parseMidi` reads the file twice (raw events for the notes, @tonejs/midi for tempo, meter and title). Read tempo, meter and title from the raw events too and drop @tonejs/midi from `parseMidi`, comparing the result with `main` on every bundled song and fixture. The extra read was measured and accepted in milestone 10.5 (report, round 2).
+
+#### Phase 5: Make CI e2e workable
+
+The E2E workflow (`.github/workflows/e2e.yml`) runs on manual trigger only. On PR #25 two of four shards failed after 16–18 min (21 and 23 failures) and the other two were still running after 25 min. Almost every failure was a timeout: the startup song not loaded after 10 s, samples still loading (200–214 of 226), 30 s test timeouts.
+
+- **Diagnosis:** the main thread is starved by software WebGL on GPU-less runners, plus 2 workers on 2 cores. Setup is cheap (npm ci 50 s, Chromium 16 s, build 2 s).
+- **Already on the branch:**
+  - silent stand-in samples for the functional projects;
+  - render scale 0.5, pixel ratio 1 and no AA in CI;
+  - Playwright browser cache;
+  - `timeout-minutes: 20`.
+
+  The run with these was cancelled before it finished, so their effect is unmeasured.
+
+- **Fixes to try:**
+  - workers 1;
+  - a test-only frame cap;
+  - render on demand while paused (Phase 1);
+  - keep the browser cache and `timeout-minutes`.
+- **Done when:** the E2E job finishes green in about 10–12 min; then it goes back on pull requests.
+
+### Tablet, MIDI out, offline _(milestone 12)_
+
+- Layouts for narrow and portrait screens that keep the HUD columns and the overview strip out of the protected zone (brief decision 131).
+- Touch pinch zoom on the Review page (drag pans and the buttons zoom since milestone 10.5).
+- Check the loop repeat's draw calls on the tablet (measured by milestone 11's benchmark, fixed in its Phase 2 if needed) (worst case 223 at Medium: one-bar loop at look-ahead 32); fallback = one instanced draw per layer, rebuilt on loop change.
+
 ## Other ideas (unscheduled)
 
-- **Parse MIDI once:** `parseMidi` reads the file twice (raw events for the notes, @tonejs/midi for tempo, meter and title). Read tempo, meter and title from the raw events too and drop @tonejs/midi from `parseMidi`, comparing the result with `main` on every bundled song and fixture. The extra read was measured and accepted in milestone 10.5 (report, round 2).
 - _(add new ideas here; they get scheduled when a milestone is planned)_

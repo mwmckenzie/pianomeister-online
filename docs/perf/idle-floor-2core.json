@@ -1,0 +1,42 @@
+[
+  {
+    "state": "playing",
+    "mainThreadMsPerSec": 989,
+    "browser core %": 0.5,
+    "renderer core %": 3.3,
+    "GPU core %": 182.9,
+    "network.mojom.NetworkService core %": 0,
+    "storage.mojom.StorageService core %": 0,
+    "audio.mojom.AudioService core %": 0.4
+  },
+  {
+    "state": "paused",
+    "mainThreadMsPerSec": 679,
+    "browser core %": 0.1,
+    "renderer core %": 2.1,
+    "GPU core %": 127.3,
+    "network.mojom.NetworkService core %": 0,
+    "storage.mojom.StorageService core %": 0,
+    "audio.mojom.AudioService core %": 0.4
+  },
+  {
+    "state": "home (frozen)",
+    "mainThreadMsPerSec": 46,
+    "browser core %": 0.1,
+    "renderer core %": 8.9,
+    "GPU core %": 2.4,
+    "network.mojom.NetworkService core %": 0,
+    "storage.mojom.StorageService core %": 0,
+    "audio.mojom.AudioService core %": 0
+  },
+  {
+    "state": "blank page",
+    "mainThreadMsPerSec": 0,
+    "browser core %": 0.2,
+    "renderer core %": 0,
+    "GPU core %": 0,
+    "network.mojom.NetworkService core %": 0,
+    "storage.mojom.StorageService core %": 0,
+    "audio.mojom.AudioService core %": 0
+  }
+]

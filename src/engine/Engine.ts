@@ -6,6 +6,7 @@ import {
   type ShaderMaterial,
 } from 'three'
 
+import { mulberry32 } from '@/core/bench/mulberry32'
 import { EMPTY_COLOUR_SETS } from '@/core/color/EMPTY_COLOUR_SETS'
 import type { NoteColourSets } from '@/core/color/NoteColourSets'
 import { notePaletteColors } from '@/core/color/notePaletteColors'
@@ -20,6 +21,7 @@ import { handCageRegions } from './model/handCageRegions'
 import { createTimeUniforms } from './createTimeUniforms'
 import { NowLineEffects } from './effects/NowLineEffects'
 import type { EngineSong } from './EngineSong'
+import type { GpuInfo } from './GpuInfo'
 import { Highway } from './Highway'
 import { Keyboard } from './Keyboard'
 import type { CameraPlacement } from './model/CameraPlacement'
@@ -174,6 +176,8 @@ export class Engine {
   private lastFrameAt: number | null = null
   private readonly frameMs: number[] = []
   private readonly intervalMs: number[] = []
+  /** Called after every drawn frame (the benchmark, the perf overlay): its timestamp and CPU ms. */
+  onFrame: ((now: number, cpuMs: number) => void) | null = null
   private sizeObserver: ResizeObserver | null = null
   /** Device pixel ratio the drawing buffer was last sized for. */
   private sizedForDpr = 0
@@ -741,15 +745,7 @@ export class Engine {
     this.loopClock = loopTime
     this.captureNow = 100_000
     this.lastFrameAt = null
-    let state = seed >>> 0
-    // mulberry32: small, fast and good enough for particle variation.
-    this.effects.setRandom(() => {
-      state = (state + 0x6d2b79f5) >>> 0
-      let t = state
-      t = Math.imul(t ^ (t >>> 15), t | 1)
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-    })
+    this.effects.setRandom(mulberry32(seed))
     this.effects.clear()
     this.effects.resetParticleStats()
     // The first captured frame is a jump: it fires no onsets crossed since the last real frame.
@@ -873,6 +869,19 @@ export class Engine {
     return this.pipeline?.info() ?? null
   }
 
+  gpuInfo(): GpuInfo | null {
+    return this.pipeline?.gpuInfo() ?? null
+  }
+
+  resetGpuTimer(): void {
+    this.pipeline?.resetGpuTimer()
+  }
+
+  /** Repeatable particles (benchmark cells); null: random again. */
+  seedEffects(seed: number | null): void {
+    this.effects.setRandom(seed === null ? Math.random : mulberry32(seed))
+  }
+
   dispose(): void {
     cancelAnimationFrame(this.frame)
     cancelAnimationFrame(this.pendingFrame)
@@ -967,7 +976,9 @@ export class Engine {
     if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()
     pipeline.render()
     this.rendered++
-    this.record(this.frameMs, performance.now() - started)
+    const cpuMs = performance.now() - started
+    this.record(this.frameMs, cpuMs)
+    this.onFrame?.(now, cpuMs)
   }
 
   /** Labels placed in the last overlap pass, for tests (`?stats=1`). */

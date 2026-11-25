@@ -83,6 +83,8 @@ export class SmplrOutput implements AudioOutput {
   private active = 0
   private pending: Pending[] = []
   private stopIds = 0
+  /** Called with every note handed over (the benchmark): its time and the audio clock's. */
+  onNote: ((time: number, now: number) => void) | null = null
   private disposed = false
   private masterLevel = 1
   private muted = false
@@ -111,6 +113,7 @@ export class SmplrOutput implements AudioOutput {
   playNote(note: ScheduledNote): void {
     const generation = this.generations[this.active]
     if (generation === undefined || this.disposed) return
+    this.onNote?.(note.time, this.context.currentTime)
     const route: DeckRoute = `${note.hand}-${note.preRoll ? 'preRoll' : 'normal'}:${note.deck === 1 ? 1 : 0}`
     // A unique stopId lets cancelPending() stop just this note, not every note of that pitch.
     const stop = generation.pianos[route].start({

@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
@@ -9,9 +10,23 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
   version: string
 }
 
+/** The commit built, for benchmark results; empty outside a checkout. */
+function commit(): string {
+  try {
+    const run = (args: string) =>
+      execSync(`git ${args}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    return run('rev-parse --short HEAD') + (run('status --porcelain -uno') === '' ? '' : '+')
+  } catch {
+    return ''
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_COMMIT__: JSON.stringify(commit()),
+  },
   // Served from https://<user>.github.io/pianomeister-online/ on GitHub Pages.
   base: '/pianomeister-online/',
   plugins: [vue(), vueDevTools()],
