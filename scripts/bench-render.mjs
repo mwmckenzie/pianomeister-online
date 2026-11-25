@@ -36,17 +36,37 @@ const label = option('label', headed ? 'local' : 'headless')
 const out = `${root}test-results/bench`
 mkdirSync(out, { recursive: true })
 
-/** Limits this process to `n` cores; the browser it starts inherits that. */
-function limitCores(n) {
-  const mask = 2 ** n - 1
+const mask = 2 ** cores - 1
+const powershell = (command) =>
+  execFileSync('powershell', ['-NoProfile', '-Command', command], { encoding: 'utf8' }).trim()
+
+/** Limits a process to `cores` cores, or reads its limit. The browser inherits this process's. */
+function affinity(pid, set) {
   if (process.platform === 'win32') {
-    const set = `(Get-Process -Id ${process.pid}).ProcessorAffinity = ${mask}`
-    execFileSync('powershell', ['-NoProfile', '-Command', set])
-  } else execFileSync('taskset', ['-p', mask.toString(16), String(process.pid)])
+    const of = `(Get-Process -Id ${pid})`
+    return Number(
+      powershell(
+        `${set ? `${of}.ProcessorAffinity = ${mask}; ` : ''}[int64]${of}.ProcessorAffinity`,
+      ),
+    )
+  }
+  if (set) execFileSync('taskset', ['-a', '-p', mask.toString(16), String(pid)])
+  const out = execFileSync('taskset', ['-p', String(pid)], { encoding: 'utf8' })
+  return Number.parseInt(out.split(':').pop(), 16)
+}
+
+/** Every process of the browser, checked: Chrome's GPU process lifts the limit for itself. */
+async function limitBrowser(set) {
+  const cdp = await browser.newBrowserCDPSession()
+  const { processInfo } = await cdp.send('SystemInfo.getProcessInfo')
+  await cdp.detach()
+  for (const p of processInfo) {
+    if (affinity(p.id, set) !== mask) throw new Error(`${p.type} isn't limited to ${cores} cores`)
+  }
 }
 
 const server = await benchServer({ named: flag('trace') })
-if (cores > 0) limitCores(cores)
+if (cores > 0) affinity(process.pid, true)
 const browser = await chromium.launch({
   headless: !headed,
   ...(headed ? { channel: 'chrome' } : {}),
@@ -65,13 +85,21 @@ try {
     const settings = { appearance: { homeOnNewSession: false, hideControls: false } }
     localStorage.setItem('pianomeister.settings', JSON.stringify({ version: 6, settings }))
   })
+  // Software WebGL can take seconds a frame.
+  context.setDefaultTimeout(180_000)
   const page = await context.newPage()
   page.on('pageerror', (e) => console.error('page error:', e.message))
   const cdp = await context.newCDPSession(page)
+  if (cores > 0) {
+    await page.goto(server.url)
+    await page.getByTestId('stage').waitFor()
+    await limitBrowser(true)
+  }
   const slow = () => cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle })
   if (flag('idle')) await idle(page, cdp, slow)
   else if (flag('trace')) await trace(page, slow)
   else await bench(page, slow)
+  if (cores > 0) await limitBrowser(false)
 } catch (e) {
   console.error(e)
   failed = true
