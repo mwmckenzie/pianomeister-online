@@ -93,3 +93,79 @@ A check on leftover browser processes (after I stopped the long run) was refused
 
 - [ ] Decide 1–3.
 - [ ] Look at Canon and long-demo while playing, seeking and looping: no note appears or vanishes.
+
+## Round 2: the CPU rise, sturdier noise, the Floor (2026-11-25)
+
+**Status: the Floor gains 7.6× to 11.5×; the last fast loop passes in full; the CPU target is not reliably met.** Not run: the long pixel cases, the standard suite, the affected e2e tests.
+
+### The cause, and the choice
+
+Traced with a harness that plays the dense bars of long-demo in capture mode (600 frames a sample, the first 61 not counted), counting GL calls:
+
+| Build                                           | Vertex arrays created per frame | Attribute setups per frame | Engine CPU at 4×, dense (that session) |
+| ----------------------------------------------- | ------------------------------- | -------------------------- | -------------------------------------- |
+| `main`                                          | not counted                     | not counted                | 1.9–2.25 ms                            |
+| culling off (round 1)                           | 0                               | 0.1                        | 2.2–2.3 ms                             |
+| round 1's culling                               | 1.0                             | 6.8                        | 3.1–3.2 ms                             |
+| A: geometry per start bucket, count in place    | 0.5                             | 3.4                        | 1.69 ms                                |
+| **B: one refilled geometry per layer** (chosen) | **0**                           | **0**                      | 1.67–1.76 ms                           |
+
+Yes: each window change made three.js set up new vertex arrays. In linear playback every window is new, so caching alone can't help. A and B timed alike; B creates nothing and adds about 0.3 uploads a frame. A label change must be re-uploaded in the frame it happens (`refresh`).
+
+A first attempt to trace B had in fact measured A (an edit script had failed); the GL counts gave it away. One run of A was void: something else was using the PC.
+
+### CPU against the target (engine ms per frame, `main` with only the 10-frame cap → culled)
+
+Round b3: four interleaved pairs, the final product code (the commit's own unit-test file was then fixed).
+
+| Cell            | Before | After | Change | Runs overlap |
+| --------------- | ------ | ----- | ------ | ------------ |
+| strong, Canon   | 0.602  | 0.601 | 0 %    | yes          |
+| strong, dense   | 0.497  | 0.568 | +14 %  | no           |
+| strong, idle    | 0.402  | 0.409 | +2 %   | yes          |
+| weak-cpu, Canon | 2.80   | 2.97  | +6 %   | no           |
+| weak-cpu, dense | 2.16   | 2.62  | +21 %  | no           |
+| weak-cpu, idle  | 1.62   | 1.81  | +11 %  | no           |
+
+- **Round b2, three pairs, one commit earlier, disagrees:** dense −4 % (strong) and −16 % (weak-cpu), Canon +8 % and +7 %, idle +2 % and +6 %. Round 1 of strong's "before" is left out of that (HUD time doubled too). The same `main` build measured 2.85 ms on weak-cpu dense in b2 and 2.16 in b3: sessions differ by more than the effect.
+- **The HUD, which didn't change, rose as well** in b3 (weak-cpu Canon 0.87 → 0.97, dense 0.76 → 0.81; idle −2 %), so part of the rise may be the machine. It doesn't explain the rest.
+- **Harness, last commit:** +0.02–0.03 ms at 1× and about +0.33 ms at 4×, the same moving or standing still. A fixed cost per frame, not the refill. GL calls per frame equal those with culling off (0.3 more uploads while moving).
+- **Profile of still frames at 4×, both builds:** 2.5 % more sampled time in total, spread thinly (`refresh` 11 ms of 3,800, three's `update` +31, its `getBindingState` +17; Vue functions differ as much). Mean frame times overlapped in that session (1.71–2.30 against 1.75–2.32 ms). **No cause found.**
+- A last change, four comparisons instead of searches when nothing moved, didn't visibly lower it.
+
+So: vertex setup is fixed; the target "at or below" holds for strong Canon and roughly strong idle, not for dense or weak-cpu in b3.
+
+### The Floor (no GPU, 1280 × 720, CPU 4×, smoke at Off, about 10 frames a cell, two runs each)
+
+| Cell      | Median before   | Median after | Faster |
+| --------- | --------------- | ------------ | ------ |
+| Canon     | 892, 900 ms     | 117, 117 ms  | 7.6×   |
+| long-demo | 5,700, 5,750 ms | 500, 500 ms  | 11.5×  |
+| idle      | 867, 883 ms     | 117, 117 ms  | 7.5×   |
+
+No run locked to 1 s. The target is 33 ms: Canon is still 3.5× off, long-demo 15×. Late audio handovers: Canon 4 → 0 in both runs; dense 33 and 32 → 70 and 21 (the cell is much shorter now, so counts don't compare). With 11 frames percentiles are rough. Measured one commit before the last (`bb94413`).
+
+This also answers part of Phase 0's open point: frame time falls with the triangles, so vertices were most of the Floor's cost. What is left (117 ms) isn't split yet.
+
+### Pixels
+
+- **Noise:** 20 redraws, each a fresh first frame (a fresh start, one frame at the position before, then this one), compared with another uncut first frame. Seen over the repeats of this version: up to 30 px, level usually 1–2, up to 5.
+- **The stricter test caught a real bug in B:** labels reached the GPU one frame late after a jump (up to 22,000 px). Fixed. The two-frame software case didn't notice it, so it is a weaker guard than the GPU cases.
+- **Can it fail?** Broken edges: 22,000–65,000 px at level 233 and above on the GPU; 15,299 and 9,109 px on software WebGL.
+- **Runs after that fix:** five fast-loop GPU runs: four pass 7 of 7. One failed (Canon, Study, 16 px, level 2, while 20 redraws showed no noise, so 1 level was allowed). Then 1,620 uncut and 1,620 culled first frames at nine Canon positions: 4 uncut and 1 culled differed from the reference, none by more than one level or 24 px. That points to rare noise, but level 2 wasn't reproduced.
+- The **last fast loop** (final product code): 7 of 7, exact case exact, 1.1 min without the benchmark.
+
+### Process
+
+A commit (`an unchanged window costs four comparisons`) went in although `check` had failed on a lint rule in its test: my command didn't stop on it. Fixed in the next commit; `check` now passes (971 unit tests). Not pushed.
+
+### For you to decide
+
+1. **CPU:** accept it as it is, or give me one more session on it? I'd accept: at most 0.07 ms on strong and 0.5 ms at 4×, with triangles down 10 to 78 times. But it misses the target you set.
+2. **Item 2 (no drawing while paused)** next, as planned? It removes the idle cost altogether.
+3. **Note-head detail** is untouched, as you asked. The Floor's remaining 117 ms would need splitting first (pixels against vertices).
+
+**Review**
+
+- [ ] Decide 1 and 2.
+- [ ] Look at Canon and long-demo while playing, seeking and looping: no note or label appears or vanishes.
