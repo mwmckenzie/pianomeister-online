@@ -38,5 +38,10 @@ export function frameStats(intervals: readonly number[], refreshMs: number): Fra
 }
 
 export function costStats(values: readonly number[]): CostStats {
-  return { median: round(percentile(values, 50), 3), p95: round(percentile(values, 95), 3) }
+  const mean = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
+  return {
+    mean: round(mean, 3),
+    median: round(percentile(values, 50), 3),
+    p95: round(percentile(values, 95), 3),
+  }
 }

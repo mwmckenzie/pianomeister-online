@@ -20,8 +20,9 @@ export interface FrameStats {
   readonly dropped: number
 }
 
-/** Median and 95th percentile of a per-frame cost in ms. */
+/** A per-frame cost in ms. The mean says most: browsers round their timers to 0.1 ms. */
 export interface CostStats {
+  readonly mean: number
   readonly median: number
   readonly p95: number
 }

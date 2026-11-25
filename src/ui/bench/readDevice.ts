@@ -38,7 +38,7 @@ export function readDevice(engine: Engine, refreshMs: number): DeviceInfo {
     memoryGb: memory ?? null,
     screen: [screen.width, screen.height],
     viewport: [window.innerWidth, window.innerHeight],
-    pixelRatio: window.devicePixelRatio,
+    pixelRatio: Number(window.devicePixelRatio.toFixed(3)),
     refreshMs,
     reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     userAgent: navigator.userAgent,

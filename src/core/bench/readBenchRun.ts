@@ -15,9 +15,9 @@ function isCell(x: unknown): boolean {
     isObject(frames) &&
     numbers(frames, ['median', 'p95', 'p99', 'longest', 'dropped', 'fps']) &&
     isObject(cpu) &&
-    numbers(cpu, ['median']) &&
+    numbers(cpu, ['mean']) &&
     isObject(hud) &&
-    numbers(hud, ['median']) &&
+    numbers(hud, ['mean']) &&
     isObject(audio) &&
     numbers(audio, ['late']) &&
     isObject(renderer) &&

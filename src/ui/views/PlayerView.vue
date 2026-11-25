@@ -2,6 +2,7 @@
 import {
   computed,
   defineAsyncComponent,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   provide,
@@ -662,7 +663,8 @@ function updateHud(): void {
   }
   const started = performance.now()
   stepHud()
-  onHudFrame(performance.now() - started)
+  // With what Vue renders because of it, right after this callback.
+  void nextTick(() => onHudFrame?.(performance.now() - started))
 }
 
 function stepHud(): void {

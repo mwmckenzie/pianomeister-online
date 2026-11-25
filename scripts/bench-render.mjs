@@ -60,6 +60,7 @@ try {
   const context = await browser.newContext({ viewport: { width, height } })
   // As the first visit, without Home opening over it.
   await context.addInitScript(() => {
+    if (location.protocol === 'about:') return
     if (localStorage.getItem('pianomeister.settings') !== null) return
     const settings = { appearance: { homeOnNewSession: false, hideControls: false } }
     localStorage.setItem('pianomeister.settings', JSON.stringify({ version: 6, settings }))
@@ -136,7 +137,9 @@ async function openCanon(page) {
     .waitFor({ state: 'attached', timeout: 120_000 })
 }
 
-const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+function pause(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 async function state(page, wanted) {
   await page
