@@ -378,7 +378,7 @@ export interface PlayerSettings {
     readonly quietLevel: number
     readonly metronomeMode: 'off' | 'preRoll' | 'always'
     readonly metronomeVolume: number
-    /** Only the built-in piano until MIDI out (milestone 11). */
+    /** Only the built-in piano until MIDI out (milestone 12). */
     readonly output: 'piano'
     /** Playlists: seconds the next song overlaps the ending one (0 = a short gap instead). */
     readonly crossfade: number

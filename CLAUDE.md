@@ -34,7 +34,7 @@ Keep local test time small; the full e2e suite runs in CI.
    - Re-run only the failures: `npx playwright test --last-failed`.
    - Suspected flakes: `--last-failed --repeat-each=3`.
    - Fix them or name them in the report. Never re-run the whole suite to confirm.
-5. **CI:** the `check` job (`.github/workflows/ci.yml`: type-check, lint, unit tests, build) runs on every pull request and is the required check. The full e2e suite (`.github/workflows/e2e.yml`) runs **on manual trigger only** until CI e2e is workable (roadmap):
+5. **CI:** the `check` job (`.github/workflows/ci.yml`: type-check, lint, unit tests, build) runs on every pull request and is the required check. The full e2e suite (`.github/workflows/e2e.yml`) runs **on manual trigger only** until CI e2e is workable (roadmap, milestone 11 Phase 5):
    - On the production build, sharded across 4 runners, with 1 retry.
    - A test that passes on its retry is listed as flaky in the job summary and doesn't fail the job.
    - The visual, perf, range and sheet projects never run in CI or automatically, only when a milestone asks.
