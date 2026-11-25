@@ -28,7 +28,7 @@ const AREA_MAP = [
   ['src/core/song', ['@player', '@hands']],
   ['src/core/timing', ['@player', '@loop']],
   ['src/audio', ['@player']],
-  ['src/engine', ['@player', '@looks']],
+  ['src/engine', ['@player', '@looks', '@bench']],
   ['src/data', ['@library', '@bookmarks', '@stats']],
   ['src/ui/overview', ['@loop']],
   ['src/ui/views/LoopEditorView.vue', ['@loop']],
@@ -47,12 +47,12 @@ const AREA_MAP = [
   ['src/ui/player/NoteColoursRow.vue', ['@colours', '@looks']],
   ['src/ui/player', ['@player', '@looks']],
   ['src/ui/playback', ['@player', '@stats']],
-  ['src/ui/views/PlayerView.vue', ['@player', '@loop']],
+  ['src/ui/views/PlayerView.vue', ['@player', '@loop', '@bench', '@playlists']],
   ['src/ui/stores/libraryStore', ['@library', '@hands', '@playlists']],
   ['src/ui/stores/bookmarkStore', ['@bookmarks']],
   ['src/ui/stores/statsStore', ['@stats']],
   ['src/ui/stores/practiceStore', ['@loop', '@bookmarks']],
-  ['src/ui/stores/settingsStore', ['@settings', '@looks', '@colours']],
+  ['src/ui/stores/settingsStore', ['@settings', '@looks', '@colours', '@bench']],
   ['src/ui/stores/profileStore', ['@settings']],
   ['src/ui/stores/uiStateStore', ['@player']],
   ['src/core/cages', ['@cages']],
@@ -81,6 +81,9 @@ const AREA_MAP = [
   ['src/data/StoredHandAssignment', ['@hands', '@library']],
   ['src/data/Playlists', ['@playlists']],
   ['public/songs', ['@library']],
+  ['src/core/bench', ['@bench']],
+  ['src/ui/bench', ['@bench']],
+  ['src/ui/views/BenchView.vue', ['@bench']],
 ]
 
 function git(args) {
