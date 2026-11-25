@@ -1,0 +1,5597 @@
+{
+  "schema": "pianomeister-bench",
+  "version": 1,
+  "id": "911a5f83-a4a4-4d5b-bde3-ca042de3c2ab",
+  "at": "2026-11-25T07:44:57.852Z",
+  "suite": "standard",
+  "label": "floor",
+  "notes": "CPU 4× · --disable-gpu",
+  "app": {
+    "version": "0.0.0",
+    "commit": "29ee97a",
+    "dev": false
+  },
+  "device": {
+    "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "gpuClass": "software",
+    "gpuRule": "SwiftShader",
+    "webgl2": true,
+    "gpuTimer": false,
+    "floatTargets": true,
+    "maxTextureSize": 8192,
+    "cores": 20,
+    "memoryGb": 32,
+    "screen": [1280, 720],
+    "viewport": [1280, 720],
+    "pixelRatio": 1,
+    "refreshMs": 8.3,
+    "reducedMotion": false,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36"
+  },
+  "startUp": {
+    "firstPaint": 1512,
+    "songOpened": 1918,
+    "samplesLoaded": 6712
+  },
+  "flags": ["few frames", "refresh rate changed"],
+  "cells": [
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 23.26720000000298,
+      "frames": {
+        "frames": 17,
+        "fps": 0.8,
+        "median": 1283.2,
+        "p95": 1375,
+        "p99": 1375,
+        "longest": 1375,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2283.2,
+      "cpu": {
+        "mean": 6.317,
+        "median": 5.1,
+        "p95": 14.4
+      },
+      "hud": {
+        "mean": 2.194,
+        "median": 1.6,
+        "p95": 4.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1206.7,
+      "audio": {
+        "marginMin": -0.0487,
+        "marginP5": -0.0407,
+        "handed": 24,
+        "late": 8,
+        "expected": 159,
+        "missing": 135,
+        "driftMs": -5787.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 28,
+        "triangles": 3111771,
+        "points": 0,
+        "programs": 24,
+        "geometries": 28,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 25525966,
+      "heapEnd": 28880758
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.27110000000149,
+      "frames": {
+        "frames": 16,
+        "fps": 0.8,
+        "median": 1308.3,
+        "p95": 1325,
+        "p99": 1325,
+        "longest": 1325,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2974.9,
+      "cpu": {
+        "mean": 7.318,
+        "median": 8.2,
+        "p95": 12.2
+      },
+      "hud": {
+        "mean": 2.918,
+        "median": 2.5,
+        "p95": 8.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1278.97,
+      "audio": {
+        "marginMin": -0.0013,
+        "marginP5": -0.0013,
+        "handed": 18,
+        "late": 0,
+        "expected": 24,
+        "missing": 6,
+        "driftMs": -19671.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 48,
+        "triangles": 4672719,
+        "points": 0,
+        "programs": 34,
+        "geometries": 28,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 19321986,
+      "heapEnd": 21702466
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.75669999999553,
+      "frames": {
+        "frames": 16,
+        "fps": 0.7,
+        "median": 1341.6,
+        "p95": 1350,
+        "p99": 1350,
+        "longest": 1350,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2966.6,
+      "cpu": {
+        "mean": 6.971,
+        "median": 7.3,
+        "p95": 16.1
+      },
+      "hud": {
+        "mean": 2.135,
+        "median": 2.2,
+        "p95": 4.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1320.67,
+      "audio": {
+        "marginMin": -0.0213,
+        "marginP5": -0.0213,
+        "handed": 23,
+        "late": 6,
+        "expected": 34,
+        "missing": 11,
+        "driftMs": -19007.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 50,
+        "triangles": 4677329,
+        "points": 0,
+        "programs": 35,
+        "geometries": 28,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 21857589,
+      "heapEnd": 20391989
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.123800000004472,
+      "frames": {
+        "frames": 16,
+        "fps": 0.7,
+        "median": 1408.3,
+        "p95": 1599.9,
+        "p99": 1599.9,
+        "longest": 1599.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2958.3,
+      "cpu": {
+        "mean": 18.5,
+        "median": 10.1,
+        "p95": 161.3
+      },
+      "hud": {
+        "mean": 2.559,
+        "median": 2.5,
+        "p95": 7.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 1,
+        "totalMs": 169,
+        "longestMs": 169,
+        "scripts": [
+          {
+            "name": "FrameRequestCallback · loop · index-B7bB-yBt.js",
+            "ms": 162
+          }
+        ]
+      },
+      "motionErrorP95": 1399.9,
+      "audio": {
+        "marginMin": -0.038,
+        "marginP5": -0.0333,
+        "handed": 21,
+        "late": 11,
+        "expected": 28,
+        "missing": 7,
+        "driftMs": -20993.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 52,
+        "triangles": 4686547,
+        "points": 0,
+        "programs": 36,
+        "geometries": 28,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 23967336,
+      "heapEnd": 23003096
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 32.587,
+      "frames": {
+        "frames": 6,
+        "fps": 0.2,
+        "median": 4633.3,
+        "p95": 4741.7,
+        "p99": 4741.7,
+        "longest": 4741.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 5683.2,
+      "cpu": {
+        "mean": 5.286,
+        "median": 4.5,
+        "p95": 9.3
+      },
+      "hud": {
+        "mean": 2,
+        "median": 0.7,
+        "p95": 5.7
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4541.7,
+      "audio": {
+        "marginMin": -0.035,
+        "marginP5": -0.035,
+        "handed": 90,
+        "late": 20,
+        "expected": 130,
+        "missing": 40,
+        "driftMs": -31117.7,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 29,
+        "triangles": 24757681,
+        "points": 0,
+        "programs": 24,
+        "geometries": 28,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 28592423,
+      "heapEnd": 25855995
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 32.64229999999702,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5441.7,
+        "p95": 5475,
+        "p99": 5475,
+        "longest": 5475,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 7158.2,
+      "cpu": {
+        "mean": 4.383,
+        "median": 3.3,
+        "p95": 7.3
+      },
+      "hud": {
+        "mean": 1.717,
+        "median": 1.3,
+        "p95": 3.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5340.37,
+      "audio": {
+        "marginMin": -0.02,
+        "marginP5": -0.02,
+        "handed": 80,
+        "late": 20,
+        "expected": 100,
+        "missing": 20,
+        "driftMs": -31522.3,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 49,
+        "triangles": 37130029,
+        "points": 0,
+        "programs": 34,
+        "geometries": 28,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 32740397,
+      "heapEnd": 34281401
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 33.26420000000298,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5500,
+        "p95": 5600.1,
+        "p99": 5600.1,
+        "longest": 5600.1,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 7241.5,
+      "cpu": {
+        "mean": 8.45,
+        "median": 3.8,
+        "p95": 15.6
+      },
+      "hud": {
+        "mean": 3.2,
+        "median": 3.5,
+        "p95": 5.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5218.77,
+      "audio": {
+        "marginMin": -0.0492,
+        "marginP5": -0.0465,
+        "handed": 90,
+        "late": 30,
+        "expected": 210,
+        "missing": 120,
+        "driftMs": -30802.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 51,
+        "triangles": 37134639,
+        "points": 0,
+        "programs": 35,
+        "geometries": 28,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 33534960,
+      "heapEnd": 35425064
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 34.80280000000447,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 6124.6,
+        "p95": 6199.7,
+        "p99": 6199.7,
+        "longest": 6199.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 7224.9,
+      "cpu": {
+        "mean": 7.933,
+        "median": 7.6,
+        "p95": 11.3
+      },
+      "hud": {
+        "mean": 2.383,
+        "median": 2.7,
+        "p95": 3.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5953.87,
+      "audio": {
+        "marginMin": -0.06,
+        "marginP5": -0.06,
+        "handed": 100,
+        "late": 40,
+        "expected": 630,
+        "missing": 530,
+        "driftMs": -27704.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 53,
+        "triangles": 37143857,
+        "points": 0,
+        "programs": 36,
+        "geometries": 28,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 31539549,
+      "heapEnd": 22752516
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.4665,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 3.709,
+        "median": 2.8,
+        "p95": 11.4
+      },
+      "hud": {
+        "mean": 1.545,
+        "median": 1.2,
+        "p95": 3.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1467.27,
+      "audio": {
+        "marginMin": -0.03,
+        "marginP5": 0.0013,
+        "handed": 64,
+        "late": 2,
+        "expected": 66,
+        "missing": 2,
+        "driftMs": -14346.5,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 21,
+        "triangles": 3108031,
+        "points": 88,
+        "programs": 22,
+        "geometries": 22,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 25121652,
+      "heapEnd": 19402609
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.13810000000149,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 4.464,
+        "median": 4.1,
+        "p95": 6.5
+      },
+      "hud": {
+        "mean": 1.982,
+        "median": 1.7,
+        "p95": 3.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1515.27,
+      "audio": {
+        "marginMin": -0.04,
+        "marginP5": -0.0293,
+        "handed": 60,
+        "late": 5,
+        "expected": 66,
+        "missing": 6,
+        "driftMs": -15028.8,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 34,
+        "triangles": 4665379,
+        "points": 88,
+        "programs": 28,
+        "geometries": 22,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 21067970,
+      "heapEnd": 21196474
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.26270000000298,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 4.391,
+        "median": 4.2,
+        "p95": 9.3
+      },
+      "hud": {
+        "mean": 1.418,
+        "median": 0.9,
+        "p95": 5.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1517.93,
+      "audio": {
+        "marginMin": -0.0493,
+        "marginP5": 0.0093,
+        "handed": 62,
+        "late": 2,
+        "expected": 64,
+        "missing": 2,
+        "driftMs": -15292,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 36,
+        "triangles": 4669989,
+        "points": 88,
+        "programs": 29,
+        "geometries": 22,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 22863887,
+      "heapEnd": 23366187
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.2555,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 4.773,
+        "median": 4.2,
+        "p95": 7.9
+      },
+      "hud": {
+        "mean": 1.6,
+        "median": 0.9,
+        "p95": 3.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1557.83,
+      "audio": {
+        "marginMin": -0.0293,
+        "marginP5": 0.0693,
+        "handed": 48,
+        "late": 2,
+        "expected": 54,
+        "missing": 6,
+        "driftMs": -16164.8,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 38,
+        "triangles": 4679207,
+        "points": 88,
+        "programs": 30,
+        "geometries": 22,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 18907479,
+      "heapEnd": 19346043
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 20.52089999999851,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 5041.5,
+        "p95": 5041.5,
+        "p99": 5041.5,
+        "longest": 5041.5,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 7.075,
+        "median": 6.5,
+        "p95": 8.3
+      },
+      "hud": {
+        "mean": 2.575,
+        "median": 2.3,
+        "p95": 3.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4612.17,
+      "audio": {
+        "marginMin": 0.0457,
+        "marginP5": 0.0564,
+        "handed": 170,
+        "late": 0,
+        "expected": 170,
+        "missing": 0,
+        "driftMs": -18550.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 22,
+        "triangles": 24730769,
+        "points": 88,
+        "programs": 22,
+        "geometries": 22,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 28718888,
+      "heapEnd": 28067320
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 25.06210000000149,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 7058.1,
+        "p99": 7058.1,
+        "longest": 7058.1,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 9.325,
+        "median": 9.6,
+        "p95": 11.8
+      },
+      "hud": {
+        "mean": 3.35,
+        "median": 2.7,
+        "p95": 5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 6487.43,
+      "audio": {
+        "marginMin": -0.0355,
+        "marginP5": -0.0073,
+        "handed": 220,
+        "late": 20,
+        "expected": 220,
+        "missing": 0,
+        "driftMs": -22534.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 35,
+        "triangles": 37076345,
+        "points": 88,
+        "programs": 28,
+        "geometries": 22,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 25421062,
+      "heapEnd": 29014014
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.19189999999851,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.7,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 8.2,
+        "median": 8.6,
+        "p95": 9
+      },
+      "hud": {
+        "mean": 3.35,
+        "median": 2.8,
+        "p95": 4.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5460.37,
+      "audio": {
+        "marginMin": 0.0202,
+        "marginP5": 0.0502,
+        "handed": 220,
+        "late": 0,
+        "expected": 230,
+        "missing": 10,
+        "driftMs": -21530.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 37,
+        "triangles": 37080955,
+        "points": 88,
+        "programs": 29,
+        "geometries": 22,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 25207356,
+      "heapEnd": 28609156
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.41470000000298,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 11.1,
+        "median": 9.6,
+        "p95": 14.5
+      },
+      "hud": {
+        "mean": 3.8,
+        "median": 3.4,
+        "p95": 5.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5489.7,
+      "audio": {
+        "marginMin": -0.0036,
+        "marginP5": -0.0036,
+        "handed": 200,
+        "late": 0,
+        "expected": 230,
+        "missing": 30,
+        "driftMs": -21804,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 39,
+        "triangles": 37090173,
+        "points": 88,
+        "programs": 30,
+        "geometries": 22,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 25413334,
+      "heapEnd": 24234064
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.40020000000298,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6,
+        "median": 6.2,
+        "p95": 7.3
+      },
+      "hud": {
+        "mean": 3.391,
+        "median": 3.4,
+        "p95": 5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1445.83,
+      "audio": {
+        "marginMin": -0.0307,
+        "marginP5": 0,
+        "handed": 58,
+        "late": 2,
+        "expected": 59,
+        "missing": 1,
+        "driftMs": -14768.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 21,
+        "triangles": 3108031,
+        "points": 0,
+        "programs": 23,
+        "geometries": 23,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 25669729,
+      "heapEnd": 25967025
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.91680000000447,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.209,
+        "median": 6.9,
+        "p95": 8.9
+      },
+      "hud": {
+        "mean": 2.836,
+        "median": 2.7,
+        "p95": 4.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1547.17,
+      "audio": {
+        "marginMin": -0.0387,
+        "marginP5": -0.038,
+        "handed": 58,
+        "late": 4,
+        "expected": 60,
+        "missing": 2,
+        "driftMs": -15468.8,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 38,
+        "triangles": 4668563,
+        "points": 0,
+        "programs": 32,
+        "geometries": 23,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 27780340,
+      "heapEnd": 28070168
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.92630000000447,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.964,
+        "median": 6.8,
+        "p95": 8
+      },
+      "hud": {
+        "mean": 2.718,
+        "median": 2.7,
+        "p95": 4.8
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1528.7,
+      "audio": {
+        "marginMin": -0.0393,
+        "marginP5": 0.02,
+        "handed": 55,
+        "late": 1,
+        "expected": 55,
+        "missing": 0,
+        "driftMs": -15937,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 42,
+        "triangles": 4673349,
+        "points": 0,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 29862653,
+      "heapEnd": 18659933
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.95529999999702,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.136,
+        "median": 5.4,
+        "p95": 9.4
+      },
+      "hud": {
+        "mean": 2.455,
+        "median": 2.2,
+        "p95": 4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1576.5,
+      "audio": {
+        "marginMin": -0.04,
+        "marginP5": -0.0393,
+        "handed": 48,
+        "late": 5,
+        "expected": 59,
+        "missing": 11,
+        "driftMs": -15526,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 44,
+        "triangles": 4682567,
+        "points": 0,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 21309800,
+      "heapEnd": 20712444
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 20.61989999999851,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 5041.5,
+        "p95": 5041.5,
+        "p99": 5041.5,
+        "longest": 5041.5,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.775,
+        "median": 5.5,
+        "p95": 6.8
+      },
+      "hud": {
+        "mean": 1.6,
+        "median": 1.6,
+        "p95": 1.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4673.5,
+      "audio": {
+        "marginMin": 0.0196,
+        "marginP5": 0.0196,
+        "handed": 170,
+        "late": 0,
+        "expected": 190,
+        "missing": 20,
+        "driftMs": -18438.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 22,
+        "triangles": 24730769,
+        "points": 0,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 29402033,
+      "heapEnd": 28232785
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.104,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 7.8,
+        "median": 7,
+        "p95": 10
+      },
+      "hud": {
+        "mean": 2.1,
+        "median": 2.2,
+        "p95": 2.7
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5569.8,
+      "audio": {
+        "marginMin": -0.0136,
+        "marginP5": -0.0136,
+        "handed": 170,
+        "late": 12,
+        "expected": 200,
+        "missing": 30,
+        "driftMs": -21792,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 39,
+        "triangles": 37101727,
+        "points": 0,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 26209877,
+      "heapEnd": 28476545
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.12670000000298,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 9.1,
+        "median": 8.4,
+        "p95": 10.4
+      },
+      "hud": {
+        "mean": 2.8,
+        "median": 2.7,
+        "p95": 2.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5484.37,
+      "audio": {
+        "marginMin": -0.0348,
+        "marginP5": -0.0348,
+        "handed": 170,
+        "late": 10,
+        "expected": 210,
+        "missing": 40,
+        "driftMs": -21716,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 43,
+        "triangles": 37106513,
+        "points": 0,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 25728075,
+      "heapEnd": 28072231
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.15810000000149,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.2,
+        "median": 5.4,
+        "p95": 8.3
+      },
+      "hud": {
+        "mean": 2.075,
+        "median": 1.7,
+        "p95": 3.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5478.93,
+      "audio": {
+        "marginMin": -0.0202,
+        "marginP5": -0.0202,
+        "handed": 160,
+        "late": 10,
+        "expected": 200,
+        "missing": 40,
+        "driftMs": -21806.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 45,
+        "triangles": 37115731,
+        "points": 0,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 25972929,
+      "heapEnd": 28076985
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.369,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.618,
+        "median": 5.5,
+        "p95": 7.7
+      },
+      "hud": {
+        "mean": 3,
+        "median": 3,
+        "p95": 5.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1576.6,
+      "audio": {
+        "marginMin": -0.0307,
+        "marginP5": 0.0013,
+        "handed": 51,
+        "late": 2,
+        "expected": 51,
+        "missing": 0,
+        "driftMs": -16550.3,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 22,
+        "triangles": 3108031,
+        "points": 88,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 27911960,
+      "heapEnd": 27509080
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.902599999994038,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.373,
+        "median": 6.2,
+        "p95": 9.9
+      },
+      "hud": {
+        "mean": 2.227,
+        "median": 2.4,
+        "p95": 3.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1667.17,
+      "audio": {
+        "marginMin": -0.0207,
+        "marginP5": 0.0093,
+        "handed": 39,
+        "late": 1,
+        "expected": 47,
+        "missing": 8,
+        "driftMs": -16891.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 39,
+        "triangles": 4668563,
+        "points": 88,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 29524803,
+      "heapEnd": 29563071
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.89110000000149,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.309,
+        "median": 7,
+        "p95": 9.8
+      },
+      "hud": {
+        "mean": 2.664,
+        "median": 3,
+        "p95": 4.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1627.27,
+      "audio": {
+        "marginMin": -0.0007,
+        "marginP5": 0.03,
+        "handed": 35,
+        "late": 0,
+        "expected": 47,
+        "missing": 12,
+        "driftMs": -16683.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 43,
+        "triangles": 4673349,
+        "points": 88,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 19647864,
+      "heapEnd": 20019128
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.83930000000447,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.736,
+        "median": 6.9,
+        "p95": 12.6
+      },
+      "hud": {
+        "mean": 2.536,
+        "median": 2.2,
+        "p95": 8.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1696.6,
+      "audio": {
+        "marginMin": 0.0013,
+        "marginP5": 0.0093,
+        "handed": 36,
+        "late": 0,
+        "expected": 44,
+        "missing": 8,
+        "driftMs": -16970,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 45,
+        "triangles": 4682567,
+        "points": 88,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 22527193,
+      "heapEnd": 22080441
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 20.7065,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 5041.5,
+        "p95": 5041.5,
+        "p99": 5041.5,
+        "longest": 5041.5,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.85,
+        "median": 7.3,
+        "p95": 8.7
+      },
+      "hud": {
+        "mean": 2.725,
+        "median": 2.6,
+        "p95": 3.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4849.5,
+      "audio": {
+        "marginMin": -0.0455,
+        "marginP5": -0.0455,
+        "handed": 130,
+        "late": 10,
+        "expected": 160,
+        "missing": 30,
+        "driftMs": -18925.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 23,
+        "triangles": 24730769,
+        "points": 88,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 26774197,
+      "heapEnd": 28977581
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.10870000000298,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.7,
+        "p95": 6049.9,
+        "p99": 6049.9,
+        "longest": 6049.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 7.75,
+        "median": 6,
+        "p95": 11
+      },
+      "hud": {
+        "mean": 1.875,
+        "median": 1.4,
+        "p95": 2.7
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5628.57,
+      "audio": {
+        "marginMin": -0.0473,
+        "marginP5": -0.0393,
+        "handed": 140,
+        "late": 10,
+        "expected": 170,
+        "missing": 30,
+        "driftMs": -22138,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 40,
+        "triangles": 37101727,
+        "points": 88,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 31784203,
+      "heapEnd": 31588051
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.27209999999404,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.7,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 11.275,
+        "median": 10,
+        "p95": 15.3
+      },
+      "hud": {
+        "mean": 4.275,
+        "median": 3.8,
+        "p95": 4.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5420.47,
+      "audio": {
+        "marginMin": -0.043,
+        "marginP5": -0.043,
+        "handed": 140,
+        "late": 10,
+        "expected": 260,
+        "missing": 120,
+        "driftMs": -21341.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 44,
+        "triangles": 37106513,
+        "points": 88,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 34248684,
+      "heapEnd": 24976684
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 24.79389999999851,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.7,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 12.675,
+        "median": 10.3,
+        "p95": 18.9
+      },
+      "hud": {
+        "mean": 3.625,
+        "median": 3.7,
+        "p95": 4.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5809.7,
+      "audio": {
+        "marginMin": -0.0461,
+        "marginP5": -0.0407,
+        "handed": 150,
+        "late": 10,
+        "expected": 170,
+        "missing": 20,
+        "driftMs": -22844.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 46,
+        "triangles": 37115731,
+        "points": 88,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 33527660,
+      "heapEnd": 32309928
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.13879999999702,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.755,
+        "median": 7.3,
+        "p95": 8.8
+      },
+      "hud": {
+        "mean": 3.136,
+        "median": 3.3,
+        "p95": 5.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1464.6,
+      "audio": {
+        "marginMin": -0.0087,
+        "marginP5": 0.0213,
+        "handed": 59,
+        "late": 1,
+        "expected": 59,
+        "missing": 0,
+        "driftMs": -15530.8,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 28,
+        "triangles": 3111771,
+        "points": 0,
+        "programs": 25,
+        "geometries": 30,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 33044861,
+      "heapEnd": 32221525
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.478200000002982,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 10.109,
+        "median": 10.4,
+        "p95": 12.4
+      },
+      "hud": {
+        "mean": 3.073,
+        "median": 3.3,
+        "p95": 4.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1536.6,
+      "audio": {
+        "marginMin": 0.0413,
+        "marginP5": 0.05,
+        "handed": 54,
+        "late": 0,
+        "expected": 56,
+        "missing": 2,
+        "driftMs": -16398.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 48,
+        "triangles": 4672719,
+        "points": 0,
+        "programs": 35,
+        "geometries": 30,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 33843459,
+      "heapEnd": 34642827
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.40890000000596,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.6,
+        "p99": 2016.6,
+        "longest": 2016.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 9.2,
+        "median": 8.7,
+        "p95": 12.1
+      },
+      "hud": {
+        "mean": 3.164,
+        "median": 3.2,
+        "p95": 4.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1547.27,
+      "audio": {
+        "marginMin": 0.0507,
+        "marginP5": 0.0607,
+        "handed": 51,
+        "late": 0,
+        "expected": 51,
+        "missing": 0,
+        "driftMs": -16779.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 50,
+        "triangles": 4677329,
+        "points": 0,
+        "programs": 36,
+        "geometries": 30,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 19427193,
+      "heapEnd": 19847141
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.48089999999851,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 9.464,
+        "median": 9.6,
+        "p95": 10.8
+      },
+      "hud": {
+        "mean": 3.173,
+        "median": 3.1,
+        "p95": 4.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1557.83,
+      "audio": {
+        "marginMin": -0.04,
+        "marginP5": -0.0107,
+        "handed": 56,
+        "late": 4,
+        "expected": 61,
+        "missing": 5,
+        "driftMs": -15872.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 52,
+        "triangles": 4686547,
+        "points": 0,
+        "programs": 37,
+        "geometries": 30,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 21873030,
+      "heapEnd": 22199474
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 20.45679999999702,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 5041.5,
+        "p95": 5041.5,
+        "p99": 5041.5,
+        "longest": 5041.5,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 8.15,
+        "median": 7.9,
+        "p95": 9.4
+      },
+      "hud": {
+        "mean": 3.325,
+        "median": 3.1,
+        "p95": 4.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4692.07,
+      "audio": {
+        "marginMin": -0.0432,
+        "marginP5": -0.0432,
+        "handed": 140,
+        "late": 10,
+        "expected": 150,
+        "missing": 10,
+        "driftMs": -18736.8,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 29,
+        "triangles": 24757681,
+        "points": 0,
+        "programs": 25,
+        "geometries": 30,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 28730191,
+      "heapEnd": 27322855
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 23.93569999999553,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 11.275,
+        "median": 8.9,
+        "p95": 14.9
+      },
+      "hud": {
+        "mean": 4.05,
+        "median": 3.6,
+        "p95": 5.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5649.8,
+      "audio": {
+        "marginMin": -0.0136,
+        "marginP5": -0.0136,
+        "handed": 150,
+        "late": 10,
+        "expected": 170,
+        "missing": 20,
+        "driftMs": -21957,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 49,
+        "triangles": 37130029,
+        "points": 0,
+        "programs": 35,
+        "geometries": 30,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 33954146,
+      "heapEnd": 24169060
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 24.7505,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 12.1,
+        "median": 10.8,
+        "p95": 16.5
+      },
+      "hud": {
+        "mean": 4.125,
+        "median": 3.5,
+        "p95": 5.7
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5631.13,
+      "audio": {
+        "marginMin": -0.0399,
+        "marginP5": -0.0399,
+        "handed": 190,
+        "late": 20,
+        "expected": 200,
+        "missing": 10,
+        "driftMs": -22489.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 51,
+        "triangles": 37134639,
+        "points": 0,
+        "programs": 36,
+        "geometries": 30,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 29987547,
+      "heapEnd": 31694335
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 24.65420000000298,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.7,
+        "p95": 6049.9,
+        "p99": 6049.9,
+        "longest": 6049.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 9.425,
+        "median": 9.3,
+        "p95": 10.5
+      },
+      "hud": {
+        "mean": 3.875,
+        "median": 3.2,
+        "p95": 5.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5679.23,
+      "audio": {
+        "marginMin": -0.027,
+        "marginP5": -0.027,
+        "handed": 160,
+        "late": 10,
+        "expected": 180,
+        "missing": 20,
+        "driftMs": -22515.5,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 53,
+        "triangles": 37143857,
+        "points": 0,
+        "programs": 37,
+        "geometries": 30,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 26733620,
+      "heapEnd": 24435646
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 21.38669999999553,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.6,
+        "p99": 2016.6,
+        "longest": 2016.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.545,
+        "median": 5.5,
+        "p95": 7
+      },
+      "hud": {
+        "mean": 3.173,
+        "median": 3.1,
+        "p95": 4.8
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1456.6,
+      "audio": {
+        "marginMin": -0.0487,
+        "marginP5": -0.04,
+        "handed": 60,
+        "late": 4,
+        "expected": 62,
+        "missing": 2,
+        "driftMs": -14477.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 21,
+        "triangles": 3108031,
+        "points": 88,
+        "programs": 23,
+        "geometries": 24,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 26770162,
+      "heapEnd": 26350438
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.21070000000298,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.736,
+        "median": 6.8,
+        "p95": 8.5
+      },
+      "hud": {
+        "mean": 3.064,
+        "median": 2.8,
+        "p95": 5.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1504.7,
+      "audio": {
+        "marginMin": -0.0407,
+        "marginP5": 0.048,
+        "handed": 60,
+        "late": 1,
+        "expected": 63,
+        "missing": 3,
+        "driftMs": -15320,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 34,
+        "triangles": 4665379,
+        "points": 88,
+        "programs": 29,
+        "geometries": 24,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 27855213,
+      "heapEnd": 28387109
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.21620000000298,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.991,
+        "median": 5.9,
+        "p95": 8.6
+      },
+      "hud": {
+        "mean": 2.136,
+        "median": 1.9,
+        "p95": 4.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1448.7,
+      "audio": {
+        "marginMin": -0.0493,
+        "marginP5": -0.02,
+        "handed": 61,
+        "late": 7,
+        "expected": 66,
+        "missing": 5,
+        "driftMs": -15154.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 36,
+        "triangles": 4669989,
+        "points": 88,
+        "programs": 30,
+        "geometries": 24,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 29903450,
+      "heapEnd": 19813405
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.14219999999553,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.6,
+        "p99": 2016.6,
+        "longest": 2016.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.836,
+        "median": 7.3,
+        "p95": 8.5
+      },
+      "hud": {
+        "mean": 2.436,
+        "median": 2.6,
+        "p95": 3.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1536.6,
+      "audio": {
+        "marginMin": -0.0407,
+        "marginP5": -0.022,
+        "handed": 57,
+        "late": 4,
+        "expected": 57,
+        "missing": 0,
+        "driftMs": -15992.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 38,
+        "triangles": 4679207,
+        "points": 88,
+        "programs": 31,
+        "geometries": 24,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 21289840,
+      "heapEnd": 22037116
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 20.24489999999851,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 5041.5,
+        "p95": 5041.5,
+        "p99": 5041.5,
+        "longest": 5041.5,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.125,
+        "median": 5.7,
+        "p95": 7.1
+      },
+      "hud": {
+        "mean": 2.4,
+        "median": 2.2,
+        "p95": 3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4652.17,
+      "audio": {
+        "marginMin": 0.0147,
+        "marginP5": 0.02,
+        "handed": 150,
+        "late": 0,
+        "expected": 160,
+        "missing": 10,
+        "driftMs": -18463.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 22,
+        "triangles": 24730769,
+        "points": 88,
+        "programs": 23,
+        "geometries": 24,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 29943220,
+      "heapEnd": 29075904
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 24.38269999999553,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 8.075,
+        "median": 7.9,
+        "p95": 8.3
+      },
+      "hud": {
+        "mean": 2.025,
+        "median": 1.7,
+        "p95": 2.8
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5289.7,
+      "audio": {
+        "marginMin": -0.0561,
+        "marginP5": -0.0116,
+        "handed": 230,
+        "late": 30,
+        "expected": 270,
+        "missing": 40,
+        "driftMs": -21342.7,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 35,
+        "triangles": 37076345,
+        "points": 88,
+        "programs": 29,
+        "geometries": 24,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 26693505,
+      "heapEnd": 30302505
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 24.498,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.2,
+        "median": 7.3,
+        "p95": 7.5
+      },
+      "hud": {
+        "mean": 2.475,
+        "median": 2.5,
+        "p95": 3.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5377.8,
+      "audio": {
+        "marginMin": -0.0496,
+        "marginP5": 0.0118,
+        "handed": 220,
+        "late": 10,
+        "expected": 260,
+        "missing": 40,
+        "driftMs": -21578,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 37,
+        "triangles": 37080955,
+        "points": 88,
+        "programs": 30,
+        "geometries": 24,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 26357587,
+      "heapEnd": 29490099
+    },
+    {
+      "cell": {
+        "look": "builtin:classic",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 24.53409999999404,
+      "frames": {
+        "frames": 3,
+        "fps": 0.2,
+        "median": 6049.8,
+        "p95": 6049.8,
+        "p99": 6049.8,
+        "longest": 6049.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.575,
+        "median": 4.6,
+        "p95": 9.1
+      },
+      "hud": {
+        "mean": 2.5,
+        "median": 1.4,
+        "p95": 5.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5481.8,
+      "audio": {
+        "marginMin": -0.0348,
+        "marginP5": -0.0348,
+        "handed": 190,
+        "late": 20,
+        "expected": 220,
+        "missing": 30,
+        "driftMs": -21955.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 39,
+        "triangles": 37090173,
+        "points": 88,
+        "programs": 31,
+        "geometries": 24,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 26655985,
+      "heapEnd": 25493284
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 21.46020000000298,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 3.355,
+        "median": 2.3,
+        "p95": 9.6
+      },
+      "hud": {
+        "mean": 1.473,
+        "median": 0.9,
+        "p95": 3.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1424.6,
+      "audio": {
+        "marginMin": -0.0307,
+        "marginP5": -0.0107,
+        "handed": 64,
+        "late": 4,
+        "expected": 65,
+        "missing": 1,
+        "driftMs": -14209.5,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 21,
+        "triangles": 3108031,
+        "points": 0,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 26851893,
+      "heapEnd": 27119429
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 21.984,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 3.7,
+        "median": 2.8,
+        "p95": 8.4
+      },
+      "hud": {
+        "mean": 1.418,
+        "median": 1,
+        "p95": 3.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1547.17,
+      "audio": {
+        "marginMin": -0.02,
+        "marginP5": -0.018,
+        "handed": 60,
+        "late": 4,
+        "expected": 63,
+        "missing": 3,
+        "driftMs": -15224,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 38,
+        "triangles": 4668563,
+        "points": 0,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 28789784,
+      "heapEnd": 28856836
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.00079999999702,
+      "frames": {
+        "frames": 10,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 3.618,
+        "median": 2.9,
+        "p95": 7.9
+      },
+      "hud": {
+        "mean": 1.273,
+        "median": 0.9,
+        "p95": 3.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1555.17,
+      "audio": {
+        "marginMin": -0.038,
+        "marginP5": 0.012,
+        "handed": 56,
+        "late": 1,
+        "expected": 61,
+        "missing": 5,
+        "driftMs": -15390.1,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 42,
+        "triangles": 4673349,
+        "points": 0,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 30754883,
+      "heapEnd": 19744373
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 22.45420000000298,
+      "frames": {
+        "frames": 11,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.6,
+        "p99": 2016.6,
+        "longest": 2016.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.4,
+        "median": 6.5,
+        "p95": 12.9
+      },
+      "hud": {
+        "mean": 1.975,
+        "median": 2.2,
+        "p95": 3.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1667.27,
+      "audio": {
+        "marginMin": -0.0387,
+        "marginP5": 0.0313,
+        "handed": 47,
+        "late": 2,
+        "expected": 66,
+        "missing": 19,
+        "driftMs": -15334.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 44,
+        "triangles": 4682567,
+        "points": 0,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 22553688,
+      "heapEnd": 22712316
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 38.31570000000298,
+      "frames": {
+        "frames": 6,
+        "fps": 0.2,
+        "median": 5916.9,
+        "p95": 6141.7,
+        "p99": 6141.7,
+        "longest": 6141.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3908.3,
+      "cpu": {
+        "mean": 2.071,
+        "median": 2.4,
+        "p95": 2.9
+      },
+      "hud": {
+        "mean": 0.929,
+        "median": 0.9,
+        "p95": 1.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 6061.7,
+      "audio": {
+        "marginMin": -0.047,
+        "marginP5": -0.047,
+        "handed": 80,
+        "late": 20,
+        "expected": 840,
+        "missing": 760,
+        "driftMs": -28766.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 22,
+        "triangles": 24730769,
+        "points": 0,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 28541421,
+      "heapEnd": 30488685
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 32.28910000000149,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5333.3,
+        "p95": 5416.6,
+        "p99": 5416.6,
+        "longest": 5416.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 6808.3,
+      "cpu": {
+        "mean": 6.783,
+        "median": 6.4,
+        "p95": 14.3
+      },
+      "hud": {
+        "mean": 2.283,
+        "median": 2,
+        "p95": 5.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5188.1,
+      "audio": {
+        "marginMin": -0.0498,
+        "marginP5": -0.0498,
+        "handed": 80,
+        "late": 20,
+        "expected": 210,
+        "missing": 130,
+        "driftMs": -29878.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 39,
+        "triangles": 37101727,
+        "points": 0,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 36275817,
+      "heapEnd": 37990153
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 32.76720000000298,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5441.6,
+        "p95": 5500.1,
+        "p99": 5500.1,
+        "longest": 5500.1,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 6924.9,
+      "cpu": {
+        "mean": 2.783,
+        "median": 1.6,
+        "p95": 7.2
+      },
+      "hud": {
+        "mean": 0.75,
+        "median": 0.6,
+        "p95": 1.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5241.43,
+      "audio": {
+        "marginMin": -0.0264,
+        "marginP5": -0.0264,
+        "handed": 80,
+        "late": 40,
+        "expected": 180,
+        "missing": 100,
+        "driftMs": -30817.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 43,
+        "triangles": 37106513,
+        "points": 0,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 34863404,
+      "heapEnd": 36724584
+    },
+    {
+      "cell": {
+        "look": "builtin:inferno",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 33.48829999999702,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5600,
+        "p95": 5608.3,
+        "p99": 5608.3,
+        "longest": 5608.3,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 7016.6,
+      "cpu": {
+        "mean": 6.85,
+        "median": 1.8,
+        "p95": 17.1
+      },
+      "hud": {
+        "mean": 3.4,
+        "median": 0.6,
+        "p95": 15
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5418.97,
+      "audio": {
+        "marginMin": -0.0399,
+        "marginP5": -0.0373,
+        "handed": 100,
+        "late": 40,
+        "expected": 160,
+        "missing": 60,
+        "driftMs": -31707,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 45,
+        "triangles": 37115731,
+        "points": 0,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 34608512,
+      "heapEnd": 36449668
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "off",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 23.73610000000149,
+      "frames": {
+        "frames": 16,
+        "fps": 0.7,
+        "median": 1391.7,
+        "p95": 1425,
+        "p99": 1425,
+        "longest": 1425,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2275.1,
+      "cpu": {
+        "mean": 3.8,
+        "median": 3.4,
+        "p95": 8.9
+      },
+      "hud": {
+        "mean": 0.941,
+        "median": 0.5,
+        "p95": 3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1368.3,
+      "audio": {
+        "marginMin": -0.0493,
+        "marginP5": -0.0493,
+        "handed": 24,
+        "late": 7,
+        "expected": 31,
+        "missing": 7,
+        "driftMs": -20277.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 22,
+        "triangles": 3108031,
+        "points": 88,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 34980723,
+      "heapEnd": 32686835
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "low",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 23.01110000000149,
+      "frames": {
+        "frames": 14,
+        "fps": 0.7,
+        "median": 1533.4,
+        "p95": 1541.8,
+        "p99": 1541.8,
+        "longest": 1541.8,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2841.5,
+      "cpu": {
+        "mean": 5.687,
+        "median": 3.7,
+        "p95": 14.3
+      },
+      "hud": {
+        "mean": 1.607,
+        "median": 0.8,
+        "p95": 5.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1512.27,
+      "audio": {
+        "marginMin": -0.0413,
+        "marginP5": -0.0413,
+        "handed": 19,
+        "late": 8,
+        "expected": 25,
+        "missing": 6,
+        "driftMs": -20261.8,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 39,
+        "triangles": 4668563,
+        "points": 88,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 34455534,
+      "heapEnd": 34270894
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "medium",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 23.63159999999404,
+      "frames": {
+        "frames": 14,
+        "fps": 0.6,
+        "median": 1574.9,
+        "p95": 1599.9,
+        "p99": 1599.9,
+        "longest": 1599.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2874.9,
+      "cpu": {
+        "mean": 10.027,
+        "median": 9,
+        "p95": 30.8
+      },
+      "hud": {
+        "mean": 2.533,
+        "median": 2.2,
+        "p95": 5.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1497.37,
+      "audio": {
+        "marginMin": -0.0407,
+        "marginP5": -0.0407,
+        "handed": 16,
+        "late": 2,
+        "expected": 27,
+        "missing": 11,
+        "driftMs": -20612.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 43,
+        "triangles": 4673349,
+        "points": 88,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 36199381,
+      "heapEnd": 19680321
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "high",
+        "segment": "normal",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 24.77360000000149,
+      "frames": {
+        "frames": 14,
+        "fps": 0.6,
+        "median": 1650,
+        "p95": 1683.3,
+        "p99": 1683.3,
+        "longest": 1683.3,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3033.3,
+      "cpu": {
+        "mean": 7.473,
+        "median": 8.5,
+        "p95": 12.7
+      },
+      "hud": {
+        "mean": 2.347,
+        "median": 1.4,
+        "p95": 7
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 1635.1,
+      "audio": {
+        "marginMin": -0.02,
+        "marginP5": -0.02,
+        "handed": 13,
+        "late": 4,
+        "expected": 30,
+        "missing": 17,
+        "driftMs": -21464.3,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 45,
+        "triangles": 4682567,
+        "points": 88,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 22270108,
+      "heapEnd": 22298364
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "off",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 32.14470000000298,
+      "frames": {
+        "frames": 6,
+        "fps": 0.2,
+        "median": 4225,
+        "p95": 5083.2,
+        "p99": 5083.2,
+        "longest": 5083.2,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 5774.8,
+      "cpu": {
+        "mean": 2.457,
+        "median": 2.6,
+        "p95": 3.7
+      },
+      "hud": {
+        "mean": 1.114,
+        "median": 1.2,
+        "p95": 1.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 4543.4,
+      "audio": {
+        "marginMin": -0.0489,
+        "marginP5": -0.0489,
+        "handed": 90,
+        "late": 20,
+        "expected": 2270,
+        "missing": 2180,
+        "driftMs": -6395.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 23,
+        "triangles": 24730769,
+        "points": 88,
+        "programs": 24,
+        "geometries": 25,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 28851225,
+      "heapEnd": 31057773
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "low",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 34.33060000000149,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5708.4,
+        "p95": 5816.6,
+        "p99": 5816.6,
+        "longest": 5816.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 10.083,
+        "median": 9.1,
+        "p95": 15.8
+      },
+      "hud": {
+        "mean": 2.8,
+        "median": 3,
+        "p95": 4.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5616.6,
+      "audio": {
+        "marginMin": -0.0498,
+        "marginP5": -0.0498,
+        "handed": 80,
+        "late": 20,
+        "expected": 180,
+        "missing": 100,
+        "driftMs": -32319.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 40,
+        "triangles": 37101727,
+        "points": 88,
+        "programs": 33,
+        "geometries": 25,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 33226411,
+      "heapEnd": 31467803
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "medium",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 28.02820000000298,
+      "frames": {
+        "frames": 4,
+        "fps": 0.2,
+        "median": 5608.2,
+        "p95": 5649.9,
+        "p99": 5649.9,
+        "longest": 5649.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 7083.3,
+      "cpu": {
+        "mean": 5.68,
+        "median": 6.3,
+        "p95": 9.1
+      },
+      "hud": {
+        "mean": 1.7,
+        "median": 1.6,
+        "p95": 3.8
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5483.07,
+      "audio": {
+        "marginMin": -0.0473,
+        "marginP5": -0.0473,
+        "handed": 70,
+        "late": 20,
+        "expected": 80,
+        "missing": 10,
+        "driftMs": -27100.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 44,
+        "triangles": 37106513,
+        "points": 88,
+        "programs": 34,
+        "geometries": 25,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 31221692,
+      "heapEnd": 32827212
+    },
+    {
+      "cell": {
+        "look": "builtin:crystal",
+        "quality": "high",
+        "segment": "dense",
+        "probe": null,
+        "overrides": {},
+        "round": 2
+      },
+      "seconds": 34.32189999999851,
+      "frames": {
+        "frames": 5,
+        "fps": 0.2,
+        "median": 5682.7,
+        "p95": 5810.9,
+        "p99": 5810.9,
+        "longest": 5810.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 7000,
+      "cpu": {
+        "mean": 6.467,
+        "median": 1.8,
+        "p95": 22.3
+      },
+      "hud": {
+        "mean": 0.9,
+        "median": 0.6,
+        "p95": 1.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 5650.9,
+      "audio": {
+        "marginMin": -0.02,
+        "marginP5": -0.02,
+        "handed": 90,
+        "late": 30,
+        "expected": 90,
+        "missing": 0,
+        "driftMs": -33252.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 46,
+        "triangles": 37115731,
+        "points": 88,
+        "programs": 35,
+        "geometries": 25,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 40415008,
+      "heapEnd": 31028632
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "light",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.36360000000149,
+      "frames": {
+        "frames": 27,
+        "fps": 1.3,
+        "median": 766.6,
+        "p95": 783.3,
+        "p99": 783.4,
+        "longest": 783.4,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 1952.8,
+      "cpu": {
+        "mean": 6.85,
+        "median": 6.9,
+        "p95": 11.7
+      },
+      "hud": {
+        "mean": 3.05,
+        "median": 3.1,
+        "p95": 5.8
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 735.3,
+      "audio": {
+        "marginMin": 0.0105,
+        "marginP5": 0.0129,
+        "handed": 23,
+        "late": 0,
+        "expected": 23,
+        "missing": 0,
+        "driftMs": -18835.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 28,
+        "triangles": 1127247,
+        "points": 0,
+        "programs": 25,
+        "geometries": 30,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 26740529,
+      "heapEnd": 27177057
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "light",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 21.50389999999851,
+      "frames": {
+        "frames": 25,
+        "fps": 1.2,
+        "median": 825,
+        "p95": 850.1,
+        "p99": 858.3,
+        "longest": 858.3,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2833.2,
+      "cpu": {
+        "mean": 10.55,
+        "median": 10.8,
+        "p95": 20.7
+      },
+      "hud": {
+        "mean": 2.969,
+        "median": 2.9,
+        "p95": 5.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 771.97,
+      "audio": {
+        "marginMin": -0.0435,
+        "marginP5": -0.0197,
+        "handed": 28,
+        "late": 8,
+        "expected": 29,
+        "missing": 1,
+        "driftMs": -18525.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 48,
+        "triangles": 1697465,
+        "points": 0,
+        "programs": 35,
+        "geometries": 30,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 27900081,
+      "heapEnd": 28250173
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "light",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.11060000000149,
+      "frames": {
+        "frames": 25,
+        "fps": 1.2,
+        "median": 850,
+        "p95": 883.4,
+        "p99": 891.6,
+        "longest": 891.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2566.7,
+      "cpu": {
+        "mean": 9.85,
+        "median": 8.6,
+        "p95": 15.8
+      },
+      "hud": {
+        "mean": 3.5,
+        "median": 3,
+        "p95": 5.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": 814.07,
+      "audio": {
+        "marginMin": -0.0446,
+        "marginP5": -0.0428,
+        "handed": 31,
+        "late": 10,
+        "expected": 32,
+        "missing": 1,
+        "driftMs": -18630.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 50,
+        "triangles": 1702075,
+        "points": 0,
+        "programs": 36,
+        "geometries": 30,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 29590362,
+      "heapEnd": 29241274
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "light",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 22.06370000000298,
+      "frames": {
+        "frames": 23,
+        "fps": 1.1,
+        "median": 925,
+        "p95": 966.7,
+        "p99": 966.7,
+        "longest": 966.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2566.6,
+      "cpu": {
+        "mean": 9.925,
+        "median": 9.7,
+        "p95": 15
+      },
+      "hud": {
+        "mean": 4.467,
+        "median": 3,
+        "p95": 10.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 1,
+        "totalMs": 55,
+        "longestMs": 55,
+        "scripts": [
+          {
+            "name": "FrameRequestCallback · Vt · index-B7bB-yBt.js",
+            "ms": 29
+          },
+          {
+            "name": "FrameRequestCallback · loop · index-B7bB-yBt.js",
+            "ms": 14
+          }
+        ]
+      },
+      "motionErrorP95": 853.3,
+      "audio": {
+        "marginMin": -0.0422,
+        "marginP5": -0.0093,
+        "handed": 28,
+        "late": 2,
+        "expected": 31,
+        "missing": 3,
+        "driftMs": -18634.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 52,
+        "triangles": 1711293,
+        "points": 0,
+        "programs": 37,
+        "geometries": 30,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 30840829,
+      "heapEnd": 24099481
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "loop",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 7.87410000000149,
+      "frames": {
+        "frames": 5,
+        "fps": 0.8,
+        "median": 1308.3,
+        "p95": 1333.4,
+        "p99": 1333.4,
+        "longest": 1333.4,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2358.3,
+      "cpu": {
+        "mean": 5.483,
+        "median": 5.8,
+        "p95": 8.3
+      },
+      "hud": {
+        "mean": 2.367,
+        "median": 2.2,
+        "p95": 4.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": -0.0293,
+        "marginP5": -0.0293,
+        "handed": 7,
+        "late": 2,
+        "expected": null,
+        "missing": null,
+        "driftMs": -6415.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 28,
+        "triangles": 3111771,
+        "points": 0,
+        "programs": 25,
+        "geometries": 30,
+        "textures": 5,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 21322346,
+      "heapEnd": 22081210
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "loop",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 8.69569999999553,
+      "frames": {
+        "frames": 5,
+        "fps": 0.7,
+        "median": 1449.9,
+        "p95": 1450,
+        "p99": 1450,
+        "longest": 1450,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3016.7,
+      "cpu": {
+        "mean": 7.6,
+        "median": 7.2,
+        "p95": 9.7
+      },
+      "hud": {
+        "mean": 2.883,
+        "median": 2.9,
+        "p95": 4.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": 0.02,
+        "marginP5": 0.02,
+        "handed": 7,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -7165,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 48,
+        "triangles": 4672719,
+        "points": 0,
+        "programs": 35,
+        "geometries": 30,
+        "textures": 14,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 23019589,
+      "heapEnd": 22223981
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "loop",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 8.81020000000298,
+      "frames": {
+        "frames": 5,
+        "fps": 0.7,
+        "median": 1458.3,
+        "p95": 1508.3,
+        "p99": 1508.3,
+        "longest": 1508.3,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3166.1,
+      "cpu": {
+        "mean": 7.65,
+        "median": 6.7,
+        "p95": 14.4
+      },
+      "hud": {
+        "mean": 3.783,
+        "median": 4.5,
+        "p95": 6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": 0.01,
+        "marginP5": 0.01,
+        "handed": 5,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -8020.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 50,
+        "triangles": 4677329,
+        "points": 0,
+        "programs": 36,
+        "geometries": 30,
+        "textures": 16,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 24455732,
+      "heapEnd": 24574968
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "loop",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 7.695,
+      "frames": {
+        "frames": 4,
+        "fps": 0.6,
+        "median": 1533.4,
+        "p95": 1550,
+        "p99": 1550,
+        "longest": 1550,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3333.2,
+      "cpu": {
+        "mean": 14.2,
+        "median": 10.6,
+        "p95": 32
+      },
+      "hud": {
+        "mean": 2.28,
+        "median": 2.1,
+        "p95": 3.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": -0.0187,
+        "marginP5": -0.0187,
+        "handed": 7,
+        "late": 2,
+        "expected": null,
+        "missing": null,
+        "driftMs": -6705.7,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 52,
+        "triangles": 4686547,
+        "points": 0,
+        "programs": 37,
+        "geometries": 30,
+        "textures": 18,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 20547085,
+      "heapEnd": 21242041
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "crossfade",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 13.43189999999851,
+      "frames": {
+        "frames": 4,
+        "fps": 0.4,
+        "median": 2308.3,
+        "p95": 3275,
+        "p99": 3275,
+        "longest": 3275,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 4224.9,
+      "cpu": {
+        "mean": 13.02,
+        "median": 8.7,
+        "p95": 37.2
+      },
+      "hud": {
+        "mean": 9.08,
+        "median": 3.1,
+        "p95": 31.4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": null,
+        "marginP5": null,
+        "handed": 0,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -7922.6,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 23,
+        "triangles": 4222735,
+        "points": 88,
+        "programs": 26,
+        "geometries": 31,
+        "textures": 6,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 29342113,
+      "heapEnd": 20396006
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "crossfade",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 9.57369999999553,
+      "frames": {
+        "frames": 2,
+        "fps": 0.3,
+        "median": 3024.8,
+        "p95": 3024.9,
+        "p99": 3024.9,
+        "longest": 3024.9,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2033.2,
+      "cpu": {
+        "mean": 10.7,
+        "median": 11.3,
+        "p95": 12.3
+      },
+      "hud": {
+        "mean": 2.033,
+        "median": 2,
+        "p95": 2.2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": 0.041,
+        "marginP5": 0.041,
+        "handed": 7,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -8245.7,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 51,
+        "triangles": 6346127,
+        "points": 0,
+        "programs": 36,
+        "geometries": 31,
+        "textures": 15,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 24345176,
+      "heapEnd": 24795668
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "crossfade",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 8.0375,
+      "frames": {
+        "frames": 4,
+        "fps": 0.6,
+        "median": 1008.4,
+        "p95": 3025,
+        "p99": 3025,
+        "longest": 3025,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 2016.6,
+      "cpu": {
+        "mean": 90.9,
+        "median": 8.8,
+        "p95": 416.6
+      },
+      "hud": {
+        "mean": 11.22,
+        "median": 3,
+        "p95": 36.1
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": -0.0356,
+        "marginP5": -0.0356,
+        "handed": 12,
+        "late": 2,
+        "expected": null,
+        "missing": null,
+        "driftMs": -8.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 41,
+        "triangles": 1700299,
+        "points": 88,
+        "programs": 35,
+        "geometries": 26,
+        "textures": 17,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 24158964,
+      "heapEnd": 24504837
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "crossfade",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 8.00590000000596,
+      "frames": {
+        "frames": 4,
+        "fps": 0.6,
+        "median": 1008.3,
+        "p95": 3025,
+        "p99": 3025,
+        "longest": 3025,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 91.04,
+        "median": 11.6,
+        "p95": 411.8
+      },
+      "hud": {
+        "mean": 13.38,
+        "median": 5,
+        "p95": 47.3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": 0.0041,
+        "marginP5": 0.0041,
+        "handed": 11,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -5.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 43,
+        "triangles": 1709517,
+        "points": 88,
+        "programs": 36,
+        "geometries": 26,
+        "textures": 19,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 24891253,
+      "heapEnd": 25477982
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "pauseResume",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 12.20680000000447,
+      "frames": {
+        "frames": 5,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 6.15,
+        "median": 6,
+        "p95": 7.3
+      },
+      "hud": {
+        "mean": 3.05,
+        "median": 2.8,
+        "p95": 4
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": -0.0087,
+        "marginP5": 0,
+        "handed": 36,
+        "late": 1,
+        "expected": null,
+        "missing": null,
+        "driftMs": 3.9,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 28,
+        "triangles": 3111771,
+        "points": 0,
+        "programs": 26,
+        "geometries": 31,
+        "textures": 6,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 26335427,
+      "heapEnd": 27346651
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "pauseResume",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 11.6045,
+      "frames": {
+        "frames": 5,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.6,
+        "p99": 2016.6,
+        "longest": 2016.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.333,
+        "median": 5.7,
+        "p95": 6.7
+      },
+      "hud": {
+        "mean": 2.217,
+        "median": 2,
+        "p95": 3.8
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": -0.03,
+        "marginP5": 0.0213,
+        "handed": 25,
+        "late": 1,
+        "expected": null,
+        "missing": null,
+        "driftMs": 6.2,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 48,
+        "triangles": 4672719,
+        "points": 0,
+        "programs": 36,
+        "geometries": 31,
+        "textures": 15,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 20903420,
+      "heapEnd": 21970736
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "pauseResume",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 11.56839999999851,
+      "frames": {
+        "frames": 5,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 4.883,
+        "median": 5.5,
+        "p95": 6.2
+      },
+      "hud": {
+        "mean": 2.55,
+        "median": 2.5,
+        "p95": 3.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": 0.078,
+        "marginP5": 0.078,
+        "handed": 14,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -8560.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 50,
+        "triangles": 4677329,
+        "points": 0,
+        "programs": 37,
+        "geometries": 31,
+        "textures": 17,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 23693085,
+      "heapEnd": 24512497
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "pauseResume",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 11.59329999999702,
+      "frames": {
+        "frames": 5,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.6,
+        "p99": 2016.6,
+        "longest": 2016.6,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 0,
+      "cpu": {
+        "mean": 5.983,
+        "median": 5.7,
+        "p95": 7.8
+      },
+      "hud": {
+        "mean": 2.083,
+        "median": 1.7,
+        "p95": 3
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": -0.01,
+        "marginP5": -0.01,
+        "handed": 18,
+        "late": 1,
+        "expected": null,
+        "missing": null,
+        "driftMs": -8121.3,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 52,
+        "triangles": 4686547,
+        "points": 0,
+        "programs": 38,
+        "geometries": 31,
+        "textures": 19,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 25919706,
+      "heapEnd": 24775450
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "off",
+        "segment": "idle",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 26.181,
+      "frames": {
+        "frames": 12,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3024.9,
+      "cpu": {
+        "mean": 3.123,
+        "median": 3.2,
+        "p95": 4.5
+      },
+      "hud": {
+        "mean": 1.431,
+        "median": 1.6,
+        "p95": 2.6
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": null,
+        "marginP5": null,
+        "handed": 0,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -17861,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 28,
+        "triangles": 3111771,
+        "points": 0,
+        "programs": 26,
+        "geometries": 31,
+        "textures": 6,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 81100800
+      },
+      "heapStart": 22416957,
+      "heapEnd": 23579605
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "low",
+        "segment": "idle",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 26.12370000000298,
+      "frames": {
+        "frames": 12,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3024.8,
+      "cpu": {
+        "mean": 4.569,
+        "median": 4.6,
+        "p95": 6.8
+      },
+      "hud": {
+        "mean": 1.192,
+        "median": 1.3,
+        "p95": 2
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": null,
+        "marginP5": null,
+        "handed": 0,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -17334.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 48,
+        "triangles": 4672719,
+        "points": 0,
+        "programs": 36,
+        "geometries": 31,
+        "textures": 15,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 82329600
+      },
+      "heapStart": 22624447,
+      "heapEnd": 22023055
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "medium",
+        "segment": "idle",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 26.12,
+      "frames": {
+        "frames": 12,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3024.9,
+      "cpu": {
+        "mean": 4.954,
+        "median": 4.1,
+        "p95": 8.9
+      },
+      "hud": {
+        "mean": 1.2,
+        "median": 1.1,
+        "p95": 1.9
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": null,
+        "marginP5": null,
+        "handed": 0,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -18008,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 50,
+        "triangles": 4677329,
+        "points": 0,
+        "programs": 37,
+        "geometries": 31,
+        "textures": 17,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 86016000
+      },
+      "heapStart": 23967628,
+      "heapEnd": 25043016
+    },
+    {
+      "cell": {
+        "look": "builtin:study",
+        "quality": "high",
+        "segment": "idle",
+        "probe": null,
+        "overrides": {},
+        "round": 1
+      },
+      "seconds": 26.10269999999553,
+      "frames": {
+        "frames": 12,
+        "fps": 0.5,
+        "median": 2016.6,
+        "p95": 2016.7,
+        "p99": 2016.7,
+        "longest": 2016.7,
+        "over17": 1,
+        "over18": 1,
+        "over34": 1,
+        "over35": 1,
+        "dropped": 1
+      },
+      "warmUpLongest": 3025,
+      "cpu": {
+        "mean": 4.185,
+        "median": 4,
+        "p95": 6.4
+      },
+      "hud": {
+        "mean": 0.977,
+        "median": 1,
+        "p95": 1.5
+      },
+      "gpuMs": null,
+      "longTasks": {
+        "count": 0,
+        "totalMs": 0,
+        "longestMs": 0,
+        "scripts": []
+      },
+      "motionErrorP95": null,
+      "audio": {
+        "marginMin": null,
+        "marginP5": null,
+        "handed": 0,
+        "late": 0,
+        "expected": null,
+        "missing": null,
+        "driftMs": -17921.4,
+        "outputLatencyMs": 40
+      },
+      "renderer": {
+        "drawCalls": 52,
+        "triangles": 4686547,
+        "points": 0,
+        "programs": 38,
+        "geometries": 31,
+        "textures": 19,
+        "width": 1280,
+        "height": 720,
+        "targetBytes": 100761600
+      },
+      "heapStart": 20888948,
+      "heapEnd": 20794004
+    }
+  ]
+}
