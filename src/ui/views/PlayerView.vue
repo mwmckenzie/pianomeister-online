@@ -24,6 +24,7 @@ import type { LoopRange } from '@/core/transport/LoopRange'
 import type { OpenedSong } from '@/data/OpenedSong'
 import { Engine } from '@/engine/Engine'
 
+import { type BenchHost, benchHostKey } from '../bench/BenchHost'
 import AppIcon from '../components/AppIcon.vue'
 import IconButton from '../components/IconButton.vue'
 import { formatTime } from '../format/formatTime'
@@ -76,6 +77,8 @@ const SettingsWindow = defineAsyncComponent(loadSettingsWindow)
 const loadOverviewStrip = () => import('../overview/OverviewStrip.vue')
 const OverviewStrip = defineAsyncComponent(loadOverviewStrip)
 const loadLoopEditor = () => import('./LoopEditorView.vue')
+// The perf overlay (milestone 11): only with ?perf=1 or its key.
+const PerfOverlay = defineAsyncComponent(() => import('../bench/PerfOverlay.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -295,6 +298,11 @@ async function openSong(songId?: string, bookmarkId: string | null = null): Prom
   if (!library.loaded) void library.refresh().catch(() => undefined)
 }
 
+/** A start-up time for the benchmark (milestone 11). */
+function markOnce(name: string): void {
+  if (performance.getEntriesByName(name).length === 0) performance.mark(name)
+}
+
 function attachSession(): PlaybackSession {
   const playback = sharedSession()
   session = playback
@@ -311,7 +319,10 @@ function attachSession(): PlaybackSession {
     (done, total) => (sampleProgress.value = { loaded: done, total }),
   )
   playback.ready.then(
-    () => (samplesReady.value = true),
+    () => {
+      samplesReady.value = true
+      markOnce('pm-samples')
+    },
     (e: unknown) => showError(`Samples failed to load: ${String(e)}`),
   )
   return playback
@@ -346,6 +357,7 @@ function showSong(
     : playback.load(opened.song, { handOf: opened.handOf, override: opened.override, key })
   entry.value = opened.entry
   loaded.value = prepared
+  markOnce('pm-song')
   const map = prepared.barMap
   // Loading another song or bookmark drops temporary changes; coming back keeps them.
   if (!sameEntry) {
@@ -359,16 +371,20 @@ function showSong(
   void library.setLastOpened(songId, bookmarkId).then((saved) => {
     if (!saved) showError(library.error)
   })
-  engine?.setSong({
-    notes: prepared.notes,
-    ppq: opened.song.ppq,
-    barMap: prepared.barMap,
-    pedalIntervals: prepared.pedalIntervals,
-    endTick: opened.song.durationTicks,
-    handCages: prepared.handCages,
-  })
+  showOnHighway(prepared)
   syncEngineLoop()
   return sameEntry
+}
+
+function showOnHighway(prepared: LoadedSong): void {
+  engine?.setSong({
+    notes: prepared.notes,
+    ppq: prepared.song.ppq,
+    barMap: prepared.barMap,
+    pedalIntervals: prepared.pedalIntervals,
+    endTick: prepared.song.durationTicks,
+    handCages: prepared.handCages,
+  })
 }
 
 function listenerFor(playback: PlaybackSession): ListeningController {
@@ -381,7 +397,7 @@ function listenerFor(playback: PlaybackSession): ListeningController {
     ownSettings: () => settingsStore.ownSettings(),
     setOverlay: (next) => settingsStore.setOverlay(next),
     endOverlay: () => settingsStore.endOverlay(),
-    setTrackingSuspended: (on) => (statsStore.trackingSuspended = on),
+    setTrackingSuspended: (on) => (statsStore.trackingSuspended = on || benching),
     crossfadeSec: () => settingsStore.settings.audio.crossfade,
     crossfadeCurve: () => settingsStore.settings.audio.crossfadeCurve,
     showTimeline: (timeline, shiftTicks) => {
@@ -406,7 +422,9 @@ function listenerFor(playback: PlaybackSession): ListeningController {
     reducedMotion: () => reducedMotion.value,
     now: () => performance.now(),
     update: applyListeningUpdate,
-    markPlayed: (id) => void playlistStore.markPlayed(id),
+    markPlayed: (id) => {
+      if (!benching) void playlistStore.markPlayed(id)
+    },
     random: Math.random,
   })
   return listener
@@ -638,6 +656,16 @@ const saveAsBookmark = useSaveBookmark()
 
 function updateHud(): void {
   hudFrame = requestAnimationFrame(updateHud)
+  if (onHudFrame === null) {
+    stepHud()
+    return
+  }
+  const started = performance.now()
+  stepHud()
+  onHudFrame(performance.now() - started)
+}
+
+function stepHud(): void {
   if (session !== null && listening.active) {
     listener?.frame()
     if (hud.value.state !== session.transport.state) {
@@ -688,6 +716,8 @@ function currentBar(): number | null {
 }
 
 function rememberBar(): void {
+  // A benchmark's places aren't the player's.
+  if (benching) return
   const bar = currentBar()
   if (bar !== null) void library.setStoppedBar(bar)
 }
@@ -704,6 +734,8 @@ function openStats(): void {
 const onWelcome = computed(() => route.name === 'welcome')
 /** The loop editor too (brief decision 106), but playback keeps running under it. */
 const onEditor = computed(() => route.name === 'editor')
+/** The benchmark's page (milestone 11): over the playing scene, alone on the screen. */
+const onBench = computed(() => route.name === 'bench')
 /** A still backdrop: no render loop behind Welcome or the editor (weak tablets; m7-7 round 2). */
 const frozen = computed(() => onWelcome.value || onEditor.value)
 watch(frozen, (still) => engine?.setFrozen(still))
@@ -725,6 +757,7 @@ const stripShown = computed(
     ui.overviewOpen &&
     stripFits.value &&
     loaded.value !== null &&
+    !onBench.value &&
     !onWelcome.value &&
     !onEditor.value,
 )
@@ -938,7 +971,7 @@ function onKeyDown(event: KeyboardEvent): void {
     return
   }
   // Behind Welcome the player's keys rest; Welcome has its own (Enter resumes).
-  if (onWelcome.value) return
+  if (onWelcome.value || onBench.value) return
   if (keyCapture.value || pickerOpen.value || settingsOpen.value || ui.shortcutsOpen) return
   if (listening.active) {
     onListeningKey(event)
@@ -954,6 +987,97 @@ function onKeyDown(event: KeyboardEvent): void {
 }
 
 const onGesture = () => void session?.unlock()
+
+// ── Benchmark and perf overlay (milestone 11) ────────────────────────────────────────────────
+/** A benchmark has the player: nothing it does is remembered. */
+let benching = false
+/** Where the player was, to go back to. */
+let benchBar: number | null = null
+/** Called with the HUD's own time per frame, while someone measures it. */
+let onHudFrame: ((ms: number) => void) | null = null
+
+function beginBench(): void {
+  if (benching || session === null) return
+  if (listening.active) listener?.leave()
+  rememberBar()
+  benchBar = currentBar()
+  benching = true
+  statsStore.trackingSuspended = true
+  const { transport } = session
+  transport.stop()
+  transport.setLoop(null)
+  transport.setPreRoll({ beats: 0, mode: 'muted' })
+  transport.setTempoPercent(100)
+  session.setMuted(true)
+  engine?.setReducedMotion(false)
+}
+
+/** Everything back as it was, but the song (the caller opens it again). */
+function releaseBench(): void {
+  if (!benching) return
+  if (listening.active) listener?.leave()
+  session?.transport.stop()
+  session?.transport.setLoop(null)
+  session?.setMuted(false)
+  engine?.seedEffects(null)
+  engine?.setReducedMotion(reducedMotion.value)
+  engine?.setFrozen(frozen.value)
+  settingsStore.endBench()
+  statsStore.trackingSuspended = false
+  benching = false
+}
+
+const benchHost: BenchHost = {
+  ready: samplesReady,
+  engine: () => engine,
+  session: () => session,
+  begin: beginBench,
+  end: async () => {
+    if (!benching) return
+    releaseBench()
+    if (unmounted) return
+    await openSong()
+    if (benchBar !== null) session?.transport.seekToBar(benchBar)
+  },
+  show: (song) => {
+    loaded.value = song
+    showOnHighway(song)
+  },
+  setLoop: (range) => {
+    session?.transport.setLoop(range)
+    syncEngineLoop()
+  },
+  openSong: (songId) => library.openSong(songId),
+  entry: (songId) => library.entries.find((e) => e.songId === songId),
+  entries: async () => {
+    if (!library.loaded) await library.refresh()
+    return library.entries
+  },
+  listen: async (playlist, fromEndSec) => {
+    if (session === null) return
+    listening.tempoPercent = 100
+    const controller = listenerFor(session)
+    await controller.start(playlist, 0)
+    session.setMuted(true)
+    const first = library.entries.find((e) => e.songId === playlist.entries[0]?.songId)
+    await controller.seekBy((first?.facts.durationSeconds ?? 0) - fromEndSec)
+  },
+  leaveListening: () => {
+    if (!listening.active) return
+    listener?.leave()
+    session?.setMuted(benching)
+  },
+  setHudListener: (listen) => (onHudFrame = listen),
+}
+provide(benchHostKey, benchHost)
+
+const perfOpen = ref(route.query.perf === '1')
+/** Ctrl+Alt+P; not a command: it isn't for players. */
+function onPerfKey(event: KeyboardEvent): void {
+  if (!event.ctrlKey || !event.altKey || event.code !== 'KeyP') return
+  event.preventDefault()
+  perfOpen.value = !perfOpen.value
+}
 
 /** For the render readout: what the engine renders at and how long a frame takes. */
 function renderStatus(): RenderStatus | null {
@@ -1059,6 +1183,7 @@ onMounted(() => {
     resizeObserver.observe(canvas.value)
   }
   window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keydown', onPerfKey)
   window.addEventListener('pointerdown', onGesture)
   hudFrame = requestAnimationFrame(updateHud)
   // Ask for the picker and settings chunks before the session starts ~230 sample downloads:
@@ -1076,10 +1201,16 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   unmounted = true
+  if (benching) {
+    releaseBench()
+    // The benchmark's song isn't the player's: the bar is already remembered.
+    loaded.value = null
+  }
   if (listening.active) listener?.leave()
   // The library shows the scene's last frame behind its glass.
   sceneSnapshot.value = engine?.captureFrame() ?? sceneSnapshot.value
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keydown', onPerfKey)
   window.removeEventListener('pointerdown', onGesture)
   cancelAnimationFrame(hudFrame)
   resizeObserver?.disconnect()
@@ -1098,7 +1229,7 @@ onBeforeUnmount(() => {
   <main
     class="player"
     :class="{
-      'with-sidebar': ui.sidebarOpen && !frozen,
+      'with-sidebar': ui.sidebarOpen && !frozen && !onBench,
       welcome: onWelcome,
       editor: onEditor,
       overview: stripShown,
@@ -1428,10 +1559,11 @@ ${customHint}`
 
     <!-- Welcome over the paused scene; the loop editor over the playing one. -->
     <RouterView />
+    <PerfOverlay v-if="perfOpen" :quiet="onBench" />
 
     <Transition name="sidebar">
       <PlayfieldSidebar
-        v-if="ui.sidebarOpen && !frozen"
+        v-if="ui.sidebarOpen && !frozen && !onBench"
         :render-status="renderStatus"
         @close="ui.sidebarOpen = false"
         @open-settings="openSettings"

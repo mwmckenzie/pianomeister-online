@@ -26,6 +26,8 @@ export const router = createRouter({
         { path: 'welcome', name: 'welcome', component: () => import('../views/WelcomeView.vue') },
         // The loop editor keeps the player playing underneath (brief decision 106).
         { path: 'editor', name: 'editor', component: () => import('../views/LoopEditorView.vue') },
+        // The benchmark (milestone 11) runs the real player.
+        { path: 'bench', name: 'bench', component: () => import('../views/BenchView.vue') },
       ],
     },
     // Lazy: the library UI isn't needed to play.
