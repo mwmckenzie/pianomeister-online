@@ -38,7 +38,7 @@ interface Difference {
 
 interface Result {
   readonly frames: number
-  /** The whole song against itself: the same moment drawn again, three times. */
+  /** The whole song against itself: the same first frame drawn again. */
   readonly noise: Difference
   readonly culled: Difference
   /** With the window cut short at one edge: the comparison must notice. */
@@ -59,9 +59,14 @@ interface Api {
   info(): { triangles: number; drawCalls: number }
 }
 
-async function compare(page: Page, steps: readonly Step[], canFail: boolean): Promise<Result> {
+async function compare(
+  page: Page,
+  steps: readonly Step[],
+  canFail: boolean,
+  redraws = 20,
+): Promise<Result> {
   return page.evaluate(
-    async ({ steps, canFail }): Promise<Result> => {
+    async ({ steps, canFail, redraws }): Promise<Result> => {
       const api = (window as unknown as { pianomeisterCapture: Api }).pianomeisterCapture
       const stage = document.querySelector<HTMLCanvasElement>('[data-testid=stage]')
       const gl = stage?.getContext('webgl2')
@@ -99,26 +104,28 @@ async function compare(page: Page, steps: readonly Step[], canFail: boolean): Pr
       let far = canFail ? none : null
       let frames = 0
       const hashes = new Set<number>()
-      // Culled first, so it is the first frame at its position; then the same moment again (no
-      // time passes) with the whole song: once to compare with, and more for the noise.
-      const shot = (name: string, tick: number, dt: number, playing: boolean) => {
-        const redraw = (cull: boolean, broken: 'near' | 'far' | null = null) => {
+      // Every picture is a first frame: from a fresh start, one frame at the position before and
+      // then this one, as a seek, a wrap or the next frame of playing shows it.
+      let before = 0
+      const shot = (name: string, tick: number, playing: boolean, from = before) => {
+        const first = (cull: boolean, broken: 'near' | 'far' | null = null) => {
           api.cull(cull, broken)
-          api.step(tick, 0, playing)
+          api.start(1)
+          api.step(from, 1 / 60)
+          api.step(tick, 1 / 60, playing)
           return grab()
         }
-        api.cull(true)
-        api.step(tick, dt, playing)
-        const first = grab()
-        const full = redraw(false)
-        culled = worse(culled, difference(full, first, name))
-        for (let i = 0; i < 3; i++) noise = worse(noise, difference(full, redraw(false), name))
-        if (near !== null) near = worse(near, difference(full, redraw(true, 'near'), name))
-        if (far !== null) far = worse(far, difference(full, redraw(true, 'far'), name))
+        // One to settle what the last picture left behind.
+        first(false)
+        const full = first(false)
+        culled = worse(culled, difference(full, first(true), name))
+        for (let i = 0; i < redraws; i++) noise = worse(noise, difference(full, first(false), name))
+        if (near !== null) near = worse(near, difference(full, first(true, 'near'), name))
+        if (far !== null) far = worse(far, difference(full, first(true, 'far'), name))
         hashes.add(full.reduce((h, x) => (Math.imul(h, 31) + x) | 0, 7))
         frames++
+        before = tick
       }
-      api.start(1)
       let where: (extra: number) => number = () => 0
       for (const [i, s] of steps.entries()) {
         const name = `${i} ${JSON.stringify(s)}`
@@ -128,20 +135,21 @@ async function compare(page: Page, steps: readonly Step[], canFail: boolean): Pr
           // The practice watcher applies it before the next task.
           await new Promise((resolve) => setTimeout(resolve, 0))
         } else if (s.kind === 'play') {
-          for (let f = 1; f <= s.frames; f++)
-            shot(`${name} frame ${f}`, where(f / 60), 1 / 60, true)
+          for (let f = 1; f <= s.frames; f++) {
+            shot(`${name} frame ${f}`, where(f / 60), true, where((f - 1) / 60))
+          }
         } else {
           where =
             s.kind === 'at'
               ? (extra) => api.tickAt(s.bar, s.seconds + extra)
               : (extra) => api.tickAtSeconds(s.seconds + extra)
-          shot(name, where(0), 1 / 60, s.paused !== true)
+          shot(name, where(0), s.paused !== true)
         }
       }
       api.cull(true)
       return { frames, noise, culled, near, far, distinct: hashes.size }
     },
-    { steps, canFail },
+    { steps, canFail, redraws },
   )
 }
 
@@ -297,7 +305,7 @@ test('@exact culling: Canon on software WebGL', async ({ page }) => {
     { kind: 'at', bar: 20, seconds: 0.2 },
     { kind: 'at', bar: 40, seconds: 0.31, paused: true },
   ]
-  check('Canon, software', await compare(page, steps, true), true)
+  check('Canon, software', await compare(page, steps, true, 2), true)
   expect(errors).toEqual([])
 })
 
