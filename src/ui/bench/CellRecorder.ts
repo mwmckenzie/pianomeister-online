@@ -88,6 +88,10 @@ export class CellRecorder {
     }
   }
 
+  get frameCount(): number {
+    return this.intervals.length
+  }
+
   /** Detaches from the player, whatever happened. */
   detach(): void {
     const engine = this.host.engine()

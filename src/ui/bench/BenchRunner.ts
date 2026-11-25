@@ -31,6 +31,8 @@ const TRIES = 3
 const BEFORE_SEAM_SEC = 3
 /** A cell with fewer frames isn't worth percentiles. */
 const FEW_FRAMES = 30
+/** The most a cell goes on for that many. */
+const EXTRA_SEC = 15
 
 export interface BenchOptions {
   readonly suite: BenchSuite
@@ -233,7 +235,15 @@ async function measure(
       await wait(third, signal)
       await session.play()
       await wait(third, signal)
-    } else await wait(SEGMENT_SEC[cell.segment], signal)
+    } else {
+      await wait(SEGMENT_SEC[cell.segment], signal)
+      // A slow device needs longer for enough frames (a loop or a seam would come round again).
+      const extendable = cell.segment !== 'loop' && cell.segment !== 'crossfade'
+      const until = performance.now() + EXTRA_SEC * 1000
+      while (extendable && recorder.frameCount < FEW_FRAMES && performance.now() < until) {
+        await wait(0.5, signal)
+      }
+    }
     const result = recorder.stop()
     if (result === null || hidden || size() !== before) return null
     return { cell, ...result }
