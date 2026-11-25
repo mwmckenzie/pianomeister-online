@@ -33,6 +33,10 @@ const BEFORE_SEAM_SEC = 3
 const FEW_FRAMES = 30
 /** The most a cell goes on for that many. */
 const EXTRA_SEC = 15
+/** Software WebGL takes seconds a frame: a cell there is this many frames, whatever they take… */
+const SOFTWARE_FRAMES = 10
+/** …and gives up here (a window the browser has stopped drawing). */
+const SOFTWARE_LIMIT_SEC = 120
 
 export interface BenchOptions {
   readonly suite: BenchSuite
@@ -94,6 +98,7 @@ export async function runBench(host: BenchHost, options: BenchOptions): Promise<
     engine.setFrozen(false)
     if (refreshMs > 30) flags.add('frames capped at 30 per second or fewer')
     const device = readDevice(engine, refreshMs)
+    const software = device.gpuClass === 'software'
     if (import.meta.env.DEV) flags.add('development build')
     for (const [i, cell] of options.cells.entries()) {
       options.onProgress(i, cell)
@@ -101,7 +106,7 @@ export async function runBench(host: BenchHost, options: BenchOptions): Promise<
       for (let attempt = 0; attempt < TRIES && result === null; attempt++) {
         await visible(signal)
         recorder = new CellRecorder(host, cell.segment, refreshMs)
-        result = await measure(host, options, cell, songs, recorder)
+        result = await measure(host, options, cell, songs, recorder, software)
         recorder.detach()
         if (result === null) flags.add('disturbed')
       }
@@ -176,6 +181,7 @@ async function measure(
   cell: BenchCell,
   songs: BenchSongs,
   recorder: CellRecorder,
+  software: boolean,
 ): Promise<CellResult | null> {
   const { signal } = options
   const session = host.session()
@@ -228,17 +234,23 @@ async function measure(
       await wait(1.5, signal)
     }
     recorder.start()
+    /** Measures `share` of the cell: its seconds, or its frames on software WebGL. */
+    const measured = async (share: number) => {
+      if (!software) return wait(SEGMENT_SEC[cell.segment] * share, signal)
+      const until = performance.now() + SOFTWARE_LIMIT_SEC * 1000 * share
+      const goal = recorder.frameCount + Math.ceil(SOFTWARE_FRAMES * share)
+      while (recorder.frameCount < goal && performance.now() < until) await wait(0.05, signal)
+    }
     if (cell.segment === 'pauseResume') {
-      const third = SEGMENT_SEC.pauseResume / 3
-      await wait(third, signal)
+      await measured(1 / 3)
       transport.pause()
-      await wait(third, signal)
+      await measured(1 / 3)
       await session.play()
-      await wait(third, signal)
+      await measured(1 / 3)
     } else {
-      await wait(SEGMENT_SEC[cell.segment], signal)
+      await measured(1)
       // A slow device needs longer for enough frames (a loop or a seam would come round again).
-      const extendable = cell.segment !== 'loop' && cell.segment !== 'crossfade'
+      const extendable = !software && cell.segment !== 'loop' && cell.segment !== 'crossfade'
       const until = performance.now() + EXTRA_SEC * 1000
       while (extendable && recorder.frameCount < FEW_FRAMES && performance.now() < until) {
         await wait(0.5, signal)
