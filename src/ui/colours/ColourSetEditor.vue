@@ -54,6 +54,12 @@ const count = computed(() => {
 const warning = computed(() =>
   isCustom.value || current.value.modified ? closeNeighboursText(current.value.colours) : null,
 )
+const nameLabel = computed(() => {
+  if (isCustom.value) return 'Name'
+  return compact.value
+    ? 'Built-in set: edit or duplicate it'
+    : 'Built-in set (edit colours here, or duplicate to make your own)'
+})
 const footer = computed(() => {
   if (isCustom.value) return 'Changes save as you go.'
   return current.value.modified
@@ -177,9 +183,7 @@ function remove(): void {
     <div class="main">
       <div class="name-row">
         <label class="name-label">
-          {{
-            isCustom ? 'Name' : 'Built-in set (edit colours here, or duplicate to make your own)'
-          }}
+          {{ nameLabel }}
           <input
             ref="nameInput"
             v-model="draft"
@@ -223,31 +227,34 @@ function remove(): void {
         <p v-if="fromLook" class="note">Unchanged notes take the look's colour.</p>
       </section>
 
-      <section class="selected" aria-label="Selected colour">
-        <span class="swatch" :style="{ background: colour }" />
-        <div class="selected-name">
-          <span class="note-name">{{ NOTE_LABELS[key] }}</span>
-          <span v-if="keyChanged" class="was" data-testid="colour-was">
-            modified · was {{ original.toLowerCase() }}
-          </span>
-        </div>
-        <ColorField
-          :key="`${current.id}-${key}`"
-          :model-value="colour"
-          :label="`${NOTE_LABELS[key]} note`"
-          data-testid="colour-field"
-          @update:model-value="change"
-        />
-        <AppButton
-          v-if="!isCustom"
-          size="sm"
-          :disabled="!keyChanged"
-          data-testid="reset-colour"
-          @click="resetOne"
-        >
-          Reset this colour
-        </AppButton>
-      </section>
+      <div class="editing">
+        <section class="selected" aria-label="Selected colour">
+          <span class="swatch" :style="{ background: colour }" />
+          <div class="selected-name">
+            <span class="note-name">{{ NOTE_LABELS[key] }}</span>
+            <span v-if="keyChanged" class="was" data-testid="colour-was">
+              modified · was {{ original.toLowerCase() }}
+            </span>
+          </div>
+          <ColorField
+            :key="`${current.id}-${key}`"
+            :model-value="colour"
+            :label="`${NOTE_LABELS[key]} note`"
+            data-testid="colour-field"
+            @update:model-value="change"
+          />
+          <AppButton
+            v-if="!isCustom"
+            size="sm"
+            :disabled="!keyChanged"
+            data-testid="reset-colour"
+            @click="resetOne"
+          >
+            Reset this colour
+          </AppButton>
+        </section>
+        <ColourPreview v-if="!wide" class="strip" compact :colours="current.colours" />
+      </div>
 
       <p v-if="warning !== null" class="warning" role="status" data-testid="colour-warning">
         {{ warning }}
@@ -266,9 +273,11 @@ function remove(): void {
       </div>
     </div>
 
-    <aside class="preview" aria-label="Preview">
-      <h4 class="section-caps preview-title">Preview</h4>
-      <ColourPreview class="canvas" :colours="current.colours" />
+    <aside class="preview" :aria-label="wide ? 'Preview' : 'About this set'">
+      <template v-if="wide">
+        <h4 class="section-caps preview-title">Preview</h4>
+        <ColourPreview class="canvas" :colours="current.colours" />
+      </template>
       <p class="note" data-testid="colour-preview-text">
         <template v-if="isCustom">
           A look that uses this set stores its colours, so the look still works on another device or
@@ -346,6 +355,7 @@ function remove(): void {
 .editor.compact {
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
   align-items: stretch;
 }
 
@@ -416,12 +426,39 @@ function remove(): void {
   line-height: 1.45;
 }
 
+.editing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 588px;
+}
+
+.editor:not(.wide) .main {
+  gap: var(--space-3);
+}
+
+.editor.compact .main {
+  gap: var(--space-2);
+}
+
+/* The colour being edited and its preview stay in view while the rest scrolls; where the window
+   is too short for that, they scroll along. */
+@media (min-height: 640px) {
+  .editor:not(.wide) .editing {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    border-radius: 14px;
+    background: var(--bg-raised);
+  }
+}
+
 .selected {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  max-width: 588px;
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--field);
@@ -491,8 +528,8 @@ function remove(): void {
   flex: 1;
 }
 
-.editor:not(.wide) .canvas {
+.strip {
   flex: none;
-  height: 220px;
+  height: 120px;
 }
 </style>

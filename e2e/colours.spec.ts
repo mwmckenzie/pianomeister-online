@@ -231,3 +231,36 @@ test('@colours keys work from the keyboard and Esc closes the window', async ({ 
   await expect(page.getByTestId('colour-editor')).toBeHidden()
   expect(errors).toEqual([])
 })
+
+for (const [width, height] of [
+  [1024, 768],
+  [768, 1024],
+] as const) {
+  test(`@colours the preview strip stays in view while editing at ${width}×${height}`, async ({
+    page,
+  }) => {
+    const errors = watchErrors(page)
+    await openPlayer(page)
+    await openEditor(page)
+    await page.setViewportSize({ width, height })
+    const preview = page.getByTestId('colour-preview')
+    const selected = page.getByRole('region', { name: 'Selected colour' })
+    await expect(preview).toHaveCount(1)
+    await expect(preview).toBeInViewport({ ratio: 1 })
+    // The dialog scales in.
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.height ?? 0)).toBe(120)
+    // The fullest editor: a warning, the resets and Save as new set.
+    await setHex(page, 3, '#FFE000')
+    await expect(page.getByTestId('colour-warning')).toBeVisible()
+    // Opened, nothing is covered: the keys end above the selected colour.
+    const keys = await page.getByRole('region', { name: 'Colours per note' }).boundingBox()
+    const row = await selected.boundingBox()
+    expect((keys?.y ?? 0) + (keys?.height ?? 0)).toBeLessThanOrEqual(row?.y ?? 0)
+    for (const target of ['save-as-colour-set', 'colour-preview-text', 'colour-editor-back']) {
+      await page.getByTestId(target).scrollIntoViewIfNeeded()
+      await expect(preview).toBeInViewport({ ratio: 1 })
+      await expect(selected).toBeInViewport({ ratio: 1 })
+    }
+    expect(errors).toEqual([])
+  })
+}

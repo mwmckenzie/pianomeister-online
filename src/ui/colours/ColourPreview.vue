@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 
 import { useElementSize } from '../overview/useElementSize'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -9,7 +9,11 @@ import { useReducedMotion } from '../theme/useReducedMotion'
  * A small highway over two octaves in a set's colours. Flat on purpose: the playfield's other
  * fills are shaders, so they show as solid here. Still under reduced motion.
  */
-const props = defineProps<{ readonly colours: readonly string[] }>()
+const props = defineProps<{
+  readonly colours: readonly string[]
+  /** A low strip: shorter keys, the whole pattern still in view. */
+  readonly compact?: boolean
+}>()
 const settings = useSettingsStore()
 const reduced = useReducedMotion()
 const box = useTemplateRef<HTMLElement>('box')
@@ -17,7 +21,9 @@ const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 const size = useElementSize(box)
 
 const WHITES = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23]
-const KEYS_HEIGHT = 56
+const keysHeight = computed(() => (props.compact ? 28 : 56))
+/** Keeps the shortest notes readable in the strip. */
+const MIN_NOTE_PX = 8
 /** Seconds for the pattern to pass once. */
 const LOOP_SEC = 12
 /** [semitone, start, length] in parts of the pattern; all twelve pitch classes are in it. */
@@ -59,7 +65,7 @@ function draw(progress: number): void {
   canvas.value.height = Math.round(height * ratio)
   ctx.scale(ratio, ratio)
   const { colors, noteStyle } = settings.settings
-  const floor = height - KEYS_HEIGHT
+  const floor = height - keysHeight.value
   const lane = width / WHITES.length
   ctx.fillStyle = colors.highway
   ctx.fillRect(0, 0, width, height)
@@ -73,7 +79,7 @@ function draw(progress: number): void {
     // The pattern repeats: the part that has passed comes round again from the top.
     for (const turn of [0, 1]) {
       const bottom = floor * (1 - (start + turn - progress))
-      const top = bottom - floor * length
+      const top = bottom - Math.max(floor * length, MIN_NOTE_PX)
       if (top >= floor || bottom <= 0) continue
       if (bottom >= floor) sounding.set(semitone, colour)
       if (noteStyle.sustainFill === 'gradient') {
@@ -93,7 +99,12 @@ function draw(progress: number): void {
       const { x, width: w, black } = laneOf(semitone, lane)
       if (black !== pass) continue
       ctx.fillStyle = sounding.get(semitone) ?? (black ? '#1a2034' : '#e9ecf4')
-      ctx.fillRect(x + (black ? 0 : 1), floor, black ? w : w - 1, black ? 34 : KEYS_HEIGHT)
+      ctx.fillRect(
+        x + (black ? 0 : 1),
+        floor,
+        black ? w : w - 1,
+        black ? keysHeight.value * 0.6 : keysHeight.value,
+      )
     }
   }
 }
@@ -116,7 +127,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
 </script>
 
 <template>
-  <div ref="box" class="preview" data-testid="colour-preview">
+  <div ref="box" class="preview" :class="{ compact }" data-testid="colour-preview">
     <canvas ref="canvas" role="img" aria-label="Notes in this set's colours" />
   </div>
 </template>
@@ -127,6 +138,10 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
   min-height: 220px;
   overflow: hidden;
   border-radius: 14px;
+}
+
+.preview.compact {
+  min-height: 0;
 }
 
 canvas {
