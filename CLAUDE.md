@@ -26,7 +26,7 @@ Keep local test time small; the full e2e suite runs in CI.
 
 1. **Unit tests.** While working, run only the related tests (`npm run test:unit:changed`, or `npx vitest related <files> --run`). Run the full `npm run check` once, before a PR (and whenever you call a task done).
 2. **E2e tags.** Every functional spec test carries an area tag at the start of its title:
-   - Areas: `@player`, `@library`, `@bookmarks`, `@looks`, `@loop`, `@welcome`, `@stats`, `@settings`, `@shortcuts`, `@playlists`, `@cages`, `@hands`; others as areas arrive.
+   - Areas: `@player`, `@library`, `@bookmarks`, `@looks`, `@loop`, `@welcome`, `@stats`, `@settings`, `@shortcuts`, `@playlists`, `@cages`, `@hands`, `@colours`; others as areas arrive.
    - About 15 main-path tests also carry `@smoke` (a minute or two).
    - New specs and tests get a tag. When a new source folder appears, add it to the map in `scripts/e2e-affected.mjs`.
 3. **During a milestone,** run only `npm run test:e2e:affected` locally. Never the full suite locally unless asked.

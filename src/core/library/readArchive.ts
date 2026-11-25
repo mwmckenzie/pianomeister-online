@@ -1,5 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate'
 
+import { readColourSets } from '../color/readColourSets'
 import type { LookFile } from '../looks/LookFile'
 import type { MeterOverride } from '../timing/MeterOverride'
 import type { ArchiveContents } from './ArchiveContents'
@@ -62,6 +63,9 @@ export function readArchive(bytes: Uint8Array): ArchiveContents {
     ...(isRecord(raw.looks) && raw.looks.format === 'pianomeister-look'
       ? { looks: raw.looks as unknown as LookFile }
       : {}),
+    ...(raw.noteColourSets === undefined
+      ? {}
+      : { noteColourSets: readColourSets(raw.noteColourSets) }),
   }
   return { document, uploads: contents }
 }

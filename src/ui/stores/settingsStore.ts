@@ -1,10 +1,20 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef, watch } from 'vue'
 
+import { addSet, removeSet } from '@/core/color/colourSetEdits'
+import { EMPTY_COLOUR_SETS } from '@/core/color/EMPTY_COLOUR_SETS'
+import { freeSetName } from '@/core/color/freeSetName'
+import { isCustomSetId } from '@/core/color/isNoteColourSetId'
+import type { NoteColourSets } from '@/core/color/NoteColourSets'
+import type { SavedColours } from '@/core/color/SavedColours'
+import { savedColoursOf } from '@/core/color/savedColoursOf'
 import { EMPTY_LOOKS } from '@/core/looks/EMPTY_LOOKS'
 import type { Look } from '@/core/looks/Look'
 import { LOOK_KEYS } from '@/core/looks/LOOK_KEYS'
 import type { LooksState } from '@/core/looks/LooksState'
+import { withSavedColours } from '@/core/looks/withSavedColours'
+import type { CustomSetId } from '@/core/settings/CustomSetId'
+import type { NoteColourSetId } from '@/core/settings/NoteColourSetId'
 import { defaultSettings } from '@/core/settings/DEFAULT_SETTINGS'
 import type { DeviceClass } from '@/core/settings/DeviceClass'
 import { applyShortcutEdit } from '@/core/commands/applyShortcutEdit'
@@ -16,6 +26,7 @@ import { effectiveBindings } from '@/core/commands/shortcutBindings'
 import type { ShortcutEdit } from '@/core/commands/ShortcutEdit'
 import type { ShortcutOverrides } from '@/core/commands/ShortcutOverrides'
 import {
+  loadColourSets,
   loadDeviceClass,
   loadLooks,
   loadSettings,
@@ -47,6 +58,7 @@ interface Stored {
   /** The picked look, and saved looks not yet moved to the database. */
   readonly looks: LooksState
   readonly deviceClass: DeviceClass
+  readonly noteColourSets: NoteColourSets
 }
 
 function read(): Stored {
@@ -60,6 +72,7 @@ function read(): Stored {
       shortcuts: loadShortcuts(parsed),
       looks: loadLooks(parsed),
       deviceClass,
+      noteColourSets: loadColourSets(parsed),
     }
   } catch {
     // Unreadable storage (private mode, corrupt JSON): fall back to defaults.
@@ -68,16 +81,17 @@ function read(): Stored {
       shortcuts: {},
       looks: EMPTY_LOOKS,
       deviceClass: detected,
+      noteColourSets: EMPTY_COLOUR_SETS,
     }
   }
 }
 
 function write(stored: Stored): void {
   try {
-    const { settings, shortcuts, looks, deviceClass } = stored
+    const { settings, shortcuts, looks, deviceClass, noteColourSets } = stored
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify(storedSettings(settings, shortcuts, looks, deviceClass)),
+      JSON.stringify(storedSettings(settings, shortcuts, looks, deviceClass, noteColourSets)),
     )
   } catch {
     // Storage full or blocked: settings still apply for this session.
@@ -116,6 +130,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const settings = shallowRef<PlayerSettings>(stored.settings)
   const shortcuts = shallowRef<ShortcutOverrides>(stored.shortcuts)
   const looks = shallowRef<LooksState>(stored.looks)
+  /** The player's note colour sets (milestone 10.6). */
+  const noteColourSets = shallowRef<NoteColourSets>(stored.noteColourSets)
   /** Saved looks from localStorage (before milestone 9.1) still waiting to move to the database. */
   let unmoved: readonly Look[] = stored.looks.saved
   /** The device class the defaults are for (brief decision 110); fixed once stored. */
@@ -158,9 +174,10 @@ export const useSettingsStore = defineStore('settings', () => {
       shortcuts: shortcuts.value,
       looks: { active: looks.value.active, saved: unmoved },
       deviceClass,
+      noteColourSets: noteColourSets.value,
     })
   }
-  watch([settings, shortcuts, looks], persist)
+  watch([settings, shortcuts, looks, noteColourSets], persist)
 
   let repository: Looks | null = null
   const savedLooks = (): Looks => (repository ??= new Looks(appDatabase()))
@@ -239,7 +256,102 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function changedCount(group: SettingGroup): number {
-    return countChanged(settings.value, group, deviceClass)
+    return countChanged(settings.value, group, deviceClass) + changedSets(group)
+  }
+
+  /** Built-in colour sets changed by the player count in Appearance and its section. */
+  function changedSets(group: SettingGroup): number {
+    return resetsColourSets(group) ? Object.keys(noteColourSets.value.overrides).length : 0
+  }
+
+  /** Whether a group's reset also clears the changes to built-in colour sets. */
+  function resetsColourSets(group: SettingGroup): boolean {
+    return (
+      (group.kind === 'tab' && group.id === 'appearance') ||
+      (group.kind === 'section' && group.id === 'noteColours')
+    )
+  }
+
+  function setColourSets(next: NoteColourSets): void {
+    noteColourSets.value = next
+  }
+
+  /** Puts values on screen and, under a listening overlay, in the user's own settings too. */
+  function restoreEverywhere(change: (notes: PlayerSettings['notes']) => SettingValues): void {
+    const base = overlayBase.value
+    if (base !== null) overlayBase.value = restoreValues(base, change(base.notes))
+    settings.value = restoreValues(settings.value, change(settings.value.notes))
+  }
+
+  /** Picks the set the playfield uses, with the copy its look carries. */
+  function chooseColourSet(id: NoteColourSetId): void {
+    const { paletteSaved } = settings.value.notes
+    const saved = savedColoursOf(noteColourSets.value, id, paletteSaved)
+    settings.value = restoreValues(
+      settings.value,
+      new Map<SettingKey, unknown>([
+        ['notes.palette', id],
+        ['notes.paletteSaved', saved],
+      ]),
+    )
+  }
+
+  /**
+   * Deletes a custom set. Looks using it first take its colours as they are now (the set may have
+   * changed since they were saved), so nothing changes colour.
+   */
+  function deleteColourSet(id: CustomSetId): void {
+    const sets = noteColourSets.value
+    restoreEverywhere((notes) =>
+      notes.palette === id
+        ? new Map([['notes.paletteSaved', savedColoursOf(sets, id, notes.paletteSaved)]])
+        : new Map(),
+    )
+    setLooks({
+      ...looks.value,
+      saved: looks.value.saved.map((look) =>
+        look.values['notes.palette'] === id ? withSavedColours(look, sets) : look,
+      ),
+    })
+    noteColourSets.value = removeSet(sets, id)
+  }
+
+  /**
+   * "Save as a set": the missing set on screen becomes a custom set again, under its own id so
+   * every look that used it follows. If another saved look has other colours under that id, only
+   * this look moves, to a new id.
+   */
+  function saveMissingSet(): void {
+    const { palette, paletteSaved } = settings.value.notes
+    if (!isCustomSetId(palette) || paletteSaved === null) return
+    const sets = noteColourSets.value
+    if (sets.custom.some((set) => set.id === palette)) return
+    const { active } = looks.value
+    const hexes = paletteSaved.colours.join()
+    const copyOf = (look: Look) =>
+      (look.values['notes.paletteSaved'] as SavedColours | null | undefined)?.colours.join()
+    const uses = (look: Look) => look.values['notes.palette'] === palette
+    const clash = looks.value.saved.some((look) => uses(look) && copyOf(look) !== hexes)
+    const id: CustomSetId = clash ? `custom-${crypto.randomUUID()}` : palette
+    noteColourSets.value = addSet(sets, {
+      id,
+      name: freeSetName(sets, paletteSaved.name),
+      colours: paletteSaved.colours,
+    })
+    if (!clash) return
+    restoreEverywhere((notes) =>
+      notes.palette === palette && notes.paletteSaved?.colours.join() === hexes
+        ? new Map([['notes.palette', id]])
+        : new Map(),
+    )
+    setLooks({
+      ...looks.value,
+      saved: looks.value.saved.map((look) =>
+        look.id === active && uses(look) && copyOf(look) === hexes
+          ? { ...look, values: { ...look.values, 'notes.palette': id } }
+          : look,
+      ),
+    })
   }
 
   /** Replaces settings wholesale (e.g. applying a look); the caller keeps what Undo needs. */
@@ -273,6 +385,12 @@ export const useSettingsStore = defineStore('settings', () => {
     settings,
     shortcuts,
     looks,
+    noteColourSets,
+    setColourSets,
+    resetsColourSets,
+    chooseColourSet,
+    deleteColourSet,
+    saveMissingSet,
     deviceClass,
     bindings,
     get,

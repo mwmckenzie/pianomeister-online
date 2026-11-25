@@ -1,9 +1,15 @@
 import { PITCH_CLASS_COLORS } from '../pitchClassColors'
+import type { NoteColourSetId } from '../settings/NoteColourSetId'
 import type { NotePalette } from '../settings/NotePalette'
+import { isCustomSetId } from './isNoteColourSetId'
+import type { NoteColourSets } from './NoteColourSets'
+import type { SavedColours } from './SavedColours'
 
 /** The settings a palette needs (the Notes section's colour rows). */
 export interface NotePaletteChoice {
-  readonly palette: NotePalette
+  readonly palette: NoteColourSetId
+  /** The look's own copy of a custom set. */
+  readonly paletteSaved: SavedColours | null
   /** Mono: every note. */
   readonly paletteMono: string
   /** Two-tone: notes on white keys. */
@@ -65,19 +71,39 @@ const PITCH_CLASS_PALETTES = {
   pastel: byPitchClass(NATURALS.pastel),
 } as const
 
-/**
- * The note colour of each pitch class (index 0 = C) for a palette choice: what the notes, the
- * pressed and approaching keys, the note-coloured effects and the labels' Auto colour use.
- */
-export function notePaletteColors(choice: NotePaletteChoice): readonly string[] {
-  switch (choice.palette) {
+/** The colours Mono and Two-tone take from the look. */
+type LookColours = Pick<NotePaletteChoice, 'paletteMono' | 'paletteWhite' | 'paletteBlack'>
+
+/** A built-in set's twelve colours before the player's changes. */
+export function basePaletteColors(palette: NotePalette, look: LookColours): readonly string[] {
+  switch (palette) {
     case 'mono':
-      return Array.from({ length: 12 }, () => choice.paletteMono.toUpperCase())
+      return Array.from({ length: 12 }, () => look.paletteMono.toUpperCase())
     case 'twoTone':
       return Array.from({ length: 12 }, (_, pc) =>
-        (BLACK.has(pc) ? choice.paletteBlack : choice.paletteWhite).toUpperCase(),
+        (BLACK.has(pc) ? look.paletteBlack : look.paletteWhite).toUpperCase(),
       )
     default:
-      return PITCH_CLASS_PALETTES[choice.palette]
+      return PITCH_CLASS_PALETTES[palette]
   }
+}
+
+/**
+ * The note colour of each pitch class (index 0 = C) for a palette choice: what the notes, the
+ * pressed and approaching keys, the note-coloured effects and the labels' Auto colour use. A
+ * built-in shows the player's changes on top of its own colours (Mono's and Two-tone's are the
+ * look's); a custom set that isn't here shows the look's copy of it (milestone 10.6).
+ */
+export function notePaletteColors(
+  choice: NotePaletteChoice,
+  sets: NoteColourSets,
+): readonly string[] {
+  const { palette } = choice
+  if (isCustomSetId(palette)) {
+    const set = sets.custom.find((s) => s.id === palette) ?? choice.paletteSaved
+    return set?.colours ?? PITCH_CLASS_PALETTES.default
+  }
+  const base = basePaletteColors(palette, choice)
+  const overrides = sets.overrides[palette]
+  return overrides === undefined ? base : base.map((hex, pc) => overrides[pc] ?? hex)
 }

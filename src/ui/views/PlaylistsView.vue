@@ -88,7 +88,7 @@ function lookName(id: string | null): string {
 }
 function swatch(id: string | null): string {
   const look = lookOf(id)
-  return look === null ? 'transparent' : lookSwatch(look)
+  return look === null ? 'transparent' : lookSwatch(look, settings.noteColourSets)
 }
 
 function meta(p: Playlist): string {
@@ -310,13 +310,20 @@ function fileName(name: string): string {
 function exportOne(): void {
   const p = current.value
   if (p === null) return
-  download(JSON.stringify(toPlaylistFile([p], settings.looks.saved), null, 2), fileName(p.name))
+  download(
+    JSON.stringify(toPlaylistFile([p], settings.looks.saved, settings.noteColourSets), null, 2),
+    fileName(p.name),
+  )
 }
 
 function exportAll(): void {
   menuOpen.value = false
   download(
-    JSON.stringify(toPlaylistFile(store.playlists, settings.looks.saved), null, 2),
+    JSON.stringify(
+      toPlaylistFile(store.playlists, settings.looks.saved, settings.noteColourSets),
+      null,
+      2,
+    ),
     'playlists.pmplaylist.json',
   )
 }
@@ -339,6 +346,7 @@ const importOpen = computed({
 
 async function readImport(raw: unknown, withLooks: boolean) {
   return readPlaylistFile(raw, {
+    colourSets: settings.noteColourSets,
     profileId: profiles.activeId,
     playlists: await store.all(),
     songIds: new Set(library.entries.map((e) => e.songId)),

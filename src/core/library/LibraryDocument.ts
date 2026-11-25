@@ -1,3 +1,4 @@
+import type { NoteColourSets } from '../color/NoteColourSets'
 import type { LookFile } from '../looks/LookFile'
 import type { MeterOverride } from '../timing/MeterOverride'
 import type { PracticeData } from './PracticeData'
@@ -27,4 +28,6 @@ export interface LibraryDocument {
    * validate like an imported one (milestone 9.1).
    */
   readonly looks?: LookFile
+  /** From 1.6: the note colour sets (milestone 10.6). */
+  readonly noteColourSets?: NoteColourSets
 }

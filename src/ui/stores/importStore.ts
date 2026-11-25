@@ -6,6 +6,7 @@ import type { ImportReport } from '@/data/ImportReport'
 import type { PreparedImport } from '@/data/Library'
 
 import { useLibraryStore } from './libraryStore'
+import { useSettingsStore } from './settingsStore'
 
 interface Pending {
   readonly prepared: PreparedImport
@@ -22,6 +23,7 @@ interface Pending {
  */
 export const useImportStore = defineStore('import', () => {
   const library = useLibraryStore()
+  const settings = useSettingsStore()
   const pending = shallowRef<Pending | null>(null)
 
   const collision = computed(() => {
@@ -73,7 +75,7 @@ export const useImportStore = defineStore('import', () => {
       if (chosen === null) return null
       choices = chosen
     }
-    return library.applyImport(prepared, choices)
+    return library.applyImport(prepared, choices, settings.noteColourSets)
   }
 
   return { pending, collision, choiceFor, choose, confirm, cancel, run }

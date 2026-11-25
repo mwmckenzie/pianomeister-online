@@ -62,5 +62,7 @@ export function isDefaultValue(
   if (def.kind === 'color') {
     return typeof value === 'string' && value.toUpperCase() === (fallback as string).toUpperCase()
   }
+  // Travels with the chosen set: not a change of its own.
+  if (def.kind === 'savedColours') return true
   return value === fallback
 }

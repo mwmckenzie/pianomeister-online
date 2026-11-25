@@ -6,6 +6,8 @@ import {
   type ShaderMaterial,
 } from 'three'
 
+import { EMPTY_COLOUR_SETS } from '@/core/color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '@/core/color/NoteColourSets'
 import { notePaletteColors } from '@/core/color/notePaletteColors'
 import { DEFAULT_SETTINGS } from '@/core/settings/DEFAULT_SETTINGS'
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
@@ -130,6 +132,7 @@ export class Engine {
   private readonly atlas = new NoteLabelAtlas()
   /** Note colours (the palette), shared by everything drawn in a note's colour. */
   private readonly noteColors = new NoteColors()
+  private colourSets: NoteColourSets = EMPTY_COLOUR_SETS
   /** The song whose baked colours match `noteColors`, and at which palette version. */
   private recolored: { song: SongParts | null; version: number } = { song: null, version: -1 }
   private readonly keyboard = new Keyboard(this.atlas.texture, this.noteColors)
@@ -541,13 +544,25 @@ export class Engine {
     this.loopLines.place(lines)
   }
 
+  /** The player's note colour sets (milestone 10.6); the notes follow at once. */
+  setColourSets(sets: NoteColourSets): void {
+    this.colourSets = sets
+    this.applyNoteColors(this.settings)
+    this.invalidate()
+  }
+
+  /** The twelve note colours drawn now (tests, `?stats=1`). */
+  noteColorHexes(): string[] {
+    return notePaletteColors(this.settings.notes, this.colourSets).slice()
+  }
+
   /**
    * Note colours from the palette setting: what reads them per frame follows by itself; the held
    * glow and the song's baked colours (notes, labels, the pitch now line) are rewritten once per
    * change, and once for each new song.
    */
   private applyNoteColors(settings: PlayerSettings): void {
-    if (this.noteColors.set(notePaletteColors(settings.notes))) {
+    if (this.noteColors.set(notePaletteColors(settings.notes, this.colourSets))) {
       this.effects.recolor(this.noteColors)
     }
     const song = this.song

@@ -3,11 +3,22 @@ import { computed } from 'vue'
 
 import { THEME_PRESETS } from '@/core/color/THEME_PRESETS'
 
+import type { NoteColourSetId } from '@/core/settings/NoteColourSetId'
+
+import AppButton from '../components/AppButton.vue'
 import SettingRow from '../components/SettingRow.vue'
 import SettingsSection from '../components/SettingsSection.vue'
+import ColourStrip from '../colours/ColourStrip.vue'
+import { useColourSets } from '../colours/useColourSets'
 import { useSettingsStore } from '../stores/settingsStore'
 
+const emit = defineEmits<{ editColours: [id: NoteColourSetId] }>()
+
 const settings = useSettingsStore()
+
+const palette = computed(() => settings.settings.notes.palette)
+const { builtIn, custom } = useColourSets(palette)
+const sets = computed(() => [...builtIn.value, ...custom.value])
 
 /** The preset whose colours are in use, if any (presets aren't stored, decision 52). */
 const activePreset = computed(() => {
@@ -49,6 +60,18 @@ function applyPreset(preset: (typeof THEME_PRESETS)[number]): void {
     </div>
     <SettingRow setting-key="appearance.primary" />
     <SettingRow setting-key="appearance.secondary" />
+  </SettingsSection>
+  <SettingsSection section-id="noteColours" title="Note colours">
+    <p class="hint">Change the built-in sets or make your own. Each look picks the set it uses.</p>
+    <ul class="sets" role="list">
+      <li v-for="set in sets" :key="set.id" class="set">
+        <ColourStrip :colours="set.colours" />
+        {{ set.name }}<span v-if="set.modified" class="modified">modified</span>
+      </li>
+    </ul>
+    <AppButton size="sm" data-testid="open-colour-editor" @click="emit('editColours', palette)">
+      Edit colours…
+    </AppButton>
   </SettingsSection>
   <SettingsSection section-id="glass" title="Glass panels">
     <SettingRow setting-key="appearance.panelOpacity" />
@@ -105,6 +128,28 @@ function applyPreset(preset: (typeof THEME_PRESETS)[number]): void {
 .preset.active {
   border-color: var(--primary);
   color: var(--text-1);
+}
+
+.sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.set {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+.modified {
+  color: var(--warning);
+  font-size: var(--text-xs);
 }
 
 .swatches {

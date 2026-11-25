@@ -30,7 +30,7 @@ const props = defineProps<{
 const emit = defineEmits<{ view: [view: OverviewView] }>()
 const settings = useSettingsStore()
 /** The same note colours as the highway (Note colours, brief decision 122). */
-const palette = computed(() => notePaletteColors(settings.settings.notes))
+const palette = computed(() => notePaletteColors(settings.settings.notes, settings.noteColourSets))
 
 const box = useTemplateRef<HTMLElement>('box')
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')

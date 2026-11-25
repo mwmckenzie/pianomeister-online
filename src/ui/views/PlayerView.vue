@@ -972,6 +972,10 @@ watch(
     if (settings.audio !== previous.audio) applyAudio()
   },
 )
+watch(
+  () => settingsStore.noteColourSets,
+  (sets) => engine?.setColourSets(sets),
+)
 // "Change shortcuts…" from the cheat sheet on another page: open the settings once here.
 watch(
   () => ui.settingsTabRequest,
@@ -992,6 +996,7 @@ watch(
 
 onMounted(() => {
   engine = new Engine()
+  engine.setColourSets(settingsStore.noteColourSets)
   engine.applySettings(settingsStore.snapshot())
   engine.setGuides(route.query.guides === '1')
   engine.setReducedMotion(reducedMotion.value)
@@ -1021,6 +1026,7 @@ onMounted(() => {
       pianomeisterEngineStats: stats,
       pianomeisterRenderInfo: renderInfo,
       pianomeisterLabels: labels,
+      pianomeisterNoteColors: () => engine?.noteColorHexes() ?? null,
     })
   }
   if (route.query.capture === '1') {

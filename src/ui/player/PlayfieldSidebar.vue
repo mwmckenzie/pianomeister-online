@@ -16,6 +16,7 @@ import { useResetWithUndo } from '../settings/useResetWithUndo'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUiStateStore } from '../stores/uiStateStore'
 import LookPicker from './LookPicker.vue'
+import NoteColoursRow from './NoteColoursRow.vue'
 import RenderReadout from './RenderReadout.vue'
 import type { RenderStatus } from './RenderStatus'
 import { useLooks } from './useLooks'
@@ -143,7 +144,10 @@ const blocks = computed(() =>
               <h4 v-if="block.title !== undefined && block.shown" class="section-caps sub">
                 {{ block.title }}
               </h4>
-              <SettingRow v-for="key in block.keys" :key="key" :setting-key="key" />
+              <template v-for="key in block.keys" :key="key">
+                <NoteColoursRow v-if="key === 'notes.palette'" />
+                <SettingRow v-else :setting-key="key" />
+              </template>
               <p
                 v-if="section.id === 'render' && block.title === 'Quality' && qualityModified"
                 class="modified"

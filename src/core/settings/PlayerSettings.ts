@@ -1,9 +1,10 @@
+import type { SavedColours } from '../color/SavedColours'
 import type { CrossfadeCurve } from '../playlists/CrossfadeCurve'
 import type { HandAudio } from '../practice/HandAudio'
 import type { PreRollMode } from '../transport/PreRollMode'
 import type { LineColor } from './LineColor'
 import type { NoteFill } from './NoteFill'
-import type { NotePalette } from './NotePalette'
+import type { NoteColourSetId } from './NoteColourSetId'
 import type { QualityPreset } from './QualityPreset'
 import type { StripeColor } from './StripeColor'
 
@@ -67,7 +68,9 @@ export interface PlayerSettings {
   }
   readonly notes: {
     /** Note colours: what notes, pressed keys, note-coloured effects and labels use. */
-    readonly palette: NotePalette
+    readonly palette: NoteColourSetId
+    /** The look's copy of a custom set, for when the set is missing (milestone 10.6). */
+    readonly paletteSaved: SavedColours | null
     /** Mono: the colour of every note. */
     readonly paletteMono: string
     /** Two-tone: notes on white keys. */

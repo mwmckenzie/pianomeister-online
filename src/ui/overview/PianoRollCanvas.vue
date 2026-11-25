@@ -62,7 +62,7 @@ const emit = defineEmits<{
 
 const settings = useSettingsStore()
 /** The same note colours as the highway (Note colours, brief decision 122). */
-const palette = computed(() => notePaletteColors(settings.settings.notes))
+const palette = computed(() => notePaletteColors(settings.settings.notes, settings.noteColourSets))
 const box = useTemplateRef<HTMLElement>('box')
 const notesCanvas = useTemplateRef<HTMLCanvasElement>('notesCanvas')
 const overlayCanvas = useTemplateRef<HTMLCanvasElement>('overlayCanvas')

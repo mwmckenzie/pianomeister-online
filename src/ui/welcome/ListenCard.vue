@@ -32,7 +32,7 @@ const shown = computed(() =>
     const look = p.lookId === null ? undefined : looks.value.get(p.lookId)
     return {
       playlist: p,
-      swatch: look === undefined ? 'transparent' : lookSwatch(look),
+      swatch: look === undefined ? 'transparent' : lookSwatch(look, settings.noteColourSets),
       meta: meta(p, look?.name ?? 'Current look'),
     }
   }),

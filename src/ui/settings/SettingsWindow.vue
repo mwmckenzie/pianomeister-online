@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
+import type { NoteColourSetId } from '@/core/settings/NoteColourSetId'
 import type { SettingsTabId } from '@/core/settings/SettingHome'
 import { SETTINGS_LAYOUT } from '@/core/settings/SETTINGS_LAYOUT'
 
@@ -13,6 +14,7 @@ import { useWindowKeys } from '../input/useWindowKeys'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useToastStore } from '../stores/toastStore'
 import { useUiStateStore } from '../stores/uiStateStore'
+import ColourSetEditor from '../colours/ColourSetEditor.vue'
 import AboutTab from './AboutTab.vue'
 import AppearanceTab from './AppearanceTab.vue'
 import AudioTab from './AudioTab.vue'
@@ -37,6 +39,10 @@ type TabId = SettingsTabId | 'shortcuts' | 'profiles' | 'about'
 const active = ref<TabId>('practice')
 const ui = useUiStateStore()
 
+/** The colour set being edited: the editor takes the place of the Appearance tab (10.6). */
+const colourSet = ref<NoteColourSetId | null>(null)
+watch([open, active], () => (colourSet.value = null))
+
 // Opened for a particular tab (the cheat sheet's "Change shortcuts…"): show it once.
 watch(
   () => [open.value, ui.settingsTabRequest] as const,
@@ -44,6 +50,10 @@ watch(
     if (!isOpen || tab === null) return
     active.value = tab as TabId
     ui.settingsTabRequest = null
+    const set = ui.colourSetRequest
+    ui.colourSetRequest = null
+    // After the tab and window changes above, which leave the editor.
+    if (set !== null) void nextTick(() => (colourSet.value = set))
   },
   { immediate: true },
 )
@@ -102,8 +112,8 @@ const changed = computed(() =>
   <AppDialog
     v-model:open="open"
     title="Settings"
-    width="980px"
-    height="620px"
+    :width="colourSet === null ? '980px' : '1280px'"
+    :height="colourSet === null ? '620px' : '720px'"
     data-testid="settings-window"
   >
     <TabbedWindow v-model="active" title="Settings" :tabs="tabs">
@@ -121,7 +131,10 @@ const changed = computed(() =>
       </template>
       <template #practice><PracticeTab @navigate="open = false" /></template>
       <template #audio><AudioTab @navigate="open = false" /></template>
-      <template #appearance><AppearanceTab /></template>
+      <template #appearance>
+        <ColourSetEditor v-if="colourSet !== null" v-model="colourSet" @back="colourSet = null" />
+        <AppearanceTab v-else @edit-colours="colourSet = $event" />
+      </template>
       <template #shortcuts><ShortcutsTab /></template>
       <template #profiles><ProfilesTab /></template>
       <template #library><LibraryDataTab /></template>

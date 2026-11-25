@@ -1,3 +1,6 @@
+import { EMPTY_COLOUR_SETS } from '../color/EMPTY_COLOUR_SETS'
+import type { NoteColourSets } from '../color/NoteColourSets'
+import type { CustomSetId } from '../settings/CustomSetId'
 import { migrateLookValues, SETTINGS_VERSION } from '../settings/loadSettings'
 import type { Look } from './Look'
 import type { LookFileResult } from './LookFileResult'
@@ -22,6 +25,12 @@ export function readLookFile(
   newId: () => string,
   now = new Date().toISOString(),
   skipIdentical = false,
+  colours: {
+    /** The colour sets here, which decide whether two looks are identical. */
+    readonly sets: NoteColourSets
+    /** Sets of a backup that got another id here: its looks follow them. */
+    readonly idMap?: ReadonlyMap<string, CustomSetId>
+  } = { sets: EMPTY_COLOUR_SETS },
 ): LookFileResult {
   if (!isRecord(raw) || raw.format !== LOOK_FORMAT || !Array.isArray(raw.looks)) {
     return { ok: false, error: 'notLookFile' }
@@ -49,12 +58,20 @@ export function readLookFile(
       builtIn: false,
       createdAt,
       updatedAt: now,
-      values: readLookValues(migrateLookValues(flat, version)),
+      values: followSet(readLookValues(migrateLookValues(flat, version)), colours.idMap),
     })
   }
   if (looks.length === 0) return { ok: false, error: 'empty' }
-  const { added, skipped, idMap } = mergeLooks(looks, existing, newId, skipIdentical)
+  const { added, skipped, idMap } = mergeLooks(looks, existing, newId, skipIdentical, colours.sets)
   return { ok: true, looks: added, skipped, idMap }
+}
+
+function followSet(
+  values: Look['values'],
+  idMap: ReadonlyMap<string, CustomSetId> = new Map(),
+): Look['values'] {
+  const id = idMap.get(String(values['notes.palette']))
+  return id === undefined ? values : { ...values, 'notes.palette': id }
 }
 
 function isDate(value: unknown): value is string {

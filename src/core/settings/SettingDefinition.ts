@@ -1,3 +1,5 @@
+import type { SavedColours } from '../color/SavedColours'
+import type { NoteColourSetId } from './NoteColourSetId'
 import type { PlayerSettings } from './PlayerSettings'
 import type { SettingHome } from './SettingHome'
 
@@ -60,16 +62,35 @@ export interface ColorSetting extends BaseSetting<string> {
   readonly kind: 'color'
 }
 
+/** A note colour set: a built-in one, or a custom one whether or not it exists here. */
+export interface ColourSetSetting extends BaseSetting<NoteColourSetId> {
+  readonly kind: 'colourSet'
+}
+
+/** The copy of a custom set's colours that travels with a look; never shown or counted itself. */
+export interface SavedColoursSetting extends BaseSetting<SavedColours | null> {
+  readonly kind: 'savedColours'
+}
+
 /** The definition matching a value type (non-distributive, so unions stay one choice). */
 export type SettingDefinition<V> = [V] extends [number]
   ? NumberSetting
   : [V] extends [boolean]
     ? BooleanSetting
-    : [V] extends [string]
-      ? string extends V
-        ? ColorSetting
-        : ChoiceSetting<V>
-      : never
+    : [V] extends [NoteColourSetId]
+      ? ColourSetSetting
+      : [V] extends [string]
+        ? string extends V
+          ? ColorSetting
+          : ChoiceSetting<V>
+        : [V] extends [SavedColours | null]
+          ? SavedColoursSetting
+          : never
 
 export type AnySettingDefinition =
-  NumberSetting | BooleanSetting | ChoiceSetting<string> | ColorSetting
+  | NumberSetting
+  | BooleanSetting
+  | ChoiceSetting<string>
+  | ColorSetting
+  | ColourSetSetting
+  | SavedColoursSetting

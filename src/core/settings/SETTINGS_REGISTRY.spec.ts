@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
+import { isNoteColourSetId } from '../color/isNoteColourSetId'
 import { constrainKeyboard } from './constrainKeyboard'
 import { DEFAULT_SETTINGS } from './DEFAULT_SETTINGS'
 import { disabledHintOf } from './disabledHintOf'
@@ -23,6 +24,10 @@ function isValidDefinition(key: SettingKey): boolean {
       return def.options.some((o) => o.value === def.default)
     case 'color':
       return COLOR.test(def.default)
+    case 'colourSet':
+      return isNoteColourSetId(def.default)
+    case 'savedColours':
+      return def.default === null
     case 'boolean':
       return typeof def.default === 'boolean'
   }
