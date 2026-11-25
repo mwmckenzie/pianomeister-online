@@ -65,3 +65,36 @@
 - [ ] Copy a look with an own set to another browser.
 - [ ] Back up and restore with an edited set.
 - [ ] iPad: the octave, the native picker, scrolling.
+
+## Round 2 — 2026-11-25: compact preview
+
+Round 1 approved, all five decisions kept.
+
+**Done**
+
+- `ColourSetEditor.vue`: where the preview column doesn't fit, a 120 px highway strip directly under the selected-colour row, instead of the preview at the bottom. The column at wider sizes is unchanged.
+- `ColourPreview.vue`: `compact` (28 px keys, short notes at least 8 px, the whole pattern with all 12 notes still passes through).
+- `e2e/colours.spec.ts`: one test per size (1024×768, 768×1024). Brief decision 129 updated.
+
+**Decisions not in the instructions**
+
+1. The selected-colour row and the strip are pinned together, so they stay in view while the rest scrolls. Under 640 px viewport height they scroll along: pinned, they would hide the keys.
+2. The breakpoint is the editor's existing one (its own width under 900 px), so some windows a little wider than 1024 px get the strip too.
+3. Tighter spacing in the narrow layouts, and at 768×1024 the built-in label is "Built-in set: edit or duplicate it": otherwise the pinned block covered about 10 px of the keys.
+
+**Checks**
+
+- Related unit tests (`--changed origin/main`): 293 passed; no unit test covers the two components. Type-check, lint, build: pass. The full `npm run check` was not run again.
+- `@colours` (chromium; polish has none): 6 of 8 passed. The two new tests failed on their own height check: it was measured during the dialog's opening scale, then compared exactly with a fraction off (119.99997). Now polled and rounded: 6 of 6 (both tests, three times). The other six were not run again, and only the test file changed after they passed.
+- Seen on screen: 1024×768 and 768×1024, unchanged and with a warning and resets; also scrolled to the end; 1440×900 with a warning.
+
+**Known issues**
+
+- The 1024×768 issue of round 1 is fixed. The other round 1 issues stay.
+- With every reset and the warning showing, the warning and Save as new set still need a scroll at both sizes.
+- Not looked at: viewports under 640 px high, phone widths.
+
+**Review**
+
+- [ ] iPad, both orientations: edit a colour, the strip follows; scroll to Save as new set.
+- [ ] The round 1 checklist.
