@@ -108,7 +108,7 @@ export default defineConfig({
     {
       name: 'chromium',
       // Visual-review screenshots (for a human) and performance runs are separate projects.
-      grepInvert: /@visual|@perf/,
+      grepInvert: /@visual|@perf|@pixels|@exact|@full-/,
       testIgnore: /visualPolish\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
@@ -122,6 +122,27 @@ export default defineConfig({
       grepInvert: /@visual|@perf/,
       use: {
         ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      // The perf fast loop's pixel comparison, on the real GPU (docs/performance.md): `npm run perf:fast`.
+      name: 'pixels',
+      grep: process.env.PERF_FULL ? /@pixels|@full-pixels/ : /@pixels/,
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 640, height: 360 } },
+    },
+    {
+      // Its exact case: software WebGL draws the same frame the same way twice.
+      name: 'exact',
+      grep: process.env.PERF_FULL ? /@exact|@full-exact/ : /@exact/,
+      timeout: 300_000,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 640, height: 360 },
+        headless: true,
+        launchOptions: {
+          args: ['--disable-gpu', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+        },
       },
     },
     {

@@ -1167,7 +1167,13 @@ onMounted(() => {
           const from = song.tempoMap.tickToSeconds(song.barMap.barStartTick(bar))
           return song.tempoMap.secondsToTick(from + seconds)
         },
-        step: (tick: number, dt: number) => engine?.captureStep(tick, dt),
+        step: (tick: number, dt: number, playing = true) => engine?.captureStep(tick, dt, playing),
+        /** Only the notes in view (true) or the whole song (milestone 11). */
+        cull: (on: boolean, broken: 'near' | 'far' | null = null) => engine?.setCulling(on, broken),
+        drawn: () => engine?.drawnNotes(),
+        info: () => engine?.renderInfo(),
+        /** The tick `seconds` into the loaded timeline (a playlist's too). */
+        tickAtSeconds: (seconds: number) => session?.song?.tempoMap.secondsToTick(seconds) ?? 0,
         particles: () => engine?.particleStats(),
         /** A loop with its pre-roll (the loop sheets, milestone 9.2); null turns it off. */
         loop: (range: LoopRange | null, preRollBeats = 0) => {
