@@ -8,7 +8,7 @@ import {
   type ShaderMaterial,
 } from 'three'
 
-import { NoteSpans, type TickWindow } from '../model/NoteSpans'
+import { NoteSpans, type RangeBounds, type TickWindow } from '../model/NoteSpans'
 
 type LayerMesh = Mesh<BufferGeometry, ShaderMaterial>
 
@@ -34,6 +34,9 @@ const FIRST_CAPACITY = 64
 export class InstanceWindow {
   private readonly spans: NoteSpans
   private readonly slots = new Map<number, Slot>()
+  /** The windows that need no change to the layer's own geometry. */
+  private same: RangeBounds | null = null
+  private mine: InstancedBufferGeometry | null = null
   /** Counts changes to the song data (colours, label reveals). */
   private version = 0
   /** Instances drawn by the layer itself in the last update. */
@@ -70,7 +73,28 @@ export class InstanceWindow {
 
   /** The layer's meshes draw this window (null: the whole song) from now on. */
   update(window: TickWindow | null): void {
+    const same = this.same
+    if (
+      window !== null &&
+      same !== null &&
+      window.startFrom === undefined &&
+      window.from >= same.from &&
+      window.from < same.fromEnd &&
+      window.to > same.toStart &&
+      window.to <= same.to
+    ) {
+      // Most frames: the same notes in the same geometry (changed data: refresh).
+      this.refresh()
+      const { mine } = this
+      for (const mesh of this.meshes) {
+        if (mine !== null && mesh.geometry !== mine) mesh.geometry = mine
+      }
+      return
+    }
     const geometry = this.geometryFor(window, 0)
+    const narrowed = window === null || window.startFrom !== undefined
+    this.same = narrowed ? null : this.spans.bounds(window)
+    this.mine = geometry
     this.drawn = geometry.instanceCount
     for (const mesh of this.meshes) if (mesh.geometry !== geometry) mesh.geometry = geometry
   }
@@ -109,6 +133,8 @@ export class InstanceWindow {
   }
 
   dispose(): void {
+    this.same = null
+    this.mine = null
     // All with their shared per-vertex attributes, which are freed by whichever was drawn.
     for (const { geometry } of this.slots.values()) geometry.dispose()
     this.slots.clear()

@@ -67,6 +67,24 @@ describe('NoteSpans', () => {
     expect(count).toBeLessThan(100 + 4 * BUCKET)
   })
 
+  it('says which windows have the same range', () => {
+    const rand = mulberry32(3)
+    const notes = every(300, 10, 35)
+    const spans = new NoteSpans(notes, false)
+    for (let k = 0; k < 400; k++) {
+      const from = rand() * 3400 - 200
+      const w = { from, to: from + rand() * 600 }
+      const b = spans.bounds(w)
+      const inside = {
+        from: Math.max(b.from, from - rand() * 10),
+        to: Math.min(b.to, w.to + rand() * 10),
+      }
+      if (inside.from < b.fromEnd && inside.to > b.toStart) {
+        expect(spans.range(inside)).toEqual(spans.range(w))
+      }
+    }
+  })
+
   it('keeps a drone that started long ago', () => {
     const spans = new NoteSpans([span(0, 100_000), ...every(400, 10, 10)], false)
     expect(spans.range({ from: 3000, to: 3500 }).first).toBe(0)

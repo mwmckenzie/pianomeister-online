@@ -4,6 +4,14 @@ export interface InstanceRange {
   readonly count: number
 }
 
+/** Where a range stays the same: windows with `from` in [from, fromEnd) and `to` in (toStart, to]. */
+export interface RangeBounds {
+  readonly from: number
+  readonly fromEnd: number
+  readonly toStart: number
+  readonly to: number
+}
+
 /** The song ticks a layer may show: notes sounding after `from` and starting before `to`. */
 export interface TickWindow {
   readonly from: number
@@ -41,6 +49,18 @@ export class NoteSpans {
       this.starts[i] = note.startTick
       max = Math.max(max, note.endTick)
       this.maxEnds[i] = max
+    }
+  }
+
+  /** Windows (without `startFrom`) that have the same range as this one. */
+  bounds(window: TickWindow): RangeBounds {
+    const lo = search(this.maxEnds, (end) => end > window.from)
+    const hi = firstStart(this.starts, window.to)
+    return {
+      from: lo === 0 ? -Infinity : (this.maxEnds[lo - 1] as number),
+      fromEnd: this.maxEnds[lo] ?? Infinity,
+      toStart: hi === 0 ? -Infinity : (this.starts[hi - 1] as number),
+      to: this.starts[hi] ?? Infinity,
     }
   }
 
