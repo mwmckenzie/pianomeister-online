@@ -98,3 +98,8 @@ Round 1 approved, all five decisions kept.
 
 - [ ] iPad, both orientations: edit a colour, the strip follows; scroll to Save as new set.
 - [ ] The round 1 checklist.
+
+## Round 3 — 2026-11-25: approved
+
+- Manual checks passed (user); roadmap row 10.6 set to done; branch pushed and PR opened.
+- `npm run check` before the PR: exit 0, 933 unit tests (128 files). E2e not run again since round 2.
