@@ -44,6 +44,18 @@ Living document. The brief (`docs/brief.md`) records _decided_ scope; this file 
 - Replace fixed timeouts that wait on animations or timers (the settings close animation, the Welcome highlight rotation, the loop nudge) with waits on the actual state (the element gone, the attribute set), so load doesn't fail them.
 - **Done when:** a full green run (`chromium` + `polish`, `--retries=0`) twice in a row.
 
+### Finer slider steps _(right after milestone 11 Phase 0, on its own branch; not part of a performance phase)_
+
+Every settings slider (playfield sidebar, settings window, playlists; anything using the registry's range format) steps too coarsely. Every step becomes at least 5× finer, rounded to a clean 1-2-5 value: 0.5 → 0.1, 0.1 → 0.02, 5 → 1, 10 → 2, 1 → 0.2, and so on.
+
+- Log sliders: the same for the value they snap to.
+- Displayed values get enough decimals to show the new step, with no trailing noise (0.02, not 0.020000001).
+- Arrow keys move by the new step; Shift+arrow by the old, coarse step.
+- Stored values don't change on load: old values stay valid, and nothing re-snaps until the player moves the slider.
+- The special stops (the 0 stop on 9.1's ranges) still land exactly.
+- The report lists every slider with its old and new step, for review.
+- **To watch:** `sameSettingValue` counts two numbers as equal within half a step, so finer steps make "modified" on looks stricter; values that only make sense whole (counts, if any) are listed for a decision.
+
 ### Looks & defaults tuning pass _(done when there is time)_
 
 The built-in looks (milestone 9.1) and the playfield defaults (milestones 9 and 9.1) are provisional. In the app, each built-in look and the defaults are tuned by hand and sent as Copy-look JSON; Claude pins them (built-ins in `BUILT_IN_LOOKS`, defaults in the registry) with their tests and the all-looks sheet.
