@@ -24,6 +24,20 @@ All options are at the top of `scripts/bench-render.mjs`. `?perf=1` or Ctrl+Alt+
 - Keep the window in front and don't resize it. A disturbed cell is measured again and the run flagged.
 - "Dropped" is longer than 1.5 frames of the screen's rate, judged at 60 Hz on faster screens.
 
+## The rule for perf work: two tiers
+
+**The fast loop, every iteration, under 10 minutes:** `npm run perf:fast` (`-- --no-bench` without the benchmark).
+
+- **Counters** at fixed positions of Canon and long-demo: triangles, instances and draw calls, exact numbers before and after.
+- **Pixels on the GPU** (`--project=pixels`): a short dense fixture and Canon at 640 × 360, a few frames at the far fade, after a seek, at a loop wrap and at a crossfade seam, at the longest look-ahead. The GPU doesn't draw one frame the same way twice, so the test redraws the same unchanged frame and takes that **noise** as its tolerance, plus a small margin.
+- **Can it fail?** The same test with the change deliberately broken must be far outside the noise.
+- **One exact case** (`--project=exact`): two frames of Canon on software WebGL, where not one pixel may differ.
+- **The smoke benchmark**, strong and weak-cpu only, with the PC left alone.
+
+**Full validation, once, before a pull request:** `PERF_FULL=1 npx playwright test --project=pixels --project=exact` (the long pixel cases), the Floor and the standard suite.
+
+Never put seconds-per-frame rendering into the fast loop. On software WebGL a benchmark cell is 10 frames, whatever they take (at most 2 minutes); its percentiles are rough.
+
 ## The Floor by hand
 
 ```powershell

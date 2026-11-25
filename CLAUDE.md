@@ -18,6 +18,7 @@ Browser-based piano practice visualizer: MIDI songs scroll down a perspective no
 - `npm run test:e2e:dev` — Playwright against the dev server (5173, reused if running) for quick checks. Expect flakes in full runs: on the dev server the ~230 sample downloads saturate HTTP/1.1's six connections and lazy chunks queue behind them.
 - `npm run test:visual` / `npm run test:perf` — visual review shots / frame timings, also against the production preview. Only when a milestone asks; never in CI.
 - `npm run bench:hands -- <folder>` — scores the hand-split methods on a **local** folder of MIDI files with tracks named right/left (`--algos=beam,chord`, `--params=<JSON>`). Never commit those files; not part of `check`.
+- `npm run perf:fast` — the fast loop of perf work (see Performance work). Not part of `check`.
 - `npm run bench:render` — the benchmark (`#/bench`) in a browser of its own, on a production build; options and other devices in `docs/performance.md`. Not part of `check`.
 - `npm run songs:manifest` — regenerate `public/songs/manifest.json` after adding/changing bundled songs (then fill in title/composer/tags)
 
@@ -41,6 +42,15 @@ Keep local test time small; the full e2e suite runs in CI.
    - The visual, perf, range and sheet projects never run in CI or automatically, only when a milestone asks.
 6. **Before opening a PR:** `npm run check` and `npm run test:e2e:affected`. **After pushing:** read CI with `gh pr checks <n>` and fix real failures.
 7. **Waits:** wait on state (an element gone, an attribute set, a still frame), never on a fixed sleep for an animation or timer. The expect timeout (10 s) is a safety net for loads under parallel load, not a reason to wait.
+
+## Performance work
+
+The rule (details in `docs/performance.md`):
+
+- **Every iteration:** the fast loop, `npm run perf:fast`, under 10 minutes: exact counters, GPU pixels within the measured noise, a can-fail check, one tiny exact case on software WebGL, the smoke benchmark on strong and weak-cpu.
+- **Once, before a PR:** full validation (the long pixel cases, the Floor, the standard suite). Never in the fast loop: anything that renders at seconds per frame.
+- Every visual test of a perf change must be shown to fail when the change is deliberately broken.
+- Leave the PC alone during benchmark runs, and repeat a run before judging a change.
 
 ## Stack
 
