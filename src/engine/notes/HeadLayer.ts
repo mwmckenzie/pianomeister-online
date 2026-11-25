@@ -243,7 +243,8 @@ export class HeadLayer {
 
   /** Takes the palette's current colours (after a change of note colours). */
   recolor(): void {
-    recolorNotes(this.mesh.geometry, this.notes, this.colors)
+    recolorNotes(this.window.song, this.notes, this.colors)
+    this.window.touch()
   }
 
   setShape(height: number, roundedEdges: boolean): void {

@@ -60,7 +60,7 @@ export class LoopRepeat {
         mesh.visible = i < this.count && source.mesh.visible && visibleUp(source.mesh)
         mesh.geometry =
           source.window !== undefined && mesh.visible
-            ? source.window.geometryFor(notesOf(source.window, i + 1))
+            ? source.window.geometryFor(notesOf(source.window, i + 1), i + 1)
             : source.mesh.geometry
         mesh.renderOrder = source.mesh.renderOrder
       })

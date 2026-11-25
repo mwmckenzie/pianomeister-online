@@ -184,7 +184,8 @@ export class SustainLayer {
 
   /** Takes the palette's current colours (after a change of note colours). */
   recolor(): void {
-    recolorNotes(this.mesh.geometry, this.notes, this.colors)
+    recolorNotes(this.window.song, this.notes, this.colors)
+    this.window.touch()
   }
 
   setFlatHeads(flat: boolean): void {

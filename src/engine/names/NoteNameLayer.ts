@@ -18,7 +18,7 @@ import type { LabelState } from '../model/LabelState'
 import { BAR_START, RUN_START } from '../model/labelRepeatRanks'
 import type { NoteInstance } from '../model/NoteInstance'
 import { NoteColors } from '../NoteColors'
-import { instanced } from '../notes/instanced'
+import { packInstances } from '../notes/packInstances'
 import { InstanceWindow } from '../notes/InstanceWindow'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
@@ -260,30 +260,21 @@ export class NoteNameLayer {
     )
     g.setAttribute('uv', new BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), 2))
     g.setIndex([0, 1, 2, 0, 2, 3])
-    g.setAttribute('aLane', instanced(new Float32Array(notes.flatMap((n) => [n.x, n.width])), 2))
-    g.setAttribute(
-      'aTicks',
-      instanced(new Float32Array(notes.flatMap((n) => [n.startTick, n.endTick, n.headEndTick])), 3),
-    )
-    g.setAttribute(
-      'aCell',
-      instanced(new Float32Array(notes.flatMap((n) => atlasCell(n.midi - KEYBOARD.lowest))), 4),
-    )
-    g.setAttribute(
-      'aColor',
-      instanced(
-        new Float32Array(
-          notes.flatMap((n) => {
-            const c = DEFAULT_COLORS.at(n.colorIndex)
-            return [c.r, c.g, c.b]
-          }),
-        ),
+    packInstances(g, notes.length, {
+      aLane: [notes.flatMap((n) => [n.x, n.width]), 2],
+      aTicks: [notes.flatMap((n) => [n.startTick, n.endTick, n.headEndTick]), 3],
+      aCell: [notes.flatMap((n) => atlasCell(n.midi - KEYBOARD.lowest)), 4],
+      aColor: [
+        notes.flatMap((n) => {
+          const c = DEFAULT_COLORS.at(n.colorIndex)
+          return [c.r, c.g, c.b]
+        }),
         3,
-      ),
-    )
-    g.setAttribute('aShown', instanced(this.shown, 1))
-    g.setAttribute('aSlot', instanced(Float32Array.from(slots.bar), 1))
-    g.setAttribute('aRank', instanced(Float32Array.from(ranks), 1))
+      ],
+      aShown: [this.shown, 1],
+      aSlot: [slots.bar, 1],
+      aRank: [ranks, 1],
+    })
     g.instanceCount = notes.length
     this.mesh = new Mesh(
       g,
@@ -342,10 +333,9 @@ export class NoteNameLayer {
     const slots = this.slotSets[names.repeats]
     if (slots !== this.slots) {
       this.slots = slots
-      const attribute = this.mesh.geometry.getAttribute('aSlot') as InterleavedBufferAttribute
-      ;(attribute.array as Float32Array).set(slots)
-      attribute.data.clearUpdateRanges()
-      attribute.needsUpdate = true
+      const attribute = this.window.song.getAttribute('aSlot') as InterleavedBufferAttribute
+      slots.forEach((slot, i) => attribute.setX(i, slot))
+      this.window.touch()
     }
     this.twin.enabled = names.glow === 'subtle'
     if (!names.avoidOverlaps) {
@@ -455,13 +445,12 @@ export class NoteNameLayer {
 
   /** Labels' Auto and Note colours follow the shared note colours. */
   recolor(colors: NoteColors): void {
-    const attribute = this.mesh.geometry.getAttribute('aColor')
-    const data = attribute.array as Float32Array
+    const attribute = this.window.song.getAttribute('aColor') as InterleavedBufferAttribute
     this.notes.forEach((n, i) => {
       const c = colors.at(n.colorIndex)
-      data.set([c.r, c.g, c.b], i * 3)
+      attribute.setXYZ(i, c.r, c.g, c.b)
     })
-    attribute.needsUpdate = true
+    this.window.touch()
   }
 
   dispose(): void {
@@ -471,10 +460,9 @@ export class NoteNameLayer {
   }
 
   private markShown(lo: number, hi: number): void {
-    const attribute = this.mesh.geometry.getAttribute('aShown') as InterleavedBufferAttribute
-    attribute.data.clearUpdateRanges()
-    attribute.data.addUpdateRange(lo, hi - lo + 1)
-    attribute.needsUpdate = true
+    const attribute = this.window.song.getAttribute('aShown') as InterleavedBufferAttribute
+    for (let i = lo; i <= hi; i++) attribute.setX(i, this.shown[i] as number)
+    this.window.touch()
   }
 
   private uniform(name: string, value: number): void {

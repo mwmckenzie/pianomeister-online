@@ -1,33 +1,41 @@
 import {
   type BufferGeometry,
+  DynamicDrawUsage,
   InstancedBufferGeometry,
+  InstancedInterleavedBuffer,
   InterleavedBufferAttribute,
   type Mesh,
   type ShaderMaterial,
 } from 'three'
 
-import { type InstanceRange, NoteSpans, type TickWindow } from '../model/NoteSpans'
-
-/** Geometries kept per layer; more only while one frame needs more (short loops repeated). */
-const KEPT = 12
-
-interface Variant {
-  readonly geometry: InstancedBufferGeometry
-  usedAt: number
-}
+import { NoteSpans, type TickWindow } from '../model/NoteSpans'
 
 type LayerMesh = Mesh<BufferGeometry, ShaderMaterial>
 
+/** A geometry of its own for one window: the layer's (slot 0) or a loop repeat's. */
+interface Slot {
+  geometry: InstancedBufferGeometry
+  data: InstancedInterleavedBuffer
+  first: number
+  count: number
+  /** The song data's version it was filled from. */
+  version: number
+}
+
+/** Room for this many instances at first; doubled when a window needs more. */
+const FIRST_CAPACITY = 64
+
 /**
- * Draws only a layer's notes in view (milestone 11). The buffers hold the whole song and don't
- * change as it plays: a geometry per instance range shares them, its attributes starting further
- * in. Moving the window swaps geometries, so it uploads nothing, whatever the jump.
+ * Draws only a layer's notes in view (milestone 11). The song's notes stay in one packed array on
+ * the CPU; a stable geometry holds those in the window, and is refilled only when the window's
+ * notes change (a bucket of them at a time). One small upload then, and no new vertex setup: a
+ * geometry per window would set one up for nearly every frame of dense music.
  */
 export class InstanceWindow {
   private readonly spans: NoteSpans
-  private readonly variants = new Map<string, Variant>()
-  /** Counts updates, so the variants of the current frame are never released. */
-  private now = 0
+  private readonly slots = new Map<number, Slot>()
+  /** Counts changes to the song data (colours, label reveals). */
+  private version = 0
   /** Instances drawn by the layer itself in the last update. */
   drawn = 0
 
@@ -49,72 +57,110 @@ export class InstanceWindow {
     this.meshes.push(mesh)
   }
 
+  /** The whole song's geometry: its attributes write to the packed array, then `touch()`. */
+  get song(): InstancedBufferGeometry {
+    return this.full
+  }
+
+  /** The song data changed. */
+  touch(): void {
+    this.version++
+    packed(this.full).needsUpdate = true
+  }
+
   /** The layer's meshes draw this window (null: the whole song) from now on. */
   update(window: TickWindow | null): void {
-    this.now++
-    const geometry = this.geometryFor(window)
+    const geometry = this.geometryFor(window, 0)
     this.drawn = geometry.instanceCount
-    for (const mesh of this.meshes) mesh.geometry = geometry
+    for (const mesh of this.meshes) if (mesh.geometry !== geometry) mesh.geometry = geometry
   }
 
-  /** The geometry that draws a window, for this frame. */
-  geometryFor(window: TickWindow | null): InstancedBufferGeometry {
+  /** The geometry that draws a window; each `slot` (a loop repeat's number) has its own. */
+  geometryFor(window: TickWindow | null, slot: number): InstancedBufferGeometry {
     if (window === null) return this.full
-    const range = this.spans.range(window)
-    const key = `${range.first}:${range.count}`
-    let variant = this.variants.get(key)
-    if (variant === undefined) {
-      variant = { geometry: this.build(range), usedAt: this.now }
-      this.variants.set(key, variant)
-      this.trim()
+    const { first, count } = this.spans.range(window)
+    let s = this.slots.get(slot)
+    if (s === undefined || count > s.data.count) {
+      const capacity = Math.max(FIRST_CAPACITY, 2 ** Math.ceil(Math.log2(Math.max(1, count))))
+      const old = s
+      s = this.build(capacity)
+      this.slots.set(slot, s)
+      if (old !== undefined) release(old.geometry)
     }
-    variant.usedAt = this.now
-    return variant.geometry
+    if (s.first !== first || s.count !== count || s.version !== this.version) {
+      s.first = first
+      s.count = count
+      this.fill(s)
+    }
+    return s.geometry
   }
 
-  /** New buffers (rounded or square heads); the old ones are freed. */
+  /** Takes changes made after this frame's windows were chosen (label placement). */
+  refresh(): void {
+    for (const s of this.slots.values()) if (s.version !== this.version) this.fill(s)
+  }
+
+  /** New song data (rounded or square heads); the old buffers are freed. */
   replace(full: InstancedBufferGeometry): void {
     this.dispose()
     this.full = full
+    this.version++
     for (const mesh of this.meshes) mesh.geometry = full
   }
 
   dispose(): void {
-    // All with their attributes: the shared buffers are freed by whichever was drawn.
-    for (const { geometry } of this.variants.values()) geometry.dispose()
-    this.variants.clear()
+    // All with their shared per-vertex attributes, which are freed by whichever was drawn.
+    for (const { geometry } of this.slots.values()) geometry.dispose()
+    this.slots.clear()
     this.full.dispose()
   }
 
-  private build(range: InstanceRange): InstancedBufferGeometry {
+  private fill(s: Slot): void {
+    const source = packed(this.full)
+    const { stride } = source
+    const { first, count, data } = s
+    data.array.set(source.array.subarray(first * stride, (first + count) * stride))
+    data.clearUpdateRanges()
+    data.addUpdateRange(0, count * stride)
+    data.needsUpdate = true
+    s.geometry.instanceCount = count
+    s.version = this.version
+  }
+
+  private build(capacity: number): Slot {
+    const { stride } = packed(this.full)
+    const data = new InstancedInterleavedBuffer(new Float32Array(capacity * stride), stride)
+    data.setUsage(DynamicDrawUsage)
     const geometry = new InstancedBufferGeometry()
     geometry.setIndex(this.full.index)
     for (const [name, attribute] of Object.entries(this.full.attributes)) {
       geometry.setAttribute(
         name,
         attribute instanceof InterleavedBufferAttribute
-          ? new InterleavedBufferAttribute(
-              attribute.data,
-              attribute.itemSize,
-              range.first * attribute.data.stride + attribute.offset,
-            )
+          ? new InterleavedBufferAttribute(data, attribute.itemSize, attribute.offset)
           : attribute,
       )
     }
-    geometry.instanceCount = range.count
-    return geometry
+    geometry.instanceCount = 0
+    return { geometry, data, first: -1, count: -1, version: -1 }
   }
+}
 
-  private trim(): void {
-    if (this.variants.size <= KEPT) return
-    const old = [...this.variants].filter(([, v]) => v.usedAt < this.now)
-    old.sort(([, a], [, b]) => a.usedAt - b.usedAt)
-    for (const [key, { geometry }] of old.slice(0, this.variants.size - KEPT)) {
-      this.variants.delete(key)
-      // Disposing a geometry frees the buffers of its attributes: they are the others' too.
-      geometry.setIndex(null)
-      for (const name of Object.keys(geometry.attributes)) geometry.deleteAttribute(name)
-      geometry.dispose()
+/** The packed per-instance array behind a note geometry's attributes (packInstances). */
+function packed(geometry: InstancedBufferGeometry): InstancedInterleavedBuffer {
+  for (const attribute of Object.values(geometry.attributes)) {
+    if (attribute instanceof InterleavedBufferAttribute) {
+      return attribute.data as InstancedInterleavedBuffer
     }
   }
+  throw new Error('no per-instance attributes')
+}
+
+/** Disposing a geometry frees its attributes' buffers: not the per-vertex ones, others use them. */
+function release(geometry: InstancedBufferGeometry): void {
+  geometry.setIndex(null)
+  for (const [name, attribute] of Object.entries(geometry.attributes)) {
+    if (!(attribute instanceof InterleavedBufferAttribute)) geometry.deleteAttribute(name)
+  }
+  geometry.dispose()
 }

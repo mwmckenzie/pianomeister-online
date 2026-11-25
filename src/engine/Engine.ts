@@ -1059,7 +1059,10 @@ export class Engine {
         )
       }
     }
-    if (song !== null) this.layoutNames(song, tick, dt, clock.jumped)
+    if (song !== null) {
+      this.layoutNames(song, tick, dt, clock.jumped)
+      for (const layer of [song.names.white, song.names.black]) layer.window.refresh()
+    }
     this.lastTick = tick
     // The chain can change after applySettings (FXAA/SMAA passes load asynchronously).
     if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()
