@@ -152,7 +152,7 @@ This also answers part of Phase 0's open point: frame time falls with the triang
 - **Noise:** 20 redraws, each a fresh first frame (a fresh start, one frame at the position before, then this one), compared with another uncut first frame. Seen over the repeats of this version: up to 30 px, level usually 1–2, up to 5.
 - **The stricter test caught a real bug in B:** labels reached the GPU one frame late after a jump (up to 22,000 px). Fixed. The two-frame software case didn't notice it, so it is a weaker guard than the GPU cases.
 - **Can it fail?** Broken edges: 22,000–65,000 px at level 233 and above on the GPU; 15,299 and 9,109 px on software WebGL.
-- **Runs after that fix:** five fast-loop GPU runs: four pass 7 of 7. One failed (Canon, Study, 16 px, level 2, while 20 redraws showed no noise, so 1 level was allowed). Then 1,620 uncut and 1,620 culled first frames at nine Canon positions: 4 uncut and 1 culled differed from the reference, none by more than one level or 24 px. That points to rare noise, but level 2 wasn't reproduced.
+- **Runs after that fix:** six GPU runs: five pass 7 of 7. One failed (Canon, Study, 16 px, level 2, while 20 redraws showed no noise, so 1 level was allowed). Then 1,620 uncut and 1,620 culled first frames at nine Canon positions: 4 uncut and 1 culled differed from the reference, none by more than one level or 24 px. That points to rare noise, but level 2 wasn't reproduced.
 - The **last fast loop** (final product code): 7 of 7, exact case exact, 1.1 min without the benchmark.
 
 ### Process
