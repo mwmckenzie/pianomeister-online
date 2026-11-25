@@ -213,6 +213,8 @@ export class NoteNameLayer {
   private readonly byStart: Int32Array
   private readonly shown: Float32Array
   private readonly target: Float32Array
+  /** In the last update a label was still fading in. */
+  revealing = false
   /** Stack slots for each "Label repeated notes" choice; `slots` is the one in use. */
   private readonly slotSets: LabelSlots
   private slots: Uint8Array
@@ -440,6 +442,7 @@ export class NoteNameLayer {
       lo = Math.min(lo, i)
       hi = i
     }
+    this.revealing = hi >= 0
     if (hi >= 0) this.markShown(lo, hi)
   }
 

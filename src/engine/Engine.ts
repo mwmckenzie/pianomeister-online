@@ -121,8 +121,9 @@ interface SongParts {
 /**
  * The Three.js scene behind the player. Imperative and non-reactive: the UI calls mount(),
  * setSong(), applySettings(), resize() and dispose(). Each animation frame it reads the song
- * position from the time source; it never drives timing. requestAnimationFrame stops in
- * hidden tabs, so rendering pauses there while audio keeps playing.
+ * position from the time source; it never drives timing. Not playing, it draws only until
+ * everything has come to rest, then when something changes (invalidate()). requestAnimationFrame
+ * stops in hidden tabs, so rendering pauses there while audio keeps playing.
  */
 export class Engine {
   private pipeline: RenderPipeline | null = null
@@ -176,10 +177,15 @@ export class Engine {
   private loopClock = 0
   /** Wall-clock seconds since playback paused. */
   private pausedFor = 0
+  /** The animation frame asked for; 0: none. */
   private frame = 0
-  /** While frozen the loop stops; changes ask for a single frame instead (Welcome's backdrop). */
+  /** Frozen, every change draws a single frame, whatever still moves (Welcome's backdrop). */
   private frozen = false
-  private pendingFrame = 0
+  /** Draws every frame, at rest too (the benchmark measures a frame's cost). */
+  private alwaysDraw = false
+  /** The position moved in the last frame: what follows it (label room) gets one more. */
+  private moved = false
+  private dprQuery: MediaQueryList | null = null
   private rendered = 0
   private lastTick: number | null = null
   private lastFrameAt: number | null = null
@@ -203,7 +209,10 @@ export class Engine {
     this.effects.setKeyTops(this.keyboard.keyBodies)
     this.effects.recolor(this.noteColors)
     // Key labels fit their key by the names' widths, which change once the font has loaded.
-    this.atlas.onDraw = () => this.keyboard.setGlyphWidths(this.atlas.glyphEms)
+    this.atlas.onDraw = () => {
+      this.keyboard.setGlyphWidths(this.atlas.glyphEms)
+      this.invalidate()
+    }
     this.keyboard.setGlyphWidths(this.atlas.glyphEms)
   }
 
@@ -215,17 +224,31 @@ export class Engine {
       this.camera,
       this.labelScene,
     )
+    this.pipeline.onChange = () => this.invalidate()
     this.applySettings(this.settings)
     // Size changes in device pixels (window resize, browser zoom); where the browser can't
-    // observe the device-pixel box, the CSS box. A device-pixel-ratio change alone is also
-    // caught every frame in loop() (not every browser reports it to observers).
+    // observe the device-pixel box, the CSS box. A device-pixel-ratio change alone has its own
+    // listener (not every browser reports it to observers), and draw() checks it too.
     this.sizeObserver = new ResizeObserver(() => this.resize())
     try {
       this.sizeObserver.observe(canvas, { box: 'device-pixel-content-box' })
     } catch {
       this.sizeObserver.observe(canvas)
     }
-    this.frame = requestAnimationFrame(this.loop)
+    this.watchDpr()
+    // What a browser may have dropped while the tab was hidden or the context lost. The
+    // renderer's own listener was added first, so it has restored its state by then.
+    document.addEventListener('visibilitychange', this.invalidate)
+    canvas.addEventListener('webglcontextrestored', this.invalidate)
+    this.invalidate()
+  }
+
+  /** A device-pixel-ratio change draws a frame (which sizes the buffer). */
+  private readonly watchDpr = (): void => {
+    this.dprQuery?.removeEventListener('change', this.watchDpr)
+    this.dprQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+    this.dprQuery.addEventListener('change', this.watchDpr)
+    this.invalidate()
   }
 
   /** Song position source, in ticks; called once per frame. */
@@ -803,6 +826,13 @@ export class Engine {
     if (playing === this.playing) return
     if (playing) this.resumed = true
     this.playing = playing
+    this.invalidate()
+  }
+
+  /** Draws every frame although nothing moves (the benchmark); normally off. */
+  setAlwaysDraw(on: boolean): void {
+    this.alwaysDraw = on
+    this.invalidate()
   }
 
   /**
@@ -821,8 +851,7 @@ export class Engine {
    */
   startCapture(seed = 1, loopTime = 3): void {
     cancelAnimationFrame(this.frame)
-    cancelAnimationFrame(this.pendingFrame)
-    this.pendingFrame = 0
+    this.frame = 0
     this.capturing = true
     this.frozen = true
     this.fixedAnimationTime = null
@@ -868,31 +897,26 @@ export class Engine {
   }
 
   /**
-   * Stops (true) or restarts (false) the render loop. Frozen, the scene renders one frame now
-   * and then only when invalidate() is called or its size, settings or song change.
+   * Frozen, the scene renders one frame now and then one whenever invalidate() is called or its
+   * size, settings or song change, playing or not.
    */
   setFrozen(frozen: boolean): void {
     if (frozen === this.frozen || this.capturing) return
     this.frozen = frozen
-    cancelAnimationFrame(this.frame)
-    cancelAnimationFrame(this.pendingFrame)
-    this.pendingFrame = 0
     // A stale timestamp would make the first frame after a freeze one long time step.
     this.lastFrameAt = null
-    if (this.pipeline === null) return
-    if (frozen) this.invalidate()
-    else this.frame = requestAnimationFrame(this.loop)
+    this.invalidate()
   }
 
-  /** While frozen, renders one more frame (e.g. after a seek); running, the loop already does. */
-  invalidate(): void {
-    if (this.capturing) return
-    if (!this.frozen || this.pipeline === null || this.pendingFrame !== 0) return
-    this.pendingFrame = requestAnimationFrame((now) => {
-      this.pendingFrame = 0
-      this.lastFrameAt = null
-      this.draw(now)
-    })
+  /** Asks for a frame (and those after it until everything is at rest), unless one is coming. */
+  readonly invalidate = (): void => {
+    if (this.capturing || this.pipeline === null || this.frame !== 0) return
+    this.frame = requestAnimationFrame(this.loop)
+  }
+
+  /** No frame is coming: nothing moves and nothing has changed. */
+  get resting(): boolean {
+    return this.frame === 0
   }
 
   resize(): void {
@@ -972,8 +996,10 @@ export class Engine {
 
   dispose(): void {
     cancelAnimationFrame(this.frame)
-    cancelAnimationFrame(this.pendingFrame)
     this.sizeObserver?.disconnect()
+    this.dprQuery?.removeEventListener('change', this.watchDpr)
+    document.removeEventListener('visibilitychange', this.invalidate)
+    this.pipeline?.renderer.domElement.removeEventListener('webglcontextrestored', this.invalidate)
     this.disposeSong()
     this.loopLines.dispose()
     this.seam.dispose()
@@ -985,8 +1011,41 @@ export class Engine {
   }
 
   private readonly loop = (now: number): void => {
-    this.frame = requestAnimationFrame(this.loop)
+    this.frame = 0
+    // Asked for before drawing, so an error in one frame doesn't stop the ones after it.
+    if (!this.frozen && (this.playing || this.alwaysDraw)) this.invalidate()
+    if (this.frozen) this.lastFrameAt = null
     this.draw(now)
+    if (this.frozen || this.frame !== 0) return
+    if (this.busy()) this.invalidate()
+    else this.rest()
+  }
+
+  /** Not playing: something in the last frame was still on its way. */
+  private busy(): boolean {
+    if (this.moved) return true
+    const { song } = this
+    if (song === null) return false
+    const { effects, names } = this.settings
+    if (this.keyboard.busy) return true
+    // With a pinned animation clock neither particles nor pulses move.
+    if (this.fixedAnimationTime === null) {
+      if (effects.enabled && this.effects.busy) return true
+      if (effects.pulse && this.pausedFor < effects.pulseDecayMs / 1000) return true
+    }
+    const onNotes = names.mode === 'notes' || names.mode === 'both'
+    const revealing = song.names.white.revealing || song.names.black.revealing
+    return onNotes && names.avoidOverlaps && revealing
+  }
+
+  /**
+   * The loop stops. Time goes on unseen: the next frame has no time step, and what has faded out
+   * by now stays so (a longer decay set later must not bring it back).
+   */
+  private rest(): void {
+    this.lastFrameAt = null
+    this.pausedFor = SETTLED_SECONDS
+    this.keyboard.settle()
   }
 
   private draw(now: number): void {
@@ -1063,6 +1122,7 @@ export class Engine {
       this.layoutNames(song, tick, dt, clock.jumped)
       for (const layer of [song.names.white, song.names.black]) layer.window.refresh()
     }
+    this.moved = tick !== this.lastTick
     this.lastTick = tick
     // The chain can change after applySettings (FXAA/SMAA passes load asynchronously).
     if (pipeline.bloomActive !== this.glowSyncedFor) this.syncGlow()

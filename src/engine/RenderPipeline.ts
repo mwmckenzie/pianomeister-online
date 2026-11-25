@@ -67,6 +67,8 @@ export class RenderPipeline {
   private cssHeight = 1
   private readonly halfFloat: boolean
   private readonly gpu: GpuTimer
+  /** Called when a pass that loaded late has joined the chain. */
+  onChange: (() => void) | null = null
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -254,7 +256,10 @@ export class RenderPipeline {
     loadPostPass(antialias).then(
       (pass) => {
         if (build !== this.build) pass.dispose()
-        else this.installComposer(chain, pass)
+        else {
+          this.installComposer(chain, pass)
+          this.onChange?.()
+        }
       },
       (e: unknown) => console.error(`[render] Couldn't load the ${antialias} pass:`, e),
     )

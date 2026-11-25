@@ -91,6 +91,8 @@ export async function runBench(host: BenchHost, options: BenchOptions): Promise<
   let recorder: CellRecorder | null = null
   try {
     host.begin()
+    // Cells measure a frame's cost, paused ones too; what resting saves: bench-render --idle.
+    engine.setAlwaysDraw(true)
     await session.unlock()
     const songs = await loadSongs(host)
     engine.setFrozen(true)
@@ -134,6 +136,7 @@ export async function runBench(host: BenchHost, options: BenchOptions): Promise<
     throw e
   } finally {
     recorder?.detach()
+    engine.setAlwaysDraw(false)
     await host.end()
   }
 }

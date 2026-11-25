@@ -34,6 +34,8 @@ export class PlaybackSession {
   readonly ready: Promise<void>
   private readonly scheduler: AudioScheduler
   private readonly visualClock: LatencyCompensatedClock
+  /** Called after every scheduler step (~25 ms, hidden tabs too): listening is driven by it. */
+  onTick: (() => void) | null = null
   private loaded: LoadedSong | null = null
   private loadedKey: string | null = null
   private progress = { loaded: 0, total: 0 }
@@ -57,6 +59,7 @@ export class PlaybackSession {
       clock,
       output: this.output,
       ticker: new WorkerTicker(),
+      afterTick: () => this.onTick?.(),
     })
     this.scheduler.start()
   }

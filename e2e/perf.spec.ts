@@ -179,7 +179,8 @@ test('@perf Welcome open vs closed: frames and main-thread time over 10 s', asyn
   await expect(page.getByTestId('welcome')).toBeVisible()
   const open = await measure('Welcome open')
   save('welcome-open-vs-closed', { closed, open })
-  expect(open.framesPerSecond).toBeLessThan(closed.framesPerSecond)
+  // Both at rest (milestone 11).
+  expect(open.framesPerSecond).toBeLessThanOrEqual(closed.framesPerSecond)
 })
 
 /**

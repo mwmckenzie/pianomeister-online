@@ -311,9 +311,16 @@ function attachSession(): PlaybackSession {
   // Remember where playback stopped, for Welcome's Resume (m7-7 decision 6).
   stopBarWatch = playback.bus.on('timelineChange', ({ reason }) => {
     if (reason === 'pause' || reason === 'stop' || reason === 'end') rememberBar()
-    // Behind Welcome the scene is frozen: a seek or a new song still needs its one frame.
+    // At rest, the scene and the HUD draw when something changes.
+    engine?.setPlaying(playback.transport.state === 'playing')
     engine?.invalidate()
+    wakeHud()
   })
+  playback.onTick = () => {
+    if (!listening.active) return
+    listener?.advance()
+    if (listener?.easingLook === true) wakeHud()
+  }
   if (loop.value !== null) loopDraft.value = loop.value
   applyPractice()
   stopProgress = playback.onSampleProgress(
@@ -655,8 +662,16 @@ function toggleMetronome(): void {
 /** "Save as bookmark" (icon, B, loop popover): one click, no dialog (decision 69). */
 const saveAsBookmark = useSaveBookmark()
 
+/** Asks for a HUD frame: while not playing it only follows changes (milestone 11). */
+function wakeHud(): void {
+  if (hudFrame === 0 && !unmounted) hudFrame = requestAnimationFrame(updateHud)
+}
+
 function updateHud(): void {
-  hudFrame = requestAnimationFrame(updateHud)
+  hudFrame = 0
+  // Playing, or a look easing in: the next frame too. The benchmark measures paused frames.
+  const easing = listening.active && listener?.easingLook === true
+  if (session?.transport.state === 'playing' || easing || benching) wakeHud()
   if (onHudFrame === null) {
     stepHud()
     return
@@ -1004,6 +1019,7 @@ function beginBench(): void {
   rememberBar()
   benchBar = currentBar()
   benching = true
+  wakeHud()
   statsStore.trackingSuspended = true
   const { transport } = session
   transport.stop()
@@ -1089,8 +1105,8 @@ function renderStatus(): RenderStatus | null {
 
 watch(() => [practice.current, practice.loopJump], applyPractice)
 watch(reducedMotion, (reduced) => engine?.setReducedMotion(reduced))
-// Paused, the scene settles and holds still (brief decision 119).
-watch(playing, (now) => engine?.setPlaying(now))
+// What the HUD shows besides the transport's own changes (attachSession).
+watch(() => [loaded.value, listening.active, settingsStore.settings], wakeHud)
 watch(
   () => settingsStore.settings,
   (settings, previous) => {
@@ -1126,7 +1142,6 @@ onMounted(() => {
   engine.applySettings(settingsStore.snapshot())
   engine.setGuides(route.query.guides === '1')
   engine.setReducedMotion(reducedMotion.value)
-  engine.setPlaying(playing.value)
   // Debug-only (like ?guides=1): pins the animation clock so visual shots are repeatable.
   const animTime = Number(route.query.animTime)
   if (route.query.animTime !== undefined && Number.isFinite(animTime)) {
@@ -1151,6 +1166,8 @@ onMounted(() => {
       },
       pianomeisterEngineStats: stats,
       pianomeisterRenderInfo: renderInfo,
+      pianomeisterRedraw: () => engine?.invalidate(),
+      pianomeisterParticles: () => engine?.particleStats(),
       pianomeisterLabels: labels,
       pianomeisterNoteColors: () => engine?.noteColorHexes() ?? null,
     })
@@ -1193,7 +1210,7 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keydown', onPerfKey)
   window.addEventListener('pointerdown', onGesture)
-  hudFrame = requestAnimationFrame(updateHud)
+  wakeHud()
   // Ask for the picker and settings chunks before the session starts ~230 sample downloads:
   // requests queue per host, and behind the samples the first O or Settings click would wait
   // for seconds on a slow connection (or a busy dev server). Imports are cached, so the click
@@ -1228,6 +1245,7 @@ onBeforeUnmount(() => {
   if (session?.transport.state === 'playing') session.transport.pause()
   else rememberBar()
   stopBarWatch?.()
+  if (session !== null) session.onTick = null
   engine = null
   session = null
 })

@@ -6,6 +6,9 @@ import { KEYBOARD } from '../model/KEYBOARD'
 import type { KeyState } from '../model/KeyState'
 import { NoteColors } from '../NoteColors'
 
+/** A fading glow this close to its target doesn't change a pixel any more. */
+const SETTLED = 5e-4
+
 const VERTEX = /* glsl */ `
 uniform float uScale;
 attribute float aSize;
@@ -51,6 +54,8 @@ export class HeldGlow {
   private readonly scale = new Float32Array(88).fill(1)
   private readonly baseSize = new Float32Array(88)
   private elapsed = 0
+  /** A glow was still fading in the last update. */
+  busy = false
   private readonly uScale = { value: 400 }
 
   constructor() {
@@ -105,6 +110,7 @@ export class HeldGlow {
     // Paused, the pulse holds its phase (no snap), so the glow settles where it is.
     if (moving) this.elapsed += dt
     const step = Math.min(dt, 0.05)
+    this.busy = false
     states.forEach((state, i) => {
       // Held: a mild steady pulse. Released: fade out quickly.
       if (state.sounding) this.scale[i] = scaleOf(state.velocity)
@@ -115,6 +121,7 @@ export class HeldGlow {
       // Rise at once, fade toward the target, never below it: decaying past a held target and
       // snapping back would flicker every other frame.
       this.level[i] = target >= current ? target : Math.max(target, current * Math.exp(-step * 14))
+      if ((this.level[i] as number) - target > SETTLED) this.busy = true
       this.alpha[i] = this.level[i] as number
     })
     this.markDirty(false)

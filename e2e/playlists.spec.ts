@@ -381,9 +381,8 @@ test('@playlists @library Add to playlist… from the Library makes a new playli
 })
 
 /**
- * Milestone 11, Phase 0: a hidden tab gets no animation frames, and listening prepares the next
- * song from one. The song's end comes and the music should go on. It doesn't (a bug for Phase 1,
- * hence test.fail before the last step); whoever fixes it removes that line.
+ * Milestone 11, Phase 0: a hidden tab gets no animation frames, so listening
+ * prepares the next song from the scheduler's ticks instead (Phase 1a).
  */
 test('@playlists a playlist goes on to the next song in a hidden tab', async ({ page }) => {
   test.setTimeout(90_000)
@@ -421,12 +420,18 @@ test('@playlists a playlist goes on to the next song in a hidden tab', async ({ 
         window as unknown as {
           pianomeisterListening: {
             position: () => number
-            state: () => { parts: { endSec: number }[] } | null
+            state: () => { current: number; parts: { songId: string; endSec: number }[] } | null
             seek: (s: number) => void
           }
         }
       ).pianomeisterListening
-      return { at: l.position(), end: l.state()?.parts[0]?.endSec ?? 0 }
+      const state = l.state()
+      return {
+        at: l.position(),
+        end: state?.parts[0]?.endSec ?? 0,
+        song: state?.parts[state.current]?.songId,
+        songs: state?.parts.length,
+      }
     })
   await expect.poll(async () => (await read()).at).toBeGreaterThan(0.3)
   const { end } = await read()
@@ -440,7 +445,10 @@ test('@playlists a playlist goes on to the next song in a hidden tab', async ({ 
     w.hidePage()
   }, end - 13.5)
   await expect.poll(async () => (await read()).at).toBeGreaterThan(end - 12)
-  test.fail()
-  // Past the first song's end: the next one is on the timeline and playing.
-  await expect.poll(async () => (await read()).at, { timeout: 20_000 }).toBeGreaterThan(end + 1)
+  // The first song's end: the next one is alone on the timeline (from 0) and plays on.
+  await expect
+    .poll(async () => ((await read()).songs === 1 ? (await read()).song : ''), { timeout: 25_000 })
+    .toBe(SONG_IDS.minuet)
+  const { at } = await read()
+  await expect.poll(async () => (await read()).at).toBeGreaterThan(at + 1)
 })

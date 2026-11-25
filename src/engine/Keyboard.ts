@@ -240,6 +240,7 @@ export class Keyboard {
   private readonly light: DataTexture
   private readonly lightData = new Float32Array(88 * 2 * 4)
   private effects: PlayerSettings['effects'] = DEFAULT_SETTINGS.effects
+  private moving = false
   private namesOnKeys = false
   private glyphEms: Float32Array = new Float32Array(88).fill(1)
   /** Light cones need medium shader detail or more (brief decision 110). */
@@ -359,14 +360,29 @@ export class Keyboard {
     this.pulseAge.fill(1e3)
   }
 
+  /** In the last update a key was still moving, or its pulse fading. */
+  get busy(): boolean {
+    return this.moving
+  }
+
+  /** Nothing is drawn any more: time passes unseen, so no old pulse may come back. */
+  settle(): void {
+    this.pulseAge.fill(1e3)
+  }
+
   /** States in key order (KeyStates.at()); `dt` in seconds advances presses and pulses. */
   update(states: readonly KeyState[], dt: number): void {
     const animate = this.settings.animate
     const e = this.effects
     const decay = Math.max(e.pulseDecayMs / 1000, 1e-3)
+    this.moving = false
     states.forEach((state, i) => {
       this.progress[i] = animate ? keyPressStep(this.progress[i] as number, state.sounding, dt) : 0
       this.pulseAge[i] = (this.pulseAge[i] as number) + dt
+      const goal = animate && state.sounding ? 1 : 0
+      if (this.progress[i] !== goal || (e.pulse && (this.pulseAge[i] as number) < decay)) {
+        this.moving = true
+      }
       // Key light: the sounding key's colour, at full strength while it sounds.
       const c = this.noteColors.at(state.colorIndex)
       const intensity = state.sounding ? 1 : 0

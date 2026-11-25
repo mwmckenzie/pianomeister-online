@@ -249,8 +249,11 @@ export class ListeningController {
     return last
   }
 
-  /** Called every frame while listening: seams, the next song, the fade, the HUD clock. */
-  frame(): void {
+  /**
+   * Called from the audio scheduler's ticks, which go on in hidden tabs (milestone 11): seams, the
+   * next song, the fade, the end. Cheap when there is nothing to do.
+   */
+  advance(): void {
     const part = this.parts[this.current]
     if (this.playlist === null || part === undefined) return
     const { transport } = this.host.session
@@ -275,12 +278,23 @@ export class ListeningController {
     if (this.bandCurve !== this.host.crossfadeCurve() && this.lastTimeline !== null) {
       this.publishSeam(this.lastTimeline, this.parts)
     }
-    this.stepEasing()
     if (transport.state === 'stopped' && this.parts.length === 1 && at <= 0 && this.wasPlaying) {
       this.finish()
     }
     this.wasPlaying = transport.state === 'playing'
-    const shown = this.parts[this.current] as Part
+  }
+
+  /** A look is easing in: frame() is needed, playing or not. */
+  get easingLook(): boolean {
+    return this.easing !== null
+  }
+
+  /** Called every frame while listening: the look's easing and the HUD clock. */
+  frame(): void {
+    const shown = this.parts[this.current]
+    if (this.playlist === null || shown === undefined) return
+    const { transport } = this.host.session
+    this.stepEasing()
     const local = this.localPosition(shown)
     this.host.update({
       clock: {

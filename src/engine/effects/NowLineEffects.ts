@@ -154,6 +154,12 @@ export class NowLineEffects {
     else this.particles.emit(out)
   }
 
+  /** Something still moves with the transport paused: particles in flight, a glow fading out. */
+  get busy(): boolean {
+    const held = this.held.points.visible && this.held.busy
+    return held || this.particles.busy || this.smoke.busy
+  }
+
   /** The additive pool's glow twin (the smoke pool doesn't bloom). */
   get twins(): readonly GlowTwin[] {
     return this.particles.twin === null ? [] : [this.particles.twin]
