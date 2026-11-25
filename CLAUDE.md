@@ -64,6 +64,15 @@ src/
 - All seek/loop/pre-roll math is in bars and beats via the bar map, never raw seconds in UI code.
 - Dispose Three.js geometries, materials, and textures when they are replaced or unmounted.
 
+## Design rules
+
+Permanent. Check every new UI against them, on every platform and form factor.
+
+1. **The protected zone** (brief decision 131): the highway from the hit line up through the near look-ahead (at least the next two bars), across the keyboard's width, plus the keyboard itself.
+   - While practising (playing or paused), no controls, toasts, pop-ups, sheets, hints, tooltips, menus or animated UI may appear there.
+   - UI goes in the top band above the far end of the highway, in the side gutters, or on a full page that replaces the playfield (never an overlay). Toasts appear in the top band.
+   - Exception: listening / playlist mode.
+
 ## Code conventions
 
 - One exported type, class, or component per file. File name matches the export.

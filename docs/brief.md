@@ -242,6 +242,8 @@ Unscheduled ideas and the reasoning behind this order live in `docs/roadmap.md`.
      - **Perf overlay:** `?perf=1` or Ctrl+Alt+P (not a command).
      - **GPU class** (software, weak, mainstream, strong, unknown) from the renderer string: shown and recorded, decides nothing yet.
 
+131. **Design rule 1, the protected zone** (permanent): the highway from the hit line up through the near look-ahead (at least the next two bars), across the keyboard's width, plus the keyboard itself. While practising (playing or paused), no controls, toasts, pop-ups, sheets, hints, tooltips, menus or animated UI may appear there, on any platform or form factor. UI goes in the top band above the far end of the highway, in the side gutters, or on a full page that replaces the playfield (never an overlay). Toasts appear in the top band. Exception: listening / playlist mode. Every new UI must be checked against this rule. Where an earlier decision places UI in the zone, this rule wins; the app's present violations are listed under milestone 11, Phase 1 in the roadmap ("Protected-zone fixes").
+
 ## Note color palette
 
 Pitch-class colors (from the Unity `MMMColorSchemes_PianoKeys` asset, `colorSecondary`). Each sharp is a darker shade of the natural below it.
