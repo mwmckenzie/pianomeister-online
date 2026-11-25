@@ -120,6 +120,11 @@ export class HeldGlow {
     this.markDirty(false)
   }
 
+  /** The pulse starts over (capture: repeatable frames). */
+  resetClock(): void {
+    this.elapsed = 0
+  }
+
   clear(): void {
     this.level.fill(0)
     this.alpha.fill(0)

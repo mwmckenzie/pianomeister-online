@@ -3,6 +3,7 @@ import { type InstancedBufferGeometry, Mesh, ShaderMaterial } from 'three'
 import type { NoteInstance } from '../model/NoteInstance'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
+import { InstanceWindow } from './InstanceWindow'
 import { noteGeometry } from './noteGeometry'
 
 /** How far the rim reaches beyond the note on every side, in world units. */
@@ -65,6 +66,7 @@ void main() {
  */
 export class BlackOutline {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
+  readonly window: InstanceWindow
 
   constructor(blackNotes: readonly NoteInstance[], time: TimeUniforms, renderOrder: number) {
     this.mesh = new Mesh(
@@ -79,6 +81,7 @@ export class BlackOutline {
     )
     this.mesh.frustumCulled = false
     this.mesh.renderOrder = renderOrder
+    this.window = new InstanceWindow(this.mesh.geometry, blackNotes, false, [this.mesh])
   }
 
   set(enabled: boolean, strength: number): void {
@@ -88,7 +91,7 @@ export class BlackOutline {
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose()
+    this.window.dispose()
     this.mesh.material.dispose()
   }
 }

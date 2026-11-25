@@ -8,6 +8,7 @@ import { NOTE_FILL_GLSL } from './NOTE_FILL_GLSL'
 import type { NoteColors } from '../NoteColors'
 import { noteGeometry, recolorNotes } from './noteGeometry'
 import { biasToward } from './HeadLayer'
+import { InstanceWindow } from './InstanceWindow'
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
 
 const VERTEX = /* glsl */ `
@@ -136,6 +137,7 @@ void main() {
 export class SustainLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
   readonly twin: GlowTwin<InstancedBufferGeometry>
+  readonly window: InstanceWindow
   private readonly notes: readonly NoteInstance[]
 
   constructor(
@@ -167,6 +169,7 @@ export class SustainLayer {
     this.mesh.frustumCulled = false
     this.mesh.renderOrder = renderOrder
     this.twin = new GlowTwin(this.mesh, 'emitter')
+    this.window = new InstanceWindow(this.mesh.geometry, notes, false, [this.mesh, this.twin.mesh])
   }
 
   /**
@@ -195,7 +198,7 @@ export class SustainLayer {
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose()
+    this.window.dispose()
     this.mesh.material.dispose()
     this.twin.dispose()
   }

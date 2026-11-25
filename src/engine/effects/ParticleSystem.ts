@@ -210,6 +210,17 @@ export class ParticleSystem {
     }
   }
 
+  /** An empty pool from its first slot (capture: the same slots, so the same blending order). */
+  restart(): void {
+    this.ring = new ParticleRing(this.ring.capacity)
+    this.expiry.fill(0)
+    this.clearTime.value = -1e9
+    // No life, nothing drawn.
+    this.velocity.array.fill(0)
+    this.velocity.clearUpdateRanges()
+    this.velocity.needsUpdate = true
+  }
+
   /** Hides every live particle (seek, song change) without touching the buffers. */
   clear(): void {
     this.clearTime.value = this.time.uTime.value + 1e-4

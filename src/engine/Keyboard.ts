@@ -353,6 +353,12 @@ export class Keyboard {
     this.pulseScale[i] = scale
   }
 
+  /** Every key up, no pulse (capture: repeatable frames). */
+  resetKeys(): void {
+    this.progress.fill(0)
+    this.pulseAge.fill(1e3)
+  }
+
   /** States in key order (KeyStates.at()); `dt` in seconds advances presses and pulses. */
   update(states: readonly KeyState[], dt: number): void {
     const animate = this.settings.animate

@@ -1,6 +1,7 @@
 import {
   type BufferGeometry,
   type Mesh,
+  type Object3D,
   PerspectiveCamera,
   Scene,
   type ShaderMaterial,
@@ -40,6 +41,8 @@ import { BlackOutline } from './notes/BlackOutline'
 import { LoopLines } from './lines/LoopLines'
 import { PlaylistSeam } from './lines/PlaylistSeam'
 import { LoopRepeat, type RepeatSource } from './LoopRepeat'
+import type { TickWindow } from './model/NoteSpans'
+import type { InstanceWindow } from './notes/InstanceWindow'
 import { NoteLabelAtlas } from './names/NoteLabelAtlas'
 import { type LabelCandidate, type LabelView, NoteNameLayer } from './names/NoteNameLayer'
 import { BAR_START, labelRepeatRanks, RUN_START } from './model/labelRepeatRanks'
@@ -108,6 +111,8 @@ interface SongParts {
   readonly names: { readonly white: NoteNameLayer; readonly black: NoteNameLayer }
   /** The notes in the stencil buffer, so cages never draw under them. */
   readonly masks: readonly NoteMask[]
+  /** The layers that draw only the notes in view; labels reach further than their notes. */
+  readonly windows: readonly { readonly layer: InstanceWindow; readonly labels: boolean }[]
   readonly keyStates: KeyStates
   /** Note onsets sorted by tick, for sparks and key re-strikes. */
   readonly onsets: readonly Onset[]
@@ -151,6 +156,10 @@ export class Engine {
   private placement: CameraPlacement | null = null
   private timeSource: () => number = () => 0
   private guides = false
+  /** Test seam: false draws every note of the song. */
+  private culling = true
+  /** Test seam: cuts the window short at one edge, to prove the pixel comparison notices. */
+  private breakWindow: 'near' | 'far' | null = null
   private reducedMotion = false
   private fixedAnimationTime: number | null = null
   /** Capture mode (test seam): frames come only from captureStep(), on a synthetic clock. */
@@ -298,6 +307,31 @@ export class Engine {
       this.noteColors,
       true,
     )
+    const names = {
+      white: new NoteNameLayer(
+        white,
+        this.time,
+        this.atlas.texture,
+        ORDER.whiteNames,
+        slotsOf(false),
+        ranksOf(false),
+      ),
+      black: new NoteNameLayer(
+        black,
+        this.time,
+        this.atlas.texture,
+        ORDER.blackNames,
+        slotsOf(true),
+        ranksOf(true),
+      ),
+    }
+    const outline = new BlackOutline(black, this.time, ORDER.outline)
+    const masked = [sustains.white, sustains.black, ridges, heads.white, heads.black]
+    const masks = masked.map((layer) => {
+      const mask = new NoteMask(layer.mesh, ORDER.noteMasks)
+      layer.window.follow(mask.mesh)
+      return mask
+    })
     this.song = {
       ppq: song.ppq,
       highway: new Highway(beats, this.time),
@@ -327,28 +361,14 @@ export class Engine {
       sustains,
       heads,
       ridges,
-      masks: [sustains.white, sustains.black, ridges, heads.white, heads.black].map(
-        (layer) => new NoteMask(layer.mesh, ORDER.noteMasks),
-      ),
-      outline: new BlackOutline(black, this.time, ORDER.outline),
-      names: {
-        white: new NoteNameLayer(
-          white,
-          this.time,
-          this.atlas.texture,
-          ORDER.whiteNames,
-          slotsOf(false),
-          ranksOf(false),
-        ),
-        black: new NoteNameLayer(
-          black,
-          this.time,
-          this.atlas.texture,
-          ORDER.blackNames,
-          slotsOf(true),
-          ranksOf(true),
-        ),
-      },
+      masks,
+      outline,
+      names,
+      windows: [
+        ...[...masked, outline].map((l) => ({ layer: l.window, labels: false })),
+        { layer: names.white.window, labels: true },
+        { layer: names.black.window, labels: true },
+      ],
       keyStates: new KeyStates(instances),
       onsets: onsetsOf(instances),
     }
@@ -505,11 +525,73 @@ export class Engine {
       song.handCages.left.twin.mesh,
       ...song.highway.repeatTwins,
     ]
+    const windows = new Map<Object3D, InstanceWindow>()
+    for (const { layer } of song.windows) for (const m of layer.followers) windows.set(m, layer)
+    const source = (
+      mesh: Mesh<BufferGeometry, ShaderMaterial>,
+      parent: () => Object3D,
+    ): RepeatSource => {
+      const window = windows.get(mesh)
+      return window === undefined ? { mesh, parent } : { mesh, parent, window }
+    }
     return [
-      ...main.map((mesh) => ({ mesh, parent: scene })),
-      ...twins.map((mesh) => ({ mesh, parent: glow })),
-      ...[song.names.white.mesh, song.names.black.mesh].map((mesh) => ({ mesh, parent: labels })),
+      ...main.map((mesh) => source(mesh, scene)),
+      ...twins.map((mesh) => source(mesh, glow)),
+      ...[song.names.white.mesh, song.names.black.mesh].map((mesh) => source(mesh, labels)),
     ]
+  }
+
+  /** Each note layer draws this frame's window; after the frame's uniforms are set. */
+  private cullNotes(song: SongParts, tick: number): void {
+    for (const { layer, labels } of song.windows) {
+      layer.update(this.culling ? this.ticksInView(song, tick, labels) : null)
+    }
+  }
+
+  /**
+   * The song ticks a layer may show with the playhead at `tick`: from what still sounds to where
+   * the haze has hidden everything (1.5 look-aheads), a beat more on both sides, and for labels
+   * how far they sit from their notes. NoteSpans adds a bucket.
+   */
+  private ticksInView(song: SongParts, tick: number, labels: boolean): TickWindow {
+    const { uLookAheadTicks, uUnitsPerTick } = this.time
+    const margin = song.ppq + (labels ? song.names.white.reachTicks(uUnitsPerTick.value) : 0)
+    const ahead = uLookAheadTicks.value
+    if (this.breakWindow === 'near') {
+      return { from: tick, to: tick + 2 * ahead, startFrom: tick + 0.5 * ahead }
+    }
+    if (this.breakWindow === 'far') return { from: tick - margin, to: tick + 0.5 * ahead }
+    return { from: tick - margin, to: tick + 1.5 * ahead + margin }
+  }
+
+  /** A loop repeat's notes: those in view at its own playhead, of its one iteration. */
+  private copyWindow(layer: InstanceWindow, tick: number, window: LoopWindow): TickWindow | null {
+    const song = this.song
+    if (song === null || !this.culling) return null
+    const labels = song.windows.some((w) => w.layer === layer && w.labels)
+    const view = this.ticksInView(song, tick, labels)
+    const reach = labels ? song.names.white.reachTicks(this.time.uUnitsPerTick.value) : 0
+    return {
+      from: view.from,
+      to: Math.min(view.to, window.endTick + reach),
+      startFrom: window.preStartTick,
+    }
+  }
+
+  /** Test seam (`?capture=1`): draws only the notes in view (true) or the whole song. */
+  setCulling(on: boolean, breakWindow: 'near' | 'far' | null = null): void {
+    this.culling = on
+    this.breakWindow = breakWindow
+    this.invalidate()
+  }
+
+  /** Notes each layer drew in the last frame, and how many the song has (tests). */
+  drawnNotes(): { readonly drawn: readonly number[]; readonly notes: number } {
+    const song = this.song
+    return {
+      drawn: song?.windows.map((w) => w.layer.drawn) ?? [],
+      notes: song?.onsets.length ?? 0,
+    }
   }
 
   /**
@@ -539,7 +621,9 @@ export class Engine {
     t.uClipLo.value = -1e9
     t.uClipHi.value = repeating ? window.endTick : 1e9
     const count = repeating ? loopRepeatCount(window, tick, 1.5 * t.uLookAheadTicks.value) : 0
-    this.loopRepeat.update(window, count)
+    this.loopRepeat.update(window, count, (layer, k) =>
+      this.copyWindow(layer, tick - k * window.periodTicks, window),
+    )
     const lines: { tick: number; end: boolean }[] = []
     for (let k = 0; k <= count; k++) {
       lines.push({ tick: window.startTick + k * window.periodTicks, end: false })
@@ -748,6 +832,10 @@ export class Engine {
     this.effects.setRandom(mulberry32(seed))
     this.effects.clear()
     this.effects.resetParticleStats()
+    this.effects.restart()
+    this.keyboard.resetKeys()
+    this.time.uTicksPerSecond.value = 0
+    this.pausedFor = 0
     // The first captured frame is a jump: it fires no onsets crossed since the last real frame.
     this.lastTick = null
   }
@@ -757,13 +845,13 @@ export class Engine {
    * one, as if playing (onsets crossed since the last step fire). The first step after
    * startCapture() is a jump, so it fires nothing.
    */
-  captureStep(tick: number, dt: number): void {
+  captureStep(tick: number, dt: number, playing = true): void {
     if (!this.capturing) return
     const now = this.captureNow + dt * 1000
     this.lastFrameAt = this.captureNow
     this.captureNow = now
     this.timeSource = () => tick
-    this.playing = true
+    this.playing = playing
     this.draw(now)
   }
 
@@ -922,6 +1010,7 @@ export class Engine {
     }
     const fixed = this.fixedAnimationTime
     this.time.uTick.value = tick
+    if (this.song !== null) this.cullNotes(this.song, tick)
     this.updateLoop(tick)
     this.seam.update(
       this.pipeline?.renderer.domElement.clientHeight ?? 720,

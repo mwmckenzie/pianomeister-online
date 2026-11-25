@@ -2,13 +2,20 @@ import { type BufferGeometry, Mesh, type Object3D, type ShaderMaterial } from 't
 
 import type { LoopWindow } from '@/core/transport/LoopWindow'
 
+import type { TickWindow } from './model/NoteSpans'
+import type { InstanceWindow } from './notes/InstanceWindow'
 import type { TimeUniforms } from './TimeUniforms'
 
 /** A layer drawn again for each repeat, and where its copies live (the scene or the glow scene). */
 export interface RepeatSource {
   readonly mesh: Mesh<BufferGeometry, ShaderMaterial>
   readonly parent: () => Object3D
+  /** The layer's notes: copies draw only those of their own iteration in view. */
+  readonly window?: InstanceWindow
 }
+
+/** The notes copy `k` shows, at the playhead moved back by k periods. Null: all. */
+export type CopyWindow = (layer: InstanceWindow, k: number) => TickWindow | null
 
 /**
  * "After the loop end: Next repeat" (milestone 9.2). Each repeated layer gets copies that share
@@ -38,7 +45,7 @@ export class LoopRepeat {
   }
 
   /** How many copies of each layer draw this frame, for which loop window. */
-  update(window: LoopWindow | null, count: number): void {
+  update(window: LoopWindow | null, count: number, notesOf: CopyWindow = () => null): void {
     this.window = window
     this.count = window === null ? 0 : count
     const { time } = this
@@ -51,7 +58,10 @@ export class LoopRepeat {
       const meshes = this.copiesOf(source, this.count)
       meshes.forEach((mesh, i) => {
         mesh.visible = i < this.count && source.mesh.visible && visibleUp(source.mesh)
-        if (mesh.geometry !== source.mesh.geometry) mesh.geometry = source.mesh.geometry
+        mesh.geometry =
+          source.window !== undefined && mesh.visible
+            ? source.window.geometryFor(notesOf(source.window, i + 1))
+            : source.mesh.geometry
         mesh.renderOrder = source.mesh.renderOrder
       })
     }

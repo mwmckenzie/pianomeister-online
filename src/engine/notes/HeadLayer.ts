@@ -17,6 +17,7 @@ import type { TimeUniforms } from '../TimeUniforms'
 import { NOTE_FILL_GLSL } from './NOTE_FILL_GLSL'
 import type { NoteColors } from '../NoteColors'
 import { noteGeometry, recolorNotes } from './noteGeometry'
+import { InstanceWindow } from './InstanceWindow'
 import type { NoteStyleUniforms } from './NoteStyleUniforms'
 
 /** Rounded-edge radius of 3D heads, in world units (brief decision 39). */
@@ -169,6 +170,7 @@ export class HeadLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
   /** On the glow layer the blocks occlude what's behind them. */
   readonly twin: GlowTwin<InstancedBufferGeometry>
+  readonly window: InstanceWindow
   private readonly notes: readonly NoteInstance[]
 
   constructor(
@@ -206,6 +208,8 @@ export class HeadLayer {
     this.mesh.frustumCulled = false
     this.mesh.renderOrder = renderOrder
     this.twin = new GlowTwin(this.mesh, 'occluder')
+    const meshes = [this.mesh, this.twin.mesh]
+    this.window = new InstanceWindow(this.mesh.geometry, this.notes, true, meshes)
   }
 
   /**
@@ -248,15 +252,13 @@ export class HeadLayer {
     this.uniform('uHeight', height)
     const wasRounded = this.mesh.geometry.getAttribute('aOffset').count === shapeCount(true)
     if (wasRounded !== rounded) {
-      const old = this.mesh.geometry
-      this.mesh.geometry = noteGeometry(this.notes, shape(rounded), this.colors)
-      old.dispose()
+      this.window.replace(noteGeometry(this.notes, shape(rounded), this.colors))
     }
     this.uniform('uRadius', rounded ? HEAD_EDGE_RADIUS : 0)
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose()
+    this.window.dispose()
     this.mesh.material.dispose()
     this.twin.dispose()
   }

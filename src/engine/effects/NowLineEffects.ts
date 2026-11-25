@@ -176,6 +176,13 @@ export class NowLineEffects {
     this.smoke.resetStats()
   }
 
+  /** Repeatable frames (capture): no effect remembers what ran before. */
+  restart(): void {
+    this.particles.restart()
+    this.smoke.restart()
+    this.held.resetClock()
+  }
+
   clear(): void {
     this.particles.clear()
     this.smoke.clear()

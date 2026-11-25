@@ -1,8 +1,8 @@
 import {
   BufferAttribute,
   type Camera,
-  InstancedBufferAttribute,
   InstancedBufferGeometry,
+  type InterleavedBufferAttribute,
   Mesh,
   ShaderMaterial,
   type Texture,
@@ -18,6 +18,8 @@ import type { LabelState } from '../model/LabelState'
 import { BAR_START, RUN_START } from '../model/labelRepeatRanks'
 import type { NoteInstance } from '../model/NoteInstance'
 import { NoteColors } from '../NoteColors'
+import { instanced } from '../notes/instanced'
+import { InstanceWindow } from '../notes/InstanceWindow'
 import { TIME_GLSL } from '../timeGlsl'
 import type { TimeUniforms } from '../TimeUniforms'
 import type { LabelSlots } from './LabelSlots'
@@ -205,6 +207,7 @@ export class NoteNameLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>
   /** Label glow "Subtle": the text on the glow scene. */
   readonly twin: GlowTwin<InstancedBufferGeometry>
+  readonly window: InstanceWindow
   private readonly notes: readonly NoteInstance[]
   /** Note indices sorted by start tick, for the overlap pass's window. */
   private readonly byStart: Int32Array
@@ -257,27 +260,18 @@ export class NoteNameLayer {
     )
     g.setAttribute('uv', new BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), 2))
     g.setIndex([0, 1, 2, 0, 2, 3])
-    g.setAttribute(
-      'aLane',
-      new InstancedBufferAttribute(new Float32Array(notes.flatMap((n) => [n.x, n.width])), 2),
-    )
+    g.setAttribute('aLane', instanced(new Float32Array(notes.flatMap((n) => [n.x, n.width])), 2))
     g.setAttribute(
       'aTicks',
-      new InstancedBufferAttribute(
-        new Float32Array(notes.flatMap((n) => [n.startTick, n.endTick, n.headEndTick])),
-        3,
-      ),
+      instanced(new Float32Array(notes.flatMap((n) => [n.startTick, n.endTick, n.headEndTick])), 3),
     )
     g.setAttribute(
       'aCell',
-      new InstancedBufferAttribute(
-        new Float32Array(notes.flatMap((n) => atlasCell(n.midi - KEYBOARD.lowest))),
-        4,
-      ),
+      instanced(new Float32Array(notes.flatMap((n) => atlasCell(n.midi - KEYBOARD.lowest))), 4),
     )
     g.setAttribute(
       'aColor',
-      new InstancedBufferAttribute(
+      instanced(
         new Float32Array(
           notes.flatMap((n) => {
             const c = DEFAULT_COLORS.at(n.colorIndex)
@@ -287,9 +281,9 @@ export class NoteNameLayer {
         3,
       ),
     )
-    g.setAttribute('aShown', new InstancedBufferAttribute(this.shown, 1))
-    g.setAttribute('aSlot', new InstancedBufferAttribute(Float32Array.from(slots.bar), 1))
-    g.setAttribute('aRank', new InstancedBufferAttribute(Float32Array.from(ranks), 1))
+    g.setAttribute('aShown', instanced(this.shown, 1))
+    g.setAttribute('aSlot', instanced(Float32Array.from(slots.bar), 1))
+    g.setAttribute('aRank', instanced(Float32Array.from(ranks), 1))
     g.instanceCount = notes.length
     this.mesh = new Mesh(
       g,
@@ -326,6 +320,7 @@ export class NoteNameLayer {
     this.mesh.renderOrder = renderOrder
     this.mesh.visible = false
     this.twin = new GlowTwin(this.mesh, 'emitter')
+    this.window = new InstanceWindow(g, notes, true, [this.mesh, this.twin.mesh])
   }
 
   applySettings(names: PlayerSettings['names'], headTop: number): void {
@@ -347,9 +342,9 @@ export class NoteNameLayer {
     const slots = this.slotSets[names.repeats]
     if (slots !== this.slots) {
       this.slots = slots
-      const attribute = this.mesh.geometry.getAttribute('aSlot') as InstancedBufferAttribute
+      const attribute = this.mesh.geometry.getAttribute('aSlot') as InterleavedBufferAttribute
       ;(attribute.array as Float32Array).set(slots)
-      attribute.clearUpdateRanges()
+      attribute.data.clearUpdateRanges()
       attribute.needsUpdate = true
     }
     this.twin.enabled = names.glow === 'subtle'
@@ -372,12 +367,17 @@ export class NoteNameLayer {
     this.uniform('uPixelRatio', pixelRatio)
   }
 
+  /** How far, in ticks, a label can sit from its note. */
+  reachTicks(unitsPerTick: number): number {
+    return (1.5 + Math.abs(this.settings?.offset ?? 0)) / Math.max(unitsPerTick, 1e-6)
+  }
+
   /** Labels close enough to show, with their screen rectangles (CSS px), for the overlap pass. */
   candidates(view: LabelView, out: LabelCandidate[]): void {
     const s = this.settings
     if (s === null || !this.mesh.visible) return
     const range = (s.showWithin + s.fadeLength) * view.lookAheadTicks
-    const margin = (1.5 + Math.abs(s.offset)) / Math.max(view.unitsPerTick, 1e-6)
+    const margin = this.reachTicks(view.unitsPerTick)
     const from = lowerBound(this.notes, this.byStart, view.tick - margin)
     const heightPx = s.textSize * (CELL_H / ATLAS_FONT_PX)
     const widthPx = heightPx * (CELL_W / CELL_H)
@@ -465,15 +465,15 @@ export class NoteNameLayer {
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose()
+    this.window.dispose()
     this.mesh.material.dispose()
     this.twin.dispose()
   }
 
   private markShown(lo: number, hi: number): void {
-    const attribute = this.mesh.geometry.getAttribute('aShown') as InstancedBufferAttribute
-    attribute.clearUpdateRanges()
-    attribute.addUpdateRange(lo, hi - lo + 1)
+    const attribute = this.mesh.geometry.getAttribute('aShown') as InterleavedBufferAttribute
+    attribute.data.clearUpdateRanges()
+    attribute.data.addUpdateRange(lo, hi - lo + 1)
     attribute.needsUpdate = true
   }
 

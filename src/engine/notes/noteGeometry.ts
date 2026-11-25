@@ -1,7 +1,8 @@
-import { BufferAttribute, InstancedBufferAttribute, InstancedBufferGeometry } from 'three'
+import { BufferAttribute, InstancedBufferGeometry, type InterleavedBufferAttribute } from 'three'
 
 import type { NoteInstance } from '../model/NoteInstance'
 import { NoteColors } from '../NoteColors'
+import { instanced } from './instanced'
 
 /** For geometry whose colour nothing reads (the contact shadow). */
 const DEFAULT_COLORS = new NoteColors()
@@ -39,11 +40,11 @@ export function noteGeometry(
     velocity[i] = n.velocity
     deck[i] = n.deck
   })
-  geometry.setAttribute('aLane', new InstancedBufferAttribute(lane, 2))
-  geometry.setAttribute('aTicks', new InstancedBufferAttribute(ticks, 3))
-  geometry.setAttribute('aColor', new InstancedBufferAttribute(colorData(notes, colors), 3))
-  geometry.setAttribute('aVelocity', new InstancedBufferAttribute(velocity, 1))
-  geometry.setAttribute('aDeck', new InstancedBufferAttribute(deck, 1))
+  geometry.setAttribute('aLane', instanced(lane, 2))
+  geometry.setAttribute('aTicks', instanced(ticks, 3))
+  geometry.setAttribute('aColor', instanced(colorData(notes, colors), 3))
+  geometry.setAttribute('aVelocity', instanced(velocity, 1))
+  geometry.setAttribute('aDeck', instanced(deck, 1))
   geometry.instanceCount = notes.length
   return geometry
 }
@@ -64,7 +65,7 @@ export function recolorNotes(
   notes: readonly NoteInstance[],
   colors: NoteColors,
 ): void {
-  const attribute = geometry.getAttribute('aColor') as InstancedBufferAttribute
+  const attribute = geometry.getAttribute('aColor') as InterleavedBufferAttribute
   ;(attribute.array as Float32Array).set(colorData(notes, colors))
   attribute.needsUpdate = true
 }
