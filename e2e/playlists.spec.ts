@@ -379,3 +379,68 @@ test('@playlists @library Add to playlist… from the Library makes a new playli
   await page.getByTestId('tab-playlists').click()
   await expect(rowTitles(page)).toHaveText([/Canon in D/, /Minuet in G/])
 })
+
+/**
+ * Milestone 11, Phase 0: a hidden tab gets no animation frames, and listening prepares the next
+ * song from one. The song's end comes and the music should go on. It doesn't (a bug for Phase 1,
+ * hence test.fail before the last step); whoever fixes it removes that line.
+ */
+test('@playlists a playlist goes on to the next song in a hidden tab', async ({ page }) => {
+  test.setTimeout(90_000)
+  await page.addInitScript(() => {
+    const raf = window.requestAnimationFrame.bind(window)
+    let hidden = false
+    const held: FrameRequestCallback[] = []
+    window.requestAnimationFrame = (run) => (hidden ? -held.push(run) : raf(run))
+    Object.assign(window, {
+      hidePage: () => {
+        hidden = true
+        Object.defineProperty(document, 'hidden', { value: true, configurable: true })
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+        document.dispatchEvent(new Event('visibilitychange'))
+      },
+    })
+  })
+  await page.goto('./#/?stats=1')
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  await seedPractice(page, {
+    playlists: [playlist('p', 'Hidden', [SONG_IDS.invention, SONG_IDS.minuet])],
+  })
+  await page.reload()
+  await expect(page.getByTestId('sample-status')).toHaveText('loaded', { timeout: 60_000 })
+  // Browsers start audio after a gesture.
+  await page.getByTestId('stage').click({ position: { x: 640, y: 500 } })
+  await page.evaluate(() =>
+    (
+      window as unknown as { pianomeisterListening: { play: (id: string) => void } }
+    ).pianomeisterListening.play('p'),
+  )
+  const read = () =>
+    page.evaluate(() => {
+      const l = (
+        window as unknown as {
+          pianomeisterListening: {
+            position: () => number
+            state: () => { parts: { endSec: number }[] } | null
+            seek: (s: number) => void
+          }
+        }
+      ).pianomeisterListening
+      return { at: l.position(), end: l.state()?.parts[0]?.endSec ?? 0 }
+    })
+  await expect.poll(async () => (await read()).at).toBeGreaterThan(0.3)
+  const { end } = await read()
+  // Before the next song is prepared (10 s and the crossfade before the end), hide the tab.
+  await page.evaluate((to) => {
+    const w = window as unknown as {
+      pianomeisterListening: { seek: (s: number) => void }
+      hidePage: () => void
+    }
+    w.pianomeisterListening.seek(to)
+    w.hidePage()
+  }, end - 13.5)
+  await expect.poll(async () => (await read()).at).toBeGreaterThan(end - 12)
+  test.fail()
+  // Past the first song's end: the next one is on the timeline and playing.
+  await expect.poll(async () => (await read()).at, { timeout: 20_000 }).toBeGreaterThan(end + 1)
+})
