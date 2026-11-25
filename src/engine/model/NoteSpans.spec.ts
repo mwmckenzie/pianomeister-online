@@ -71,6 +71,8 @@ describe('NoteSpans', () => {
     const rand = mulberry32(3)
     const notes = every(300, 10, 35)
     const spans = new NoteSpans(notes, false)
+    let compared = 0
+    let wrong = 0
     for (let k = 0; k < 400; k++) {
       const from = rand() * 3400 - 200
       const w = { from, to: from + rand() * 600 }
@@ -79,10 +81,12 @@ describe('NoteSpans', () => {
         from: Math.max(b.from, from - rand() * 10),
         to: Math.min(b.to, w.to + rand() * 10),
       }
-      if (inside.from < b.fromEnd && inside.to > b.toStart) {
-        expect(spans.range(inside)).toEqual(spans.range(w))
-      }
+      if (inside.from >= b.fromEnd || inside.to <= b.toStart) continue
+      compared++
+      if (JSON.stringify(spans.range(inside)) !== JSON.stringify(spans.range(w))) wrong++
     }
+    expect(compared).toBeGreaterThan(300)
+    expect(wrong).toBe(0)
   })
 
   it('keeps a drone that started long ago', () => {
