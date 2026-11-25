@@ -246,3 +246,10 @@ Any optimisation, quality levels, the governor, the probe, new settings, context
 5. **Weak:** accept the Gram on battery as the stand-in, knowing that it is faster than an HD 520? An older laptop or a cheap Chromebook would make the tier real. Default: accept, and say so in the report.
 6. **Where the page is linked:** only `#/bench` and a small link in Settings → About? The old roadmap notes wanted it under Settings; a hidden page is safer until it's tuned. Default: About link.
 7. **Baseline files in the repo:** summaries only under `docs/perf/`? Default: yes.
+
+## 12. Approved (2026-11-25)
+
+Q1–Q7: all defaults. Two additions:
+
+- **Hidden-tab playlist:** confirming it is an explicit Phase 0 check, an e2e that plays a playlist across a seam with the page hidden. If confirmed, it is the first item for Phase 1: a correctness bug, not only performance.
+- **Paused cost:** the baseline report ranks "while paused" (engine and HUD drawing every frame) separately, with the CPU and power it costs on the Gram on battery.
