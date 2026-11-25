@@ -54,6 +54,14 @@ export class SelectiveBloomPass extends Pass {
     }
   }
 
+  /** Roughly what its targets take: half floats, the glow's depth, the blur's mips twice over. */
+  get targetBytes(): number {
+    const pixels = this.glowTarget.width * this.glowTarget.height
+    const mips = 2 * 8 * (pixels / 3)
+    const halves = 2 * 8 * (pixels / 4)
+    return Math.round(pixels * 12 + mips + halves)
+  }
+
   override setSize(width: number, height: number): void {
     this.width = width
     this.height = height

@@ -14,6 +14,7 @@ import { CopyShader } from 'three/addons/shaders/CopyShader.js'
 
 import type { PlayerSettings } from '@/core/settings/PlayerSettings'
 
+import type { GpuInfo } from './GpuInfo'
 import { GpuTimer } from './GpuTimer'
 import { createMixPass } from './postprocessing/createMixPass'
 import { SelectiveBloomPass } from './postprocessing/SelectiveBloomPass'
@@ -172,7 +173,42 @@ export class RenderPipeline {
       bloomHeight: Math.round(canvas.height * scale),
       gpuMs: this.gpu.averageMs(),
       drawCalls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      points: this.renderer.info.render.points,
+      programs: this.renderer.info.programs?.length ?? 0,
+      geometries: this.renderer.info.memory.geometries,
+      textures: this.renderer.info.memory.textures,
+      targetBytes: this.targetBytes(),
     }
+  }
+
+  gpuInfo(): GpuInfo {
+    const gl = this.renderer.getContext()
+    const ext = gl.getExtension('WEBGL_debug_renderer_info')
+    const name: unknown = ext === null ? null : gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+    return {
+      renderer: typeof name === 'string' ? name : null,
+      maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
+      timer: this.gpu.available,
+      floatTargets: this.halfFloat,
+    }
+  }
+
+  /** Starts the GPU-time mean afresh (a benchmark cell). */
+  resetGpuTimer(): void {
+    this.gpu.reset()
+  }
+
+  /** The drawing buffer (colour, depth and stencil), the composer's two targets, the bloom's. */
+  private targetBytes(): number {
+    const { width, height } = this.renderer.domElement
+    const pixels = width * height
+    let bytes = pixels * 8
+    if (this.composer !== null) {
+      const samples = this.composer.renderTarget1.samples
+      bytes += 2 * pixels * (8 + samples * 8)
+    }
+    return bytes + (this.bloomPass?.targetBytes ?? 0)
   }
 
   dispose(): void {

@@ -46,6 +46,12 @@ export class GpuTimer {
     return this.samples.reduce((a, b) => a + b, 0) / this.samples.length
   }
 
+  /** Starts the mean afresh: results still on their way belong to what came before. */
+  reset(): void {
+    this.samples.length = 0
+    this.dispose()
+  }
+
   dispose(): void {
     for (const query of this.pending) this.gl.deleteQuery(query)
     this.pending.length = 0
