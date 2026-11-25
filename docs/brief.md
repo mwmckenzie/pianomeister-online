@@ -238,6 +238,10 @@ Unscheduled ideas and the reasoning behind this order live in `docs/roadmap.md`.
      - **Warning:** neighbouring pitch classes (B and C too) less than 8 apart (OKLab ΔE × 100) but not equal, only for changed built-ins and own sets. As shipped, Warm's E and F (6.8) and Pastel's B and C (7.5) are closer than that.
      - **Backup** (1.6): own sets are skipped when already here, get a new id (their looks follow) when theirs is taken by other colours, and a number when their name is; changes come along only for a built-in not changed here.
 
+130. **Benchmark mode** (milestone 11, Phase 0; plan `docs/milestones/m11-plan.md`): `#/bench` (linked from Settings → About) runs the real player through fixed music, looks, presets and the fixed camera, muted, and gives a JSON file (`pianomeister-bench`, version 1), a summary and a comparison; the last six runs stay in localStorage without raw frames. Suites: Smoke, Standard, Full. While it runs, its settings are shown but never stored, tracking is suspended and no place is remembered; Cancel, an error, leaving or a reload puts the player back. Nothing is sent anywhere.
+     - **Perf overlay:** `?perf=1` or Ctrl+Alt+P (not a command).
+     - **GPU class** (software, weak, mainstream, strong, unknown) from the renderer string: shown and recorded, decides nothing yet.
+
 ## Note color palette
 
 Pitch-class colors (from the Unity `MMMColorSchemes_PianoKeys` asset, `colorSecondary`). Each sharp is a darker shade of the natural below it.

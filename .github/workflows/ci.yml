@@ -24,3 +24,38 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+
+  # Frame times of this branch against main on the same runner (software WebGL). Report only:
+  # never required, and runners are too uneven to gate on (milestone 11, Phase 0).
+  bench:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: main-checkout
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Benchmark main
+        run: |
+          if [ -f main-checkout/scripts/bench-render.mjs ]; then
+            cd main-checkout && npm ci
+            npm run bench:render -- --label=main --size=1280x720 --out="$GITHUB_WORKSPACE/main.json"
+          fi
+      - name: Benchmark this branch
+        run: |
+          set -o pipefail
+          compare=""
+          if [ -f main.json ]; then compare="--compare=main.json"; fi
+          npm run bench:render -- --label=branch --size=1280x720 $compare | tee bench.txt
+      - name: Summary
+        if: always()
+        run: |
+          { echo '```'; cat bench.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
