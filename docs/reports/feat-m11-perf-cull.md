@@ -169,3 +169,72 @@ A commit (`an unchanged window costs four comparisons`) went in although `check`
 
 - [ ] Decide 1 and 2.
 - [ ] Look at Canon and long-demo while playing, seeking and looping: no note or label appears or vanishes.
+
+## Round 3: nothing drawn at rest, the hidden tab, the Floor split (2026-11-25)
+
+**Status: items 2 and 3 are built; the fast loop passes; the Floor split says note heads. No detail work was done.** Nothing pushed.
+
+**CPU decision (item 1):** the rise is accepted. Sessions differ by more than the effect (round 2), so the target is neither shown to be met nor clearly missed.
+
+### Item 2: draw nothing at rest
+
+- The engine asks for a frame only while playing or while something moves (particles, held glow, keys and their pulses, note pulses, labels fading in, a position just changed), and once per change: settings, colours, seek, loop, song, seam, size, device-pixel ratio, font, late-loaded anti-aliasing, reduced motion, tab shown, WebGL context restored. The frozen scene (Home, editor) uses the same path.
+- Waking has no time step. At rest, finished pulses are marked as long over, so a longer decay set later can't bring them back.
+- The HUD runs while playing or while a listening look eases in; otherwise one step per transport event, song, settings or listening change.
+- The benchmark forces drawing (its idle cell still measures a frame). The perf overlay shows "idle".
+- `setPlaying` now follows the transport's event, not the HUD's next frame.
+
+Cost per second (`--idle`, Canon, Medium/auto quality, two interleaved pairs, both runs shown; before = `cc96905`):
+
+| State                    | strong before | strong after | CPU 4× before | CPU 4× after |
+| ------------------------ | ------------- | ------------ | ------------- | ------------ |
+| Paused, main thread      | 102, 83 ms    | 3, 3 ms      | 366, 326 ms   | 8, 6 ms      |
+| Paused, GPU process      | 115, 64 %     | 0.7, 0.7 %   | 113, 63 %     | 0.3, 0.4 %   |
+| Paused, renderer process | 14.9, 12.7 %  | 4.3, 3.5 %   | (throttled)   | (throttled)  |
+| Home, main thread        | 49, 54 ms     | 2, 2 ms      | 100, 98 ms    | 4, 3 ms      |
+| Playing, main thread     | 170, 143 ms   | 146, 142 ms  | 617, 591 ms   | 584, 597 ms  |
+
+Paused is within 1 to 4 ms of Home. Home got cheaper too: the HUD's loop ran behind it. At 4× the throttle itself keeps the renderer process at 100 %, so that column says nothing. The browser process is at 1.3–1.7 % paused against 0.2–0.5 % on Home (not looked into).
+
+### Item 3: hidden-tab playlist
+
+- `ListeningController.advance()` (seams, next song, fade, end) runs after each scheduler tick (worker, 25 ms); `frame()` keeps the look's easing and the HUD clock.
+- The expected-failure mark is gone and the test passes. **Its last step also had to change:** it waited for a position past the first song's end, but the timeline restarts at 0 once that song is over, so it could never have passed. It now waits for the second song alone on the timeline, playing on.
+- Hidden is simulated in the test (no animation frames). **Not checked by hand in plain Chrome**, as the plan said.
+
+### Tests
+
+- New `e2e/idle.spec.ts`, five tests; run twice, 10 of 10. Hidden-tab test: passes. `visualPolish` paused-frame tests, unchanged: 3 of 3. `npm run check` passes: 974 unit tests (3 new).
+- **Can they fail?** Six deliberate breaks, each caught: ticks not driving listening, engine never resting, HUD never resting, resting too early, stale timestamp kept (**first not caught**; the test now adds up the engine's time steps), seek not waking.
+- The settled frame equals a frame drawn 1.5 s later, byte for byte (GPU, particles look).
+- Fast loop, 2.2 min: pixels 7 of 7, exact case exact, smoke ran. Engine CPU this run (median, ms): strong 0.56 / 0.56 / 0.42 (Canon / dense / idle), weak-cpu 2.91 / 2.86 / 1.93.
+- **Not tested:** device-pixel-ratio change, WebGL context restored, late-loaded anti-aliasing, a look change on its own (it takes the settings path), real hidden tabs.
+- **Not run:** long pixel cases, standard suite, full Floor, affected e2e.
+
+### The Floor split (smoke at Off, no GPU, 1280 × 720, CPU 4×, window in front, about 10 frames)
+
+Mean frame time, three interleaved rounds (range of the three means):
+
+| Variant                              | Canon          | dense      | idle       | Canon triangles |
+| ------------------------------------ | -------------- | ---------- | ---------- | --------------- |
+| As is                                | **116–117 ms** | 498–505 ms | 114–116 ms | 278 k           |
+| (a) Render scale 50 % (640 × 360)    | **121–123 ms** | 547–548 ms | 111–115 ms | 278 k           |
+| (b) Box heads                        | **40–42 ms**   | 79–82 ms   | 38–39 ms   | 17 k            |
+| (a) and (b) together (not asked for) | 27–28 ms       | 55–57 ms   | 25 ms      | 17 k            |
+
+- **Not pixel-bound:** a quarter of the pixels saves nothing (Canon 4 % slower).
+- **Heads matter:** boxes take Canon 2.8× and dense 6.3× down. About 75 of Canon's 117 ms are the rounded heads.
+- Once heads are boxes, pixels count: about 14 ms more on Canon at half scale. Target 33 ms: boxes alone miss it on Canon (about 41), and need a little more.
+- Boxes are the floor of what detail can win; a cheaper rounded head lands in between. Off also draws the same heads as High today.
+- How: no debug flag in the code. The app's own "rounded heads" setting off already swaps 972 triangles for 12; both variants were settings patched into the benchmark for the run, then restored.
+
+### For you to decide
+
+1. **Note-head detail:** the split says yes, it's the Floor's main cost. My recommendation is a cheaper rounded head (fewer bevel segments) with distance, after its own plan and a look at how visible it is.
+2. **Pull request:** open one for Phase 1a now (after the full validation), or after head detail?
+
+**Review**
+
+- [ ] Pause during sparks and smoke: they finish, then nothing moves. Seek, change a look, resize and zoom while paused: the scene follows.
+- [ ] Playlist with the tab hidden across a song's end, in plain Chrome.
+- [ ] Decide 1 and 2.
