@@ -282,26 +282,21 @@ A built-in, repeatable performance test that can be run on any device (PC, lapto
 
 #### Phase 1: Protected-zone fixes
 
-Brief decision 131. Found by reading the code; each is to be checked on screen (sizes 1440 × 900, 1024 × 768, 768 × 1024) before it's fixed.
+Brief decision 131. Found by reading the code; each is to be checked on screen (1440 × 900, 1024 × 768, 768 × 1024) before it's fixed.
 
-Over the zone:
+| Violation now                                                              | Fix                                                                        |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Toasts** (`ToastHost`): bottom centre, over the keyboard                 | top band, centred                                                          |
+| **Settings window** and **song picker**: dialogs over the playfield        | full pages that replace it (decision 50 is superseded)                     |
+| **Keyboard shortcuts sheet**: a dialog                                     | full page                                                                  |
+| **Small dialogs**: look names, delete, note colour sets, profile collision | anchored in the top band, not centred                                      |
+| **Tempo, loop and profile popovers**: open towards the middle              | open towards the gutter or the top band, never the middle                  |
+| **Tooltips** (transport, reset buttons): placed by room                    | above or to the side, away from the zone; none over the zone while playing |
+| **The playfield panel's menus** when they have no room                     | inside the panel                                                           |
+| **HUD columns and overview strip** on narrow and portrait screens          | milestone 12's layouts (listed there too)                                  |
+| **Perf overlay**: bottom left (a developer tool, exempt)                   | top-right corner anyway, so screenshots and runs stay clean                |
 
-- **Toasts** (`ToastHost`): bottom centre, over the keyboard ("Look applied", Undo, "Saved as bookmark", errors). They go to the top band.
-- **Settings window** and **song picker**: dialogs centred over the playfield. They become full pages.
-- **Keyboard shortcuts sheet**: a dialog over the playfield.
-- **Small dialogs** over the player: save and rename a look, delete a look, the note colour set dialogs, the profile collision dialog.
-- **Tempo and loop popovers:** they open to the left of the right-hand column, towards the middle.
-- **Profile menu:** opens to the right of the left-hand column.
-
-Probably over the zone, depending on the window's size and shape:
-
-- **Tooltips** of the transport and the reset buttons: placed by available room.
-- **The HUD's two columns** (app menu, transport, toggles): gutters on a wide screen, over the highway's sides and possibly the keyboard on a narrow or portrait one.
-- **The overview strip** (222 px under the timeline): in the top band only where the far end of the highway is below it.
-- **The playfield panel's menus** (look menu, selects): they open inside the panel unless there's no room.
-- **The perf overlay** (Phase 0, `?perf=1`): bottom left, a developer tool.
-
-Not violations as I read the rule, to be confirmed: the playfield panel itself (it narrows the playfield instead of covering it), Home (replaces the playfield, playback pauses) and the benchmark (not practising). The **loop editor** is open to question: it fills the screen, but over a blurred playfield that goes on playing.
+Fine: the loop editor (a full page that replaces the playfield: you're editing, not reading ahead, and the engine is frozen under it), Home, the benchmark (not practising), and the playfield panel as long as the playfield reflows (highway and keyboard narrow) instead of being covered.
 
 #### Phase 1: Parse MIDI once
 
@@ -329,6 +324,7 @@ The E2E workflow (`.github/workflows/e2e.yml`) runs on manual trigger only. On P
 
 ### Tablet, MIDI out, offline _(milestone 12)_
 
+- Layouts for narrow and portrait screens that keep the HUD columns and the overview strip out of the protected zone (brief decision 131).
 - Touch pinch zoom on the Review page (drag pans and the buttons zoom since milestone 10.5).
 - Check the loop repeat's draw calls on the tablet (measured by milestone 11's benchmark, fixed in its Phase 2 if needed) (worst case 223 at Medium: one-bar loop at look-ahead 32); fallback = one instanced draw per layer, rebuilt on loop change.
 
