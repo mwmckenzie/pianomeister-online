@@ -38,10 +38,12 @@ function draw(): void {
   const ctx = canvas.value?.getContext('2d')
   const engine = host?.engine()
   const info = engine?.renderInfo()
+  // The wait for the next frame isn't a slow frame.
+  if (engine?.resting) last = null
   // The benchmark takes these over and gives them back empty.
   attach()
   if (!ctx || !engine || !info || props.quiet) return
-  const now = last ?? 0
+  const now = frames.at(-1)?.at ?? 0
   const recent = frames.filter((f) => f.at > now - 3000).map((f) => f.ms)
   const fps = recent.length === 0 ? 0 : (recent.length * 1000) / recent.reduce((a, b) => a + b, 0)
   const cpu = percentile(
@@ -50,7 +52,7 @@ function draw(): void {
   )
   const gpu = engine.gpuInfo()?.renderer ?? null
   const lines = [
-    `${fps.toFixed(0)} fps · p95 ${percentile(recent, 95).toFixed(1)} ms`,
+    engine.resting ? 'idle' : `${fps.toFixed(0)} fps · p95 ${percentile(recent, 95).toFixed(1)} ms`,
     `engine ${cpu.toFixed(2)} · HUD ${hudMs.toFixed(2)} · GPU ${info.gpuMs?.toFixed(1) ?? 'n/a'} ms`,
     `${info.drawCalls} calls · ${(info.triangles / 1000).toFixed(0)}k triangles · ${info.programs} programs`,
     `${settings.settings.render.quality} · ${info.width}×${info.height} @ ${info.pixelRatio.toFixed(2)} · ${info.antialias}`,

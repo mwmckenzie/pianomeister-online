@@ -38,7 +38,10 @@ function opened(songId: string, seconds: number) {
 const ENTRY = { facts: { durationSeconds: 60 }, title: '', composer: '' }
 
 /** The controller over a transport that only holds a position; song b's load waits for `release`. */
-function setUp(crossfade = 2) {
+function setUp(crossfade = 2, lookB: string | null = null) {
+  const clock = { now: 0 }
+  const overlay = vi.fn<(s: unknown) => void>()
+  const preview = vi.fn<(s: unknown) => void>()
   const transport = {
     position: 0,
     state: 'stopped',
@@ -83,7 +86,7 @@ function setUp(crossfade = 2) {
     savedLooks: () => [],
     deviceClass: 'desktop',
     ownSettings: () => DEFAULT_SETTINGS,
-    setOverlay: () => {},
+    setOverlay: overlay,
     endOverlay: () => {},
     setTrackingSuspended: suspended,
     crossfadeSec: () => crossfade,
@@ -91,9 +94,9 @@ function setUp(crossfade = 2) {
     showTimeline: () => 0,
     setSeam: () => {},
     currentSettings: () => DEFAULT_SETTINGS,
-    previewSettings: () => {},
+    previewSettings: preview,
     reducedMotion: () => false,
-    now: () => 0,
+    now: () => clock.now,
     update: (u: ListeningUpdate) => updates.push(u),
     markPlayed: () => {},
     random: () => 0.5,
@@ -104,7 +107,10 @@ function setUp(crossfade = 2) {
     profileId: 'default',
     name: 'P',
     lookId: null,
-    entries: ['a', 'b', 'c'].map((songId) => ({ songId, lookId: null })),
+    entries: ['a', 'b', 'c'].map((songId) => ({
+      songId,
+      lookId: songId === 'b' ? lookB : null,
+    })),
     shuffle: false,
     repeat: 'playlist',
     createdAt: '',
@@ -112,7 +118,20 @@ function setUp(crossfade = 2) {
     lastPlayedAt: null,
   }
   const loads = (id: string) => openSong.mock.calls.filter(([x]) => x === id).length
-  return { listener, playlist, transport, output, gains, release, loads, updates, suspended }
+  return {
+    listener,
+    playlist,
+    clock,
+    overlay,
+    preview,
+    transport,
+    output,
+    gains,
+    release,
+    loads,
+    updates,
+    suspended,
+  }
 }
 
 // Song a ends at 60.5 s (its release): the prepare window starts 12 s before that.
@@ -124,9 +143,9 @@ describe('ListeningController seeking', () => {
     await t.listener.start(t.playlist, 0)
     t.transport.position = 10
     const seek = t.listener.seekToBar(SEEK_BAR_29)
-    // Frames meanwhile: the song plays on, and nothing is loaded twice.
-    t.listener.frame()
-    t.listener.frame()
+    // Steps meanwhile: the song plays on, and nothing is loaded twice.
+    t.listener.advance()
+    t.listener.advance()
     expect(t.transport.position).toBe(10)
     t.release()
     await seek
@@ -140,8 +159,8 @@ describe('ListeningController seeking', () => {
     expect(t.loads('b')).toBe(1)
     // The seam: the next song becomes current once, announced.
     t.transport.position = 58.6
-    t.listener.frame()
-    t.listener.frame()
+    t.listener.advance()
+    t.listener.advance()
     expect(t.listener.debugState().current).toBe(1)
     expect(t.updates.filter((u) => u.announce === true)).toHaveLength(1)
     expect(t.loads('b')).toBe(1)
@@ -176,7 +195,7 @@ describe('ListeningController seeking', () => {
     await t.listener.start(t.playlist, 0)
     await t.listener.seekToBar(SEEK_BAR_29)
     t.transport.position = 59
-    t.listener.frame()
+    t.listener.advance()
     expect(t.listener.debugState().current).toBe(1)
     t.gains.fill(0.7)
     t.output.crossfade.mockClear()
@@ -186,7 +205,7 @@ describe('ListeningController seeking', () => {
     expect(current).toBe(0)
     expect(t.transport.position).toBeCloseTo(5.5, 9)
     expect(t.gains).toEqual([1, 1])
-    t.listener.frame()
+    t.listener.advance()
     // The old fade is gone: nothing left to fade.
     expect(t.output.crossfade).not.toHaveBeenCalled()
   })
@@ -226,14 +245,67 @@ describe('ListeningController seeking', () => {
     t.release()
     await t.listener.start(t.playlist, 0)
     await t.listener.seekToBar(SEEK_BAR_29)
-    t.listener.frame()
+    t.listener.advance()
     expect(t.output.crossfade).toHaveBeenCalledTimes(1)
     t.transport.state = 'paused'
     t.output.setDeckGain.mockClear()
-    t.listener.frame()
+    t.listener.advance()
     expect(t.output.setDeckGain).toHaveBeenCalled()
     t.transport.state = 'playing'
-    t.listener.frame()
+    t.listener.advance()
     expect(t.output.crossfade).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('ListeningController in a hidden tab (no frames)', () => {
+  it('goes through seams and on to the last song from the ticks alone', async () => {
+    const t = setUp()
+    t.release()
+    await t.listener.start(t.playlist, 0)
+    t.transport.position = 50
+    t.listener.advance()
+    await vi.waitFor(() => expect(t.listener.debugState().parts).toHaveLength(2))
+    t.transport.position = 58.6
+    t.listener.advance()
+    // The ending song is over: the next one alone, where it was.
+    t.transport.position = 60.6
+    t.listener.advance()
+    expect(t.listener.debugState().parts.map((p) => p.songId)).toEqual(['b'])
+    expect(t.transport.position).toBeCloseTo(2.1, 9)
+    t.transport.position = 50
+    t.listener.advance()
+    await vi.waitFor(() => expect(t.listener.debugState().parts).toHaveLength(2))
+    expect(t.listener.debugState().parts[1]?.songId).toBe('c')
+  })
+
+  it('a look that changed across a seam is there at the first frame after', async () => {
+    const t = setUp(2, 'builtin:neon')
+    t.release()
+    await t.listener.start(t.playlist, 0)
+    await t.listener.seekToBar(SEEK_BAR_29)
+    t.overlay.mockClear()
+    t.transport.position = 58.6
+    t.listener.advance()
+    expect(t.listener.easingLook).toBe(true)
+    expect(t.overlay).not.toHaveBeenCalled()
+    t.clock.now = 60_000
+    t.listener.frame()
+    expect(t.preview).not.toHaveBeenCalled()
+    expect(t.overlay).toHaveBeenCalledTimes(1)
+    expect(t.listener.easingLook).toBe(false)
+  })
+
+  it('finishes once when the last song ends, and frames alone move nothing on', async () => {
+    const t = setUp()
+    t.release()
+    await t.listener.start({ ...t.playlist, repeat: 'off' }, 2)
+    t.listener.advance()
+    t.transport.position = 0
+    t.transport.state = 'stopped'
+    t.listener.frame()
+    expect(t.updates.some((u) => u.finished === true)).toBe(false)
+    t.listener.advance()
+    t.listener.advance()
+    expect(t.updates.filter((u) => u.finished === true)).toHaveLength(1)
   })
 })

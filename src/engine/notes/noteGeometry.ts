@@ -1,7 +1,8 @@
-import { BufferAttribute, InstancedBufferAttribute, InstancedBufferGeometry } from 'three'
+import { BufferAttribute, InstancedBufferGeometry, type InterleavedBufferAttribute } from 'three'
 
 import type { NoteInstance } from '../model/NoteInstance'
 import { NoteColors } from '../NoteColors'
+import { packInstances } from './packInstances'
 
 /** For geometry whose colour nothing reads (the contact shadow). */
 const DEFAULT_COLORS = new NoteColors()
@@ -39,11 +40,13 @@ export function noteGeometry(
     velocity[i] = n.velocity
     deck[i] = n.deck
   })
-  geometry.setAttribute('aLane', new InstancedBufferAttribute(lane, 2))
-  geometry.setAttribute('aTicks', new InstancedBufferAttribute(ticks, 3))
-  geometry.setAttribute('aColor', new InstancedBufferAttribute(colorData(notes, colors), 3))
-  geometry.setAttribute('aVelocity', new InstancedBufferAttribute(velocity, 1))
-  geometry.setAttribute('aDeck', new InstancedBufferAttribute(deck, 1))
+  packInstances(geometry, notes.length, {
+    aLane: [lane, 2],
+    aTicks: [ticks, 3],
+    aColor: [colorData(notes, colors), 3],
+    aVelocity: [velocity, 1],
+    aDeck: [deck, 1],
+  })
   geometry.instanceCount = notes.length
   return geometry
 }
@@ -58,13 +61,15 @@ function colorData(notes: readonly NoteInstance[], colors: NoteColors): Float32A
   return data
 }
 
-/** Rewrites the notes' colours in place after a palette change (same order as built). */
+/** Rewrites the notes' colours after a palette change (same order as built; then touch()). */
 export function recolorNotes(
   geometry: InstancedBufferGeometry,
   notes: readonly NoteInstance[],
   colors: NoteColors,
 ): void {
-  const attribute = geometry.getAttribute('aColor') as InstancedBufferAttribute
-  ;(attribute.array as Float32Array).set(colorData(notes, colors))
-  attribute.needsUpdate = true
+  const attribute = geometry.getAttribute('aColor') as InterleavedBufferAttribute
+  notes.forEach((n, i) => {
+    const c = colors.at(n.colorIndex)
+    attribute.setXYZ(i, c.r, c.g, c.b)
+  })
 }

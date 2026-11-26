@@ -109,7 +109,13 @@ function specTags(file) {
     const text = readFileSync(file, 'utf8')
     const heads = [...text.matchAll(/test\(\s*['"`]((?:@[a-z]+ )+)/g)].map((m) => m[1] ?? '')
     return [...new Set(heads.join(' ').split(' '))].filter(
-      (t) => t !== '' && t !== '@visual' && t !== '@perf',
+      (t) =>
+        t !== '' &&
+        t !== '@visual' &&
+        t !== '@perf' &&
+        t !== '@pixels' &&
+        t !== '@exact' &&
+        !t.startsWith('@full'),
     )
   } catch {
     return []

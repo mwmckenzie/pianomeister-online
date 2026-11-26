@@ -23,6 +23,7 @@
     "lint:fix": "oxlint . --fix && eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
     "bench:render": "node scripts/bench-render.mjs",
+    "perf:fast": "node scripts/perf-fast.mjs",
     "bench:hands": "node scripts/bench-hands.mjs",
     "songs:manifest": "node scripts/build-song-manifest.mjs",
     "songs:manifest:check": "node scripts/build-song-manifest.mjs --check",

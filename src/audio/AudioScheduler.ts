@@ -44,6 +44,7 @@ export class AudioScheduler {
   private readonly output: AudioOutput
   private readonly ticker: Ticker
   private readonly lookaheadSec: number
+  private readonly afterTick: (() => void) | undefined
 
   constructor(options: {
     readonly transport: Transport
@@ -52,12 +53,15 @@ export class AudioScheduler {
     readonly output: AudioOutput
     readonly ticker: Ticker
     readonly lookaheadSec?: number
+    /** Called after each ticker step. */
+    readonly afterTick?: () => void
   }) {
     this.transport = options.transport
     this.bus = options.bus
     this.clock = options.clock
     this.output = options.output
     this.ticker = options.ticker
+    this.afterTick = options.afterTick
     this.lookaheadSec = options.lookaheadSec ?? DEFAULT_LOOKAHEAD_SEC
   }
 
@@ -65,7 +69,10 @@ export class AudioScheduler {
     if (this.unsubscribe !== null) return
     this.unsubscribe = this.bus.on('timelineChange', (e) => this.onTimelineChange(e.reason))
     this.applyGains()
-    this.ticker.start(() => this.tick())
+    this.ticker.start(() => {
+      this.tick()
+      this.afterTick?.()
+    })
   }
 
   dispose(): void {

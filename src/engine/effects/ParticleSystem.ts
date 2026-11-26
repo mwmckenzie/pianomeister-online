@@ -132,6 +132,8 @@ export class ParticleSystem {
   private readonly clearTime = { value: -1e9 }
   /** When each slot's particle ends (uTime seconds), to count particles cut short. */
   private expiry: Float32Array
+  /** When the last of them ends. */
+  private lastEnd = -Infinity
   /** Live particles whose slot a new one took before they ended (the budget truncating). */
   private evicted = 0
   /** Random source for each particle's own variation; seeded in capture mode for tests. */
@@ -183,6 +185,7 @@ export class ParticleSystem {
     if (capacity === this.ring.capacity) return
     this.ring = new ParticleRing(capacity)
     this.expiry = new Float32Array(capacity)
+    this.lastEnd = -Infinity
     const old = this.mesh.geometry
     this.mesh.geometry = this.buildGeometry(capacity)
     old.dispose()
@@ -202,6 +205,7 @@ export class ParticleSystem {
         this.kind.setXY(slot, KIND_INDEX[s.kind], this.random())
         if ((this.expiry[slot] as number) > now) this.evicted++
         this.expiry[slot] = now + s.life
+        this.lastEnd = Math.max(this.lastEnd, now + s.life)
       }
       for (const attribute of [this.start, this.velocity, this.color, this.kind]) {
         attribute.addUpdateRange(range.start * attribute.itemSize, range.count * attribute.itemSize)
@@ -210,10 +214,28 @@ export class ParticleSystem {
     }
   }
 
+  /** An empty pool from its first slot (capture: the same slots, so the same blending order). */
+  restart(): void {
+    this.ring = new ParticleRing(this.ring.capacity)
+    this.expiry.fill(0)
+    this.lastEnd = -Infinity
+    this.clearTime.value = -1e9
+    // No life, nothing drawn.
+    this.velocity.array.fill(0)
+    this.velocity.clearUpdateRanges()
+    this.velocity.needsUpdate = true
+  }
+
   /** Hides every live particle (seek, song change) without touching the buffers. */
   clear(): void {
     this.clearTime.value = this.time.uTime.value + 1e-4
     this.expiry.fill(0)
+    this.lastEnd = -Infinity
+  }
+
+  /** A particle was still alive in the frame drawn last. */
+  get busy(): boolean {
+    return this.lastEnd > this.time.uTime.value
   }
 
   /** Live particles now, the pool's size, and how many were cut short since the last reset. */
