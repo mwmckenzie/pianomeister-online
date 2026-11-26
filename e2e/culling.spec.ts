@@ -397,7 +397,8 @@ for (const look of ['study', 'classic']) {
       check(`${look} ${name}`, await compare(page, CANON, false), false)
     })
     test(`@full-exact culling: Canon, ${look}, ${name}`, async ({ page }) => {
-      test.setTimeout(900_000)
+      // Software WebGL at the longest look-ahead takes seconds per frame, and each of the 15 frames is redrawn 20 times: about 18 minutes a case.
+      test.setTimeout(3_600_000)
       await openCanon(page)
       await openWith(page, settingsOf(look, view), '', 'Canon in D')
       check(`${look} ${name}, software`, await compare(page, CANON, false), true)
