@@ -238,3 +238,26 @@ Mean frame time, three interleaved rounds (range of the three means):
 - [ ] Pause during sparks and smoke: they finish, then nothing moves. Seek, change a look, resize and zoom while paused: the scene follows.
 - [ ] Playlist with the tab hidden across a song's end, in plain Chrome.
 - [ ] Decide 1 and 2.
+
+## Round 4: full validation (2026-11-26)
+
+**Status: full validation passes, after one test-time fix.** Run on `873922e` with the window in front; paused once while the PC was in use, then resumed.
+
+| Step                                                      | Result                                                                                                                      |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`                                           | passes (974 unit tests), 18 s                                                                                               |
+| `npm run test:e2e:affected` (chromium + polish)           | 161 passed, 3.7 min (the PC was in use for its last minutes)                                                                |
+| Long pixel cases, GPU (`pixels`, `PERF_FULL=1`)           | 15 of 15, 1.1 min; culled 0 px everywhere; noise at most 12 px, level 2 (classic, steepest tilt)                            |
+| Long pixel cases, software WebGL (`exact`, `PERF_FULL=1`) | 9 of 9 after the fix below; every case noise 0 px and culled 0 px; 1.4 h + 1.2 h                                            |
+| Floor smoke, twice (no GPU, 1280 × 720, CPU 4×)           | Canon median 116.7 / 116.6 ms, dense 492 / 508 ms, idle 116.6 ms: the same as round 3's "as is"                             |
+| Standard suite, strong (RTX 4090, 1600 × 900)             | 84 cells, all at the screen's rate (median 9.8–10.0 ms), worst dropped 0.2 %, no long tasks; engine median 0.60 ms          |
+| Standard suite, weak-cpu (CPU 4×)                         | 84 cells, all at the screen's rate, worst dropped 2.2 %; engine median 2.10 ms (max 2.70); Phase 0 (`29ee97a`): 2.40 (3.70) |
+
+**The fix:** four software-WebGL cases (both looks, flattest and steepest tilt, at the longest look-ahead) hit their 15-minute limit with no difference found; one had finished its comparison just as time ran out. These views cost seconds per frame on SwiftShader, and each of 15 frames is redrawn 20 times. The limit is now 60 minutes (`e2e/culling.spec.ts`); the four were rerun alone and passed, about 18 minutes each. No product code changed since round 3.
+
+**Not done:** the Floor target (33 ms) is still missed (Canon 117 ms); note-head detail is next, on its own branch, plan first. Still not checked: device-pixel-ratio change, WebGL context restored, late-loaded anti-aliasing, a real hidden tab in plain Chrome.
+
+**Review**
+
+- [ ] The round 3 checklist (pause during sparks, playlist in a hidden tab in plain Chrome).
+- [ ] The pull request.
